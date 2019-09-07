@@ -3420,12 +3420,15 @@ update_window (struct window *w, bool force_p)
       row = MATRIX_ROW (desired_matrix, 0);
       end = MATRIX_MODE_LINE_ROW (desired_matrix);
 
+      int lineno = 0;
+
       /* Take note of the header line, if there is one.  We will
 	 update it below, after updating all of the window's lines.  */
       if (row->mode_line_p)
 	{
 	  header_line_row = row;
 	  ++row;
+	  lineno++;
 	}
       else
 	header_line_row = NULL;
@@ -3444,6 +3447,7 @@ update_window (struct window *w, bool force_p)
 	 may lead to an update with only one row enabled.  There may
 	 be also completely empty matrices.  */
       while (row < end && !row->enabled_p)
+	lineno++,
 	++row;
 
       /* Try reusing part of the display by copying.  */
@@ -3465,7 +3469,7 @@ update_window (struct window *w, bool force_p)
 	}
 
       /* Update the rest of the lines.  */
-      for (; row < end && (force_p || !input_pending); ++row)
+      for (; row < end && (force_p || !input_pending); lineno++, ++row)
 	/* scrolling_window resets the enabled_p flag of the rows it
 	   reuses from current_matrix.  */
 	if (row->enabled_p)
@@ -6190,6 +6194,19 @@ init_display_interactive (void)
     {
       Vinitial_window_system = Qns;
       Vwindow_system_version = make_fixnum (10);
+      return;
+    }
+#endif
+
+#ifdef HAVE_PGTK
+  if (!inhibit_window_system
+#ifndef CANNOT_DUMP
+     && initialized
+#endif
+      )
+    {
+      Vinitial_window_system = Qpgtk;
+      Vwindow_system_version = make_fixnum (1);
       return;
     }
 #endif

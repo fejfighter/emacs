@@ -25,6 +25,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_SIZES_H
+#include FT_TRUETYPE_TABLES_H
 #ifdef FT_BDF_H
 # include FT_BDF_H
 #endif
@@ -61,6 +62,8 @@ struct font_info
 #ifdef HAVE_HARFBUZZ
   hb_font_t *hb_font;
 #endif  /* HAVE_HARFBUZZ */
+  bool is_color_font;
+  double scale;
 
 #ifdef USE_CAIRO
   cairo_scaled_font_t *cr_scaled_font;

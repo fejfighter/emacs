@@ -96,7 +96,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include <unistd.h>
 #include <fcntl.h>
 
-#ifdef USE_GTK
+#if defined(USE_GTK)
 # include "gtkutil.h"
 #endif
 #ifdef WINDOWSNT
@@ -5937,8 +5937,11 @@ garbage_collect_1 (struct gcstat *gcst)
   mark_terminals ();
   mark_kboards ();
   mark_threads ();
+#ifdef HAVE_PGTK
+  mark_pgtkterm();
+#endif
 
-#ifdef USE_GTK
+#if defined(USE_GTK)
   xg_mark_data ();
 #endif
 

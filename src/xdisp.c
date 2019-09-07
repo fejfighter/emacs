@@ -14125,7 +14125,7 @@ redisplay_internal (void)
   if (!fr->glyphs_initialized_p)
     return;
 
-#if defined (USE_X_TOOLKIT) || defined (USE_GTK) || defined (HAVE_NS)
+#if defined (USE_X_TOOLKIT) || (defined (USE_GTK) && !defined(HAVE_PGTK)) || defined (HAVE_NS)
   if (popup_activated ())
     {
       return;
@@ -23461,6 +23461,11 @@ display_menu_bar (struct window *w)
   if (FRAME_W32_P (f))
     return;
 #endif
+#if defined (HAVE_PGTK)
+  if (FRAME_PGTK_P (f))
+    return;
+#endif
+
 #if defined (USE_X_TOOLKIT) || defined (USE_GTK)
   if (FRAME_X_P (f))
     return;
@@ -27339,6 +27344,16 @@ draw_glyphs (struct window *w, int x, struct glyph_row *row,
   SAFE_FREE ();
   return x_reached;
 }
+
+static int draw_glyphs_debug(const char *file, int lineno,
+			     struct window *w, int x, struct glyph_row *row,
+			     enum glyph_row_area area, ptrdiff_t start, ptrdiff_t end,
+			     enum draw_glyphs_face hl, int overlaps)
+{
+  return draw_glyphs(w, x, row, area, start, end, hl, overlaps);
+}
+#define draw_glyphs(w, x, r, a, s, e, h, o) \
+  draw_glyphs_debug(__FILE__, __LINE__, w, x, r, a, s, e, h, o)
 
 /* Find the first glyph in the run of underlined glyphs preceding the
    beginning of glyph string S, and return its font (which could be
@@ -31642,7 +31657,7 @@ note_mouse_highlight (struct frame *f, int x, int y)
   struct buffer *b;
 
   /* When a menu is active, don't highlight because this looks odd.  */
-#if defined (USE_X_TOOLKIT) || defined (USE_GTK) || defined (HAVE_NS) || defined (MSDOS)
+#if defined (USE_X_TOOLKIT) || (defined (USE_GTK) && !defined(HAVE_PGTK)) || defined (HAVE_NS) || defined (MSDOS)
   if (popup_activated ())
     return;
 #endif

@@ -10495,7 +10495,7 @@ handle_interrupt (bool in_signal_handler)
          to ns_select there (needed because otherwise events aren't picked up
          outside of polling since we don't get SIGIO like X and we don't have a
          separate event loop thread like W32.  */
-#ifndef HAVE_NS
+#if !defined(HAVE_NS)
 #ifdef THREADS_ENABLED
   /* If we were called from a signal handler, we must be in the main
      thread, see deliver_process_signal.  So we must make sure the

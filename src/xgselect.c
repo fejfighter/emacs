@@ -23,6 +23,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #ifdef HAVE_GLIB
 
+#include <stdio.h>
 #include <glib.h>
 #include <errno.h>
 #include "lisp.h"

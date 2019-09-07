@@ -797,8 +797,17 @@ as ARGS."
     ;; When connected to various displays, be careful to use the display of
     ;; the currently selected frame, rather than the original start display,
     ;; which may not even exist any more.
-    (if (stringp (frame-parameter nil 'display))
-        (setenv "DISPLAY" (frame-parameter nil 'display)))
+    (let ((dpy (frame-parameter nil 'display))
+          classname)
+      (cond
+       ((featurep 'pgtk)
+        (setq classname (pgtk-backend-display-class))
+        (if (equal classname "GdkWaylandDisplay")
+            (setenv "WAYLAND_DISPLAY" dpy)
+          (setenv "DISPLAY" dpy)))
+       (t
+        (setenv "DISPLAY" dpy))))
+
     (if (and (consp function)
 	     (not (functionp function)))
 	;; The `function' can be an alist; look down it for first match
