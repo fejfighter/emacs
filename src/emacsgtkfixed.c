@@ -22,8 +22,8 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "lisp.h"
 #include "frame.h"
-#ifdef HAVE_PGTK
-#include "pgtkterm.h"
+#ifdef HAVE_GTK4
+#include "gtk4term.h"
 #else
 #include "xterm.h"
 #endif
@@ -46,11 +46,11 @@ struct _EmacsFixedPrivate
 
 
 static void emacs_fixed_get_preferred_width  (GtkWidget *widget,
-                                              gint      *minimum,
-                                              gint      *natural);
+					      gint      *minimum,
+					      gint      *natural);
 static void emacs_fixed_get_preferred_height (GtkWidget *widget,
-                                              gint      *minimum,
-                                              gint      *natural);
+					      gint      *minimum,
+					      gint      *natural);
 static GType emacs_fixed_get_type (void);
 G_DEFINE_TYPE (EmacsFixed, emacs_fixed, GTK_TYPE_FIXED)
 
@@ -103,11 +103,11 @@ emacs_fixed_gtk_widget_size_allocate (GtkWidget *widget,
   if (gtk_widget_get_has_window (widget))
     {
       if (gtk_widget_get_realized (widget))
-        gdk_window_move_resize (gtk_widget_get_window (widget),
-                                allocation->x,
-                                allocation->y,
-                                allocation->width,
-                                allocation->height);
+	gdk_window_move_resize (gtk_widget_get_window (widget),
+				allocation->x,
+				allocation->y,
+				allocation->width,
+				allocation->height);
     }
 
   for (GList *children = priv->children; children; children = children->next)
@@ -115,7 +115,7 @@ emacs_fixed_gtk_widget_size_allocate (GtkWidget *widget,
       GtkFixedChild *child = children->data;
 
       if (!gtk_widget_get_visible (child->widget))
-        continue;
+	continue;
 
       GtkRequisition child_requisition;
       gtk_widget_get_preferred_size (child->widget, &child_requisition, NULL);
@@ -125,21 +125,21 @@ emacs_fixed_gtk_widget_size_allocate (GtkWidget *widget,
       child_allocation.y = child->y;
 
       if (!gtk_widget_get_has_window (widget))
-        {
-          child_allocation.x += allocation->x;
-          child_allocation.y += allocation->y;
-        }
+	{
+	  child_allocation.x += allocation->x;
+	  child_allocation.y += allocation->y;
+	}
 
       child_allocation.width = child_requisition.width;
       child_allocation.height = child_requisition.height;
 
       struct xwidget_view *xv
-        = g_object_get_data (G_OBJECT (child->widget), XG_XWIDGET_VIEW);
+	= g_object_get_data (G_OBJECT (child->widget), XG_XWIDGET_VIEW);
       if (xv)
-        {
-          child_allocation.width = xv->clip_right;
-          child_allocation.height = xv->clip_bottom - xv->clip_top;
-        }
+	{
+	  child_allocation.width = xv->clip_right;
+	  child_allocation.height = xv->clip_bottom - xv->clip_top;
+	}
 
       gtk_widget_size_allocate (child->widget, &child_allocation);
     }
@@ -153,9 +153,13 @@ emacs_fixed_class_init (EmacsFixedClass *klass)
   GtkWidgetClass *widget_class;
 
   widget_class = (GtkWidgetClass *) klass;
-
+#ifndef HAVE_GTK4
   widget_class->get_preferred_width = emacs_fixed_get_preferred_width;
   widget_class->get_preferred_height = emacs_fixed_get_preferred_height;
+#else
+
+#endif
+
 #ifdef HAVE_XWIDGETS
   widget_class->size_allocate = emacs_fixed_gtk_widget_size_allocate;
 #endif
@@ -166,7 +170,7 @@ static void
 emacs_fixed_init (EmacsFixed *fixed)
 {
   fixed->priv = G_TYPE_INSTANCE_GET_PRIVATE (fixed, emacs_fixed_get_type (),
-                                             EmacsFixedPrivate);
+					     EmacsFixedPrivate);
   fixed->priv->f = 0;
 }
 
@@ -181,15 +185,15 @@ emacs_fixed_new (struct frame *f)
 
 static void
 emacs_fixed_get_preferred_width (GtkWidget *widget,
-                                 gint      *minimum,
-                                 gint      *natural)
+				 gint      *minimum,
+				 gint      *natural)
 {
   EmacsFixed *fixed = EMACS_FIXED (widget);
   EmacsFixedPrivate *priv = fixed->priv;
-#ifdef HAVE_PGTK
-  int w = priv->f->output_data.pgtk->size_hints.min_width;
+#ifdef HAVE_GTK4
+  int w = priv->f->output_data.gtk4->size_hints.min_width;
   if (minimum) *minimum = w;
-  if (natural) *natural = priv->f->output_data.pgtk->preferred_width;
+  if (natural) *natural = priv->f->output_data.gtk4->preferred_width;
 #else
   int w = priv->f->output_data.x->size_hints.min_width;
   if (minimum) *minimum = w;
@@ -199,15 +203,15 @@ emacs_fixed_get_preferred_width (GtkWidget *widget,
 
 static void
 emacs_fixed_get_preferred_height (GtkWidget *widget,
-                                  gint      *minimum,
-                                  gint      *natural)
+				  gint      *minimum,
+				  gint      *natural)
 {
   EmacsFixed *fixed = EMACS_FIXED (widget);
   EmacsFixedPrivate *priv = fixed->priv;
-#ifdef HAVE_PGTK
-  int h = priv->f->output_data.pgtk->size_hints.min_height;
+#ifdef HAVE_GTK4
+  int h = priv->f->output_data.gtk4->size_hints.min_height;
   if (minimum) *minimum = h;
-  if (natural) *natural = priv->f->output_data.pgtk->preferred_height;
+  if (natural) *natural = priv->f->output_data.gtk4->preferred_height;
 #else
   int h = priv->f->output_data.x->size_hints.min_height;
   if (minimum) *minimum = h;
@@ -216,7 +220,7 @@ emacs_fixed_get_preferred_height (GtkWidget *widget,
 }
 
 
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
 
 /* Override the X function so we can intercept Gtk+ 3 calls.
    Use our values for min_width/height so that KDE don't freak out
@@ -224,9 +228,9 @@ emacs_fixed_get_preferred_height (GtkWidget *widget,
 
 void
 XSetWMSizeHints (Display *d,
-                 Window w,
-                 XSizeHints *hints,
-                 Atom prop)
+		 Window w,
+		 XSizeHints *hints,
+		 Atom prop)
 {
   struct x_display_info *dpyinfo = x_display_info_for_display (d);
   struct frame *f = x_top_window_to_frame (dpyinfo, w);
@@ -252,9 +256,9 @@ XSetWMSizeHints (Display *d,
 
   if ((hints->flags & PMinSize) && f)
     {
-#ifdef HAVE_PGTK
-      int w = f->output_data.pgtk->size_hints.min_width;
-      int h = f->output_data.pgtk->size_hints.min_height;
+#ifdef HAVE_GTK4
+      int w = f->output_data.gtk4->size_hints.min_width;
+      int h = f->output_data.gtk4->size_hints.min_height;
 #else
       int w = f->output_data.x->size_hints.min_width;
       int h = f->output_data.x->size_hints.min_height;

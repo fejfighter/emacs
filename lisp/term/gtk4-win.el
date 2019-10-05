@@ -2,8 +2,8 @@
 
 ;;; Code:
 (eval-when-compile (require 'cl-lib))
-(or (featurep 'pgtk)
-    (error "%s: Loading pgtk-win.el but not compiled for pure Gtk+-3."
+(or (featurep 'gtk4)
+    (error "%s: Loading gtk4-win.el but not compiled for pure Gtk+-3."
            (invocation-name)))
 
 ;; Documentation-purposes only: actually loaded in loadup.el.
@@ -16,7 +16,7 @@
 (require 'fontset)
 (require 'dnd)
 
-(defgroup pgtk nil
+(defgroup gtk4 nil
   "Pure-GTK specific features."
   :group 'environment)
 
@@ -26,24 +26,24 @@
 ;; Set in term/common-win.el; currently unused by Gtk's x-open-connection.
 (defvar x-command-line-resources)
 
-;; pgtkterm.c.
-(defvar pgtk-input-file)
+;; gtk4term.c.
+(defvar gtk4-input-file)
 
-(defun pgtk-handle-nxopen (_switch &optional temp)
+(defun gtk4-handle-nxopen (_switch &optional temp)
   (setq unread-command-events (append unread-command-events
-                                      (if temp '(pgtk-open-temp-file)
-                                        '(pgtk-open-file)))
-        pgtk-input-file (append pgtk-input-file (list (pop x-invocation-args)))))
+                                      (if temp '(gtk4-open-temp-file)
+                                        '(gtk4-open-file)))
+        gtk4-input-file (append gtk4-input-file (list (pop x-invocation-args)))))
 
-(defun pgtk-handle-nxopentemp (switch)
-  (pgtk-handle-nxopen switch t))
+(defun gtk4-handle-nxopentemp (switch)
+  (gtk4-handle-nxopen switch t))
 
-(defun pgtk-ignore-1-arg (_switch)
+(defun gtk4-ignore-1-arg (_switch)
   (setq x-invocation-args (cdr x-invocation-args)))
 
 ;;;; Keyboard mapping.
 
-(define-obsolete-variable-alias 'pgtk-alternatives-map 'x-alternatives-map "24.1")
+(define-obsolete-variable-alias 'gtk4-alternatives-map 'x-alternatives-map "24.1")
 
 (define-key global-map [home] 'beginning-of-buffer)
 (define-key global-map [end] 'end-of-buffer)
@@ -60,29 +60,29 @@ Use a file selection dialog.  Select DEFAULT-FILENAME in the dialog's file
 selection box, if specified.  If MUSTMATCH is non-nil, the returned file
 or directory must exist.
 
-This function is only defined on PGTK, MS Windows, and X Windows with the
+This function is only defined on GTK4, MS Windows, and X Windows with the
 Motif or Gtk toolkits.  With the Motif toolkit, ONLY-DIR-P is ignored.
 Otherwise, if ONLY-DIR-P is non-nil, the user can only select directories."
-  (pgtk-read-file-name prompt dir mustmatch default_filename only_dir_p))
+  (gtk4-read-file-name prompt dir mustmatch default_filename only_dir_p))
 
-(defun pgtk-open-file-using-panel ()
+(defun gtk4-open-file-using-panel ()
   "Pop up open-file panel, and load the result in a buffer."
   (interactive)
   ;; Prompt dir defaultName isLoad initial.
-  (setq pgtk-input-file (pgtk-read-file-name "Select File to Load" nil t nil))
-  (if pgtk-input-file
-      (and (setq pgtk-input-file (list pgtk-input-file)) (pgtk-find-file))))
+  (setq gtk4-input-file (gtk4-read-file-name "Select File to Load" nil t nil))
+  (if gtk4-input-file
+      (and (setq gtk4-input-file (list gtk4-input-file)) (gtk4-find-file))))
 
-(defun pgtk-write-file-using-panel ()
+(defun gtk4-write-file-using-panel ()
   "Pop up save-file panel, and save buffer in resulting name."
   (interactive)
-  (let (pgtk-output-file)
+  (let (gtk4-output-file)
     ;; Prompt dir defaultName isLoad initial.
-    (setq pgtk-output-file (pgtk-read-file-name "Save As" nil nil nil))
-    (message pgtk-output-file)
-    (if pgtk-output-file (write-file pgtk-output-file))))
+    (setq gtk4-output-file (gtk4-read-file-name "Save As" nil nil nil))
+    (message gtk4-output-file)
+    (if gtk4-output-file (write-file gtk4-output-file))))
 
-(defcustom pgtk-pop-up-frames 'fresh
+(defcustom gtk4-pop-up-frames 'fresh
   "Non-nil means open files upon request from the Workspace in a new frame.
 If t, always do so.  Any other non-nil value means open a new frame
 unless the current buffer is a scratch buffer."
@@ -90,15 +90,15 @@ unless the current buffer is a scratch buffer."
                  (const :tag "Always" t)
                  (other :tag "Except for scratch buffer" fresh))
   :version "23.1"
-  :group 'pgtk)
+  :group 'gtk4)
 
-(declare-function pgtk-hide-emacs "pgtkfns.c" (on))
+(declare-function gtk4-hide-emacs "gtk4fns.c" (on))
 
-(defun pgtk-find-file ()
-  "Do a `find-file' with the `pgtk-input-file' as argument."
+(defun gtk4-find-file ()
+  "Do a `find-file' with the `gtk4-input-file' as argument."
   (interactive)
   (let* ((f (file-truename
-	     (expand-file-name (pop pgtk-input-file)
+	     (expand-file-name (pop gtk4-input-file)
 			       command-line-default-directory)))
          (file (find-file-noselect f))
          (bufwin1 (get-buffer-window file 'visible))
@@ -108,21 +108,21 @@ unless the current buffer is a scratch buffer."
       (select-frame (window-frame bufwin1))
       (raise-frame (window-frame bufwin1))
       (select-window bufwin1))
-     ((and (eq pgtk-pop-up-frames 'fresh) bufwin2)
-      (pgtk-hide-emacs 'activate)
+     ((and (eq gtk4-pop-up-frames 'fresh) bufwin2)
+      (gtk4-hide-emacs 'activate)
       (select-frame (window-frame bufwin2))
       (raise-frame (window-frame bufwin2))
       (select-window bufwin2)
       (find-file f))
-     (pgtk-pop-up-frames
-      (pgtk-hide-emacs 'activate)
+     (gtk4-pop-up-frames
+      (gtk4-hide-emacs 'activate)
       (let ((pop-up-frames t)) (pop-to-buffer file nil)))
      (t
-      (pgtk-hide-emacs 'activate)
+      (gtk4-hide-emacs 'activate)
       (find-file f)))))
 
 
-(defun pgtk-drag-n-drop (event &optional new-frame force-text)
+(defun gtk4-drag-n-drop (event &optional new-frame force-text)
   "Edit the files listed in the drag-n-drop EVENT.
 Switch to a buffer editing the last file dropped."
   (interactive "e")
@@ -143,62 +143,62 @@ Switch to a buffer editing the last file dropped."
       (dnd-handle-one-url window 'private url-or-string))))
 
 
-(defun pgtk-drag-n-drop-other-frame (event)
+(defun gtk4-drag-n-drop-other-frame (event)
   "Edit the files listed in the drag-n-drop EVENT, in other frames.
 May create new frames, or reuse existing ones.  The frame editing
 the last file dropped is selected."
   (interactive "e")
-  (pgtk-drag-n-drop event t))
+  (gtk4-drag-n-drop event t))
 
-(defun pgtk-drag-n-drop-as-text (event)
+(defun gtk4-drag-n-drop-as-text (event)
   "Drop the data in EVENT as text."
   (interactive "e")
-  (pgtk-drag-n-drop event nil t))
+  (gtk4-drag-n-drop event nil t))
 
-(defun pgtk-drag-n-drop-as-text-other-frame (event)
+(defun gtk4-drag-n-drop-as-text-other-frame (event)
   "Drop the data in EVENT as text in a new frame."
   (interactive "e")
-  (pgtk-drag-n-drop event t t))
+  (gtk4-drag-n-drop event t t))
 
-(global-set-key [drag-n-drop] 'pgtk-drag-n-drop)
-(global-set-key [C-drag-n-drop] 'pgtk-drag-n-drop-other-frame)
-(global-set-key [M-drag-n-drop] 'pgtk-drag-n-drop-as-text)
-(global-set-key [C-M-drag-n-drop] 'pgtk-drag-n-drop-as-text-other-frame)
+(global-set-key [drag-n-drop] 'gtk4-drag-n-drop)
+(global-set-key [C-drag-n-drop] 'gtk4-drag-n-drop-other-frame)
+(global-set-key [M-drag-n-drop] 'gtk4-drag-n-drop-as-text)
+(global-set-key [C-M-drag-n-drop] 'gtk4-drag-n-drop-as-text-other-frame)
 
 ;;;; Frame-related functions.
 
-;; pgtkterm.c
-(defvar pgtk-alternate-modifier)
-(defvar pgtk-right-alternate-modifier)
-(defvar pgtk-right-command-modifier)
-(defvar pgtk-right-control-modifier)
+;; gtk4term.c
+(defvar gtk4-alternate-modifier)
+(defvar gtk4-right-alternate-modifier)
+(defvar gtk4-right-command-modifier)
+(defvar gtk4-right-control-modifier)
 
 ;; You say tomAYto, I say tomAHto..
-(defvaralias 'pgtk-option-modifier 'pgtk-alternate-modifier)
-(defvaralias 'pgtk-right-option-modifier 'pgtk-right-alternate-modifier)
+(defvaralias 'gtk4-option-modifier 'gtk4-alternate-modifier)
+(defvaralias 'gtk4-right-option-modifier 'gtk4-right-alternate-modifier)
 
-(defun pgtk-do-hide-emacs ()
+(defun gtk4-do-hide-emacs ()
   (interactive)
-  (pgtk-hide-emacs t))
+  (gtk4-hide-emacs t))
 
-(declare-function pgtk-hide-others "pgtkfns.c" ())
+(declare-function gtk4-hide-others "gtk4fns.c" ())
 
-(defun pgtk-do-hide-others ()
+(defun gtk4-do-hide-others ()
   (interactive)
-  (pgtk-hide-others))
+  (gtk4-hide-others))
 
-(declare-function pgtk-emacs-info-panel "pgtkfns.c" ())
+(declare-function gtk4-emacs-info-panel "gtk4fns.c" ())
 
-(defun pgtk-do-emacs-info-panel ()
+(defun gtk4-do-emacs-info-panel ()
   (interactive)
-  (pgtk-emacs-info-panel))
+  (gtk4-emacs-info-panel))
 
-(defun pgtk-next-frame ()
+(defun gtk4-next-frame ()
   "Switch to next visible frame."
   (interactive)
   (other-frame 1))
 
-(defun pgtk-prev-frame ()
+(defun gtk4-prev-frame ()
   "Switch to previous visible frame."
   (interactive)
   (other-frame -1))
@@ -213,7 +213,7 @@ the last file dropped is selected."
 
 ;; Based on a function by David Reitter <dreitter@inf.ed.ac.uk> ;
 ;; see https://lists.gnu.org/archive/html/emacs-devel/2005-09/msg00681.html .
-(defun pgtk-toggle-toolbar (&optional frame)
+(defun gtk4-toggle-toolbar (&optional frame)
   "Switches the tool bar on and off in frame FRAME.
  If FRAME is nil, the change applies to the selected frame."
   (interactive)
@@ -227,7 +227,7 @@ the last file dropped is selected."
 ;;;; Dialog-related functions.
 
 ;; Ask user for confirm before printing.  Due to Kevin Rodgers.
-(defun pgtk-print-buffer ()
+(defun gtk4-print-buffer ()
   "Interactive front-end to `print-buffer': asks for user confirmation first."
   (interactive)
   (if (and (called-interactively-p 'interactive)
@@ -249,33 +249,33 @@ the last file dropped is selected."
 (setq scalable-fonts-allowed t)
 
 ;; Set to use font panel instead
-(declare-function pgtk-popup-font-panel "pgtkfns.c" (&optional frame))
-(defalias 'x-select-font 'pgtk-popup-font-panel "Pop up the font panel.
+(declare-function gtk4-popup-font-panel "gtk4fns.c" (&optional frame))
+(defalias 'x-select-font 'gtk4-popup-font-panel "Pop up the font panel.
 This function has been overloaded in Nextstep.")
-(defalias 'mouse-set-font 'pgtk-popup-font-panel "Pop up the font panel.
+(defalias 'mouse-set-font 'gtk4-popup-font-panel "Pop up the font panel.
 This function has been overloaded in Nextstep.")
 
-;; pgtkterm.c
-(defvar pgtk-input-font)
-(defvar pgtk-input-fontsize)
+;; gtk4term.c
+(defvar gtk4-input-font)
+(defvar gtk4-input-fontsize)
 
-(defun pgtk-respond-to-change-font ()
-  "Respond to changeFont: event, expecting `pgtk-input-font' and\n\
-`pgtk-input-fontsize' of new font."
+(defun gtk4-respond-to-change-font ()
+  "Respond to changeFont: event, expecting `gtk4-input-font' and\n\
+`gtk4-input-fontsize' of new font."
   (interactive)
   (modify-frame-parameters (selected-frame)
-                           (list (cons 'fontsize pgtk-input-fontsize)))
+                           (list (cons 'fontsize gtk4-input-fontsize)))
   (modify-frame-parameters (selected-frame)
-                           (list (cons 'font pgtk-input-font)))
-  (set-frame-font pgtk-input-font))
+                           (list (cons 'font gtk4-input-font)))
+  (set-frame-font gtk4-input-font))
 
 
 ;; Default fontset.  This is mainly here to show how a fontset
 ;; can be set up manually.  Ordinarily, fontsets are auto-created whenever
 ;; a font is chosen by
-(defvar pgtk-standard-fontset-spec
+(defvar gtk4-standard-fontset-spec
   ;; Only some code supports this so far, so use uglier XLFD version
-  ;; "-pgtk-*-*-*-*-*-10-*-*-*-*-*-fontset-standard,latin:Courier,han:Kai"
+  ;; "-gtk4-*-*-*-*-*-10-*-*-*-*-*-fontset-standard,latin:Courier,han:Kai"
   (mapconcat 'identity
              '("-*-Monospace-*-*-*-*-10-*-*-*-*-*-fontset-standard"
                "latin:-*-Courier-*-*-*-*-10-*-*-*-*-*-iso10646-1"
@@ -289,16 +289,16 @@ See the documentation of `create-fontset-from-fontset-spec' for the format.")
 
 ;;;; Pasteboard support.
 
-(define-obsolete-function-alias 'pgtk-store-cut-buffer-internal
+(define-obsolete-function-alias 'gtk4-store-cut-buffer-internal
   'gui-set-selection "24.1")
 
 
-(defun pgtk-copy-including-secondary ()
+(defun gtk4-copy-including-secondary ()
   (interactive)
   (call-interactively 'kill-ring-save)
   (gui-set-selection 'SECONDARY (buffer-substring (point) (mark t))))
 
-(defun pgtk-paste-secondary ()
+(defun gtk4-paste-secondary ()
   (interactive)
   (insert (gui-get-selection 'SECONDARY)))
 
@@ -306,7 +306,7 @@ See the documentation of `create-fontset-from-fontset-spec' for the format.")
 ;;;; Color support.
 
 ;; Functions for color panel + drag
-(defun pgtk-face-at-pos (pos)
+(defun gtk4-face-at-pos (pos)
   (let* ((frame (car pos))
          (frame-pos (cons (cadr pos) (cddr pos)))
          (window (window-at (car frame-pos) (cdr frame-pos) frame))
@@ -340,10 +340,10 @@ See the documentation of `create-fontset-from-fontset-spec' for the format.")
      (t
       nil))))
 
-(defun pgtk-suspend-error ()
-  ;; Don't allow suspending if any of the frames are PGTK frames.
-  (if (memq 'pgtk (mapcar 'window-system (frame-list)))
-      (error "Cannot suspend Emacs while a PGTK GUI frame exists")))
+(defun gtk4-suspend-error ()
+  ;; Don't allow suspending if any of the frames are GTK4 frames.
+  (if (memq 'gtk4 (mapcar 'window-system (frame-list)))
+      (error "Cannot suspend Emacs while a GTK4 GUI frame exists")))
 
 
 ;; Set some options to be as Nextstep-like as possible.
@@ -351,20 +351,20 @@ See the documentation of `create-fontset-from-fontset-spec' for the format.")
       icon-title-format t)
 
 
-(defvar pgtk-initialized nil
+(defvar gtk4-initialized nil
   "Non-nil if pure-GTK windowing has been initialized.")
 
 (declare-function x-handle-args "common-win" (args))
-(declare-function x-open-connection "pgtkfns.c"
+(declare-function x-open-connection "gtk4fns.c"
                   (display &optional xrm-string must-succeed))
-(declare-function pgtk-set-resource "pgtkfns.c" (owner name value))
+(declare-function gtk4-set-resource "gtk4fns.c" (owner name value))
 
 ;; Do the actual pure-GTK Windows setup here; the above code just
 ;; defines functions and variables that we use now.
-(cl-defmethod window-system-initialization (&context (window-system pgtk)
+(cl-defmethod window-system-initialization (&context (window-system gtk4)
                                             &optional display)
   "Initialize Emacs for pure-GTK windowing."
-  (cl-assert (not pgtk-initialized))
+  (cl-assert (not gtk4-initialized))
 
   ;; PENDING: not needed?
   (setq command-line-args (x-handle-args command-line-args))
@@ -383,7 +383,7 @@ See the documentation of `create-fontset-from-fontset-spec' for the format.")
   (create-default-fontset)
   ;; Create the standard fontset.
   (condition-case err
-      (create-fontset-from-fontset-spec pgtk-standard-fontset-spec t)
+      (create-fontset-from-fontset-spec gtk4-standard-fontset-spec t)
     (error (display-warning
             'initialization
             (format "Creation of the standard fontset failed: %s" err)
@@ -402,47 +402,47 @@ See the documentation of `create-fontset-from-fontset-spec' for the format.")
   ;; Mac OS X Lion introduces PressAndHold, which is unsupported by this port.
   ;; See this thread for more details:
   ;; https://lists.gnu.org/archive/html/emacs-devel/2011-06/msg00505.html
-  ; (pgtk-set-resource nil "ApplePressAndHoldEnabled" "NO")
+  ; (gtk4-set-resource nil "ApplePressAndHoldEnabled" "NO")
 
   (x-apply-session-resources)
 
-  ;; Don't let Emacs suspend under PGTK.
-  (add-hook 'suspend-hook 'pgtk-suspend-error)
+  ;; Don't let Emacs suspend under GTK4.
+  (add-hook 'suspend-hook 'gtk4-suspend-error)
 
-  (setq pgtk-initialized t))
+  (setq gtk4-initialized t))
 
 ;; Any display name is OK.
-(add-to-list 'display-format-alist '(".*" . pgtk))
-(cl-defmethod handle-args-function (args &context (window-system pgtk))
+(add-to-list 'display-format-alist '(".*" . gtk4))
+(cl-defmethod handle-args-function (args &context (window-system gtk4))
   (x-handle-args args))
 
-(cl-defmethod frame-creation-function (params &context (window-system pgtk))
+(cl-defmethod frame-creation-function (params &context (window-system gtk4))
   (x-create-frame-with-faces params))
 
-(declare-function pgtk-own-selection-internal "pgtkselect.c" (selection value &optional frame))
-(declare-function pgtk-disown-selection-internal "pgtkselect.c" (selection &optional time_object terminal))
-(declare-function pgtk-selection-owner-p "pgtkselect.c" (&optional selection terminal))
-(declare-function pgtk-selection-exists-p "pgtkselect.c" (&optional selection terminal))
-(declare-function pgtk-get-selection-internal "pgtkselect.c" (selection-symbol target-type &optional time_stamp terminal))
+(declare-function gtk4-own-selection-internal "gtk4select.c" (selection value &optional frame))
+(declare-function gtk4-disown-selection-internal "gtk4select.c" (selection &optional time_object terminal))
+(declare-function gtk4-selection-owner-p "gtk4select.c" (&optional selection terminal))
+(declare-function gtk4-selection-exists-p "gtk4select.c" (&optional selection terminal))
+(declare-function gtk4-get-selection-internal "gtk4select.c" (selection-symbol target-type &optional time_stamp terminal))
 
 (cl-defmethod gui-backend-set-selection (selection value
-                                         &context (window-system pgtk))
-  (if value (pgtk-own-selection-internal selection value)
-    (pgtk-disown-selection-internal selection)))
+                                         &context (window-system gtk4))
+  (if value (gtk4-own-selection-internal selection value)
+    (gtk4-disown-selection-internal selection)))
 
 (cl-defmethod gui-backend-selection-owner-p (selection
-                                             &context (window-system pgtk))
-  (pgtk-selection-owner-p selection))
+                                             &context (window-system gtk4))
+  (gtk4-selection-owner-p selection))
 
 (cl-defmethod gui-backend-selection-exists-p (selection
-                                              &context (window-system pgtk))
-  (pgtk-selection-exists-p selection))
+                                              &context (window-system gtk4))
+  (gtk4-selection-exists-p selection))
 
 (cl-defmethod gui-backend-get-selection (selection-symbol target-type
-                                         &context (window-system pgtk))
-  (pgtk-get-selection-internal selection-symbol target-type))
+                                         &context (window-system gtk4))
+  (gtk4-get-selection-internal selection-symbol target-type))
 
-(provide 'pgtk-win)
-(provide 'term/pgtk-win)
+(provide 'gtk4-win)
+(provide 'term/gtk4-win)
 
-;;; pgtk-win.el ends here
+;;; gtk4y-win.el ends here

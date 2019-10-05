@@ -26,7 +26,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include <byteswap.h>
 
 #include "lisp.h"
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
 #include "xterm.h"
 #else
 #include "gtkutil.h"
@@ -38,7 +38,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "termhooks.h"
 #include "pdumper.h"
 
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
 #include <X11/Xproto.h>
 #else
 typedef unsigned short CARD16;
@@ -89,7 +89,7 @@ dpyinfo_valid (Display_Info *dpyinfo)
     {
       Display_Info *d;
       for (d = x_display_list; !found && d; d = d->next)
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
         found = d == dpyinfo && d->display == dpyinfo->display;
 #else
         found = d == dpyinfo && d->gdpy == dpyinfo->gdpy;
@@ -174,7 +174,7 @@ store_tool_bar_style_changed (const char *newstyle,
                                 XCAR (dpyinfo->name_list_element));
 }
 
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
 #if defined USE_CAIRO || defined HAVE_XFT
 #define XSETTINGS_FONT_NAME       "Gtk/FontName"
 #endif
@@ -336,7 +336,7 @@ something_changed_gconfCB (GConfClient *client,
 
 #endif /* USE_CAIRO || HAVE_XFT */
 
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
 /* Find the window that contains the XSETTINGS property values.  */
 
 static void
@@ -357,7 +357,7 @@ get_prop_window (Display_Info *dpyinfo)
 }
 #endif
 
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
 
 #define PAD(nr)    (((nr) + 3) & ~3)
 
@@ -587,7 +587,7 @@ parse_settings (unsigned char *prop,
 }
 #endif
 
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
 /* Read settings from the XSettings property window on display for DPYINFO.
    Store settings read in SETTINGS.
    Return true iff successful.  */
@@ -623,7 +623,7 @@ read_settings (Display_Info *dpyinfo, struct xsettings *settings)
 }
 #endif
 
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
 /* Apply Xft settings in SETTINGS to the Xft library.
    Store a Lisp event that Xft settings changed.  */
 
@@ -756,7 +756,7 @@ apply_xft_settings (Display_Info *dpyinfo,
 }
 #endif
 
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
 /* Read XSettings from the display for DPYINFO.
    If SEND_EVENT_P store a Lisp event settings that changed.  */
 
@@ -790,7 +790,7 @@ read_and_apply_settings (Display_Info *dpyinfo, bool send_event_p)
 }
 #endif
 
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
 /* Check if EVENT for the display in DPYINFO is XSettings related.  */
 
 void
@@ -968,7 +968,7 @@ init_gconf (void)
 #endif /* HAVE_GCONF */
 }
 
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
 /* Init Xsettings and read startup values.  */
 
 static void
@@ -995,7 +995,7 @@ xsettings_initialize (Display_Info *dpyinfo)
 {
   if (first_dpyinfo == NULL) first_dpyinfo = dpyinfo;
   init_gconf ();
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
   init_xsettings (dpyinfo);
 #endif
   init_gsettings ();

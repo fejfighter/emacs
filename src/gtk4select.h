@@ -1,4 +1,4 @@
-/* Definitions and headers for communication with pure Gtk+3.
+/* Definitions and headers for selection of pure Gtk+3.
    Copyright (C) 1989, 1993, 2005, 2008-2018 Free Software Foundation,
    Inc.
 
@@ -17,10 +17,15 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
-#ifdef HAVE_PGTK
 
-#include <gdk/gdk.h>
+#include "dispextern.h"
+#include "frame.h"
 
-extern int pgtk_detect_connection(GdkDisplay *gdpy);
+#ifdef HAVE_GTK4
 
-#endif
+#include <gtk/gtk.h>
+
+extern void gtk4_selection_init(void);
+void gtk4_selection_lost(GtkWidget *widget, GdkEvent *event, gpointer user_data);
+
+#endif	/* HAVE_GTK4 */

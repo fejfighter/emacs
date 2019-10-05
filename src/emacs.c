@@ -1617,8 +1617,8 @@ Using an Emacs configured with --with-x-toolkit=lucid does not have this problem
     }
 
   init_eval ();
-#ifdef HAVE_PGTK
-  init_pgtkterm ();   /* before init_atimer(). */
+#ifdef HAVE_GTK4
+  init_gtk4term ();   /* before init_atimer(). */
 #endif
   init_atimer ();
   running_asynch_code = 0;
@@ -1956,11 +1956,11 @@ Using an Emacs configured with --with-x-toolkit=lucid does not have this problem
       syms_of_nsselect ();
       syms_of_fontset ();
 #endif /* HAVE_NS */
-#ifdef HAVE_PGTK
-      syms_of_pgtkterm();
-      syms_of_pgtkfns();
-      syms_of_pgtkselect ();
-      syms_of_pgtkmenu ();
+#ifdef HAVE_GTK4
+      syms_of_gtk4term();
+      syms_of_gtk4fns();
+      syms_of_gtk4select ();
+      syms_of_gtk4menu ();
       syms_of_fontset ();
       syms_of_xsettings ();
       syms_of_xwidget ();
@@ -2034,7 +2034,7 @@ Using an Emacs configured with --with-x-toolkit=lucid does not have this problem
   init_dbusbind ();
 #endif
 #if defined(USE_GTK)
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
   init_xterm ();
 #endif
 #endif

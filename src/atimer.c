@@ -570,8 +570,8 @@ have_buggy_timerfd (void)
 # ifdef CYGWIN
   struct utsname name;
   return uname (&name) < 0 || strverscmp (name.release, "3.0.2") < 0;
-# elif defined HAVE_PGTK
-  /* pgtk emacs does not want timerfd. */
+# elif defined HAVE_GTK4
+  /* gtk4 emacs does not want timerfd. */
   return true;
 # else
   return false;

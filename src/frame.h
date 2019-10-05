@@ -190,7 +190,8 @@ struct frame
   Lisp_Object current_tool_bar_string;
 #endif
 
-#ifdef USE_GTK
+#if defined (USE_GTK) || defined (HAVE_GTK4)
+
   /* Where tool bar is, can be left, right, top or bottom.
      Except with GTK, the only supported position is `top'.  */
   Lisp_Object tool_bar_position;
@@ -539,7 +540,7 @@ struct frame
     struct x_output *x;         /* From xterm.h.  */
     struct w32_output *w32;     /* From w32term.h.  */
     struct ns_output *ns;       /* From nsterm.h.  */
-    struct pgtk_output *pgtk; /* From pgtkterm.h. */
+    struct gtk4_output *gtk4; /* From gtk4term.h. */
     intptr_t nothing;
   }
   output_data;
@@ -706,7 +707,7 @@ fset_tool_bar_items (struct frame *f, Lisp_Object val)
 {
   f->tool_bar_items = val;
 }
-#ifdef USE_GTK
+#if defined (USE_GTK) || defined (HAVE_GTK4)
 INLINE void
 fset_tool_bar_position (struct frame *f, Lisp_Object val)
 {
@@ -786,10 +787,10 @@ default_pixels_per_inch_y (void)
 #else
 #define FRAME_NS_P(f) ((f)->output_method == output_ns)
 #endif
-#ifndef HAVE_PGTK
-#define FRAME_PGTK_P(f) false
+#ifndef HAVE_GTK4
+#define FRAME_GTK4_P(f) false
 #else
-#define FRAME_PGTK_P(f) ((f)->output_method == output_pgtk)
+#define FRAME_GTK4_P(f) ((f)->output_method == output_gtk4)
 #endif
 
 /* FRAME_WINDOW_P tests whether the frame is a graphical window system
@@ -804,8 +805,8 @@ default_pixels_per_inch_y (void)
 #ifdef HAVE_NS
 #define FRAME_WINDOW_P(f) FRAME_NS_P(f)
 #endif
-#ifdef HAVE_PGTK
-#define FRAME_WINDOW_P(f) FRAME_PGTK_P(f)
+#ifdef HAVE_GTK4
+#define FRAME_WINDOW_P(f) FRAME_GTK4_P(f)
 #endif
 #ifndef FRAME_WINDOW_P
 #define FRAME_WINDOW_P(f) ((void) (f), false)
@@ -1602,7 +1603,7 @@ extern const char *x_get_resource_string (const char *, const char *);
 extern void x_sync (struct frame *);
 #endif /* HAVE_X_WINDOWS */
 
-#if !defined(HAVE_NS) && !defined(HAVE_PGTK)
+#if !defined(HAVE_NS) && !defined(HAVE_GTK4)
 
 /* Set F's bitmap icon, if specified among F's parameters.  */
 

@@ -21,12 +21,13 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #define GTKUTIL_H
 
 
-#ifdef USE_GTK
+#if USE_GTK | HAVE_GTK4
+
 
 #include <gtk/gtk.h>
 #include "../lwlib/lwlib-widget.h"
-#ifdef HAVE_PGTK
-#include "pgtkterm.h"
+#ifdef HAVE_GTK4
+#include "gtk4term.h"
 #define EVENT GdkEvent
 #else
 #include "xterm.h"
@@ -163,7 +164,7 @@ extern void xg_frame_set_char_size (struct frame *f, int width, int height);
 extern GtkWidget * xg_win_to_widget (Display *dpy, Window wdesc);
 
 extern int xg_get_scale (struct frame *f);
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
 extern void xg_display_open (char *display_name, Display **dpy);
 extern void xg_display_close (Display *dpy);
 extern GdkCursor * xg_create_default_cursor (Display *dpy);

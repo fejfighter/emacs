@@ -34,7 +34,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include <c-ctype.h>
 #include <flexmember.h>
 
-#ifdef HAVE_PGTK
+#ifdef HAVE_GTK4
 #include <cairo.h>
 #endif
 
@@ -132,9 +132,9 @@ typedef struct ns_bitmap_record Bitmap_Record;
 
 #endif /* HAVE_NS */
 
-#ifdef HAVE_PGTK
-typedef struct pgtk_bitmap_record Bitmap_Record;
-#endif /* HAVE_PGTK */
+#ifdef HAVE_GTK4
+typedef struct gtk4_bitmap_record Bitmap_Record;
+#endif /* HAVE_GTK4 */
 
 #if (defined HAVE_X_WINDOWS \
      && ! (defined HAVE_NTGUI || defined USE_CAIRO || defined HAVE_NS))
@@ -401,12 +401,12 @@ image_reference_bitmap (struct frame *f, ptrdiff_t id)
   ++FRAME_DISPLAY_INFO (f)->bitmaps[id - 1].refcount;
 }
 
-#ifdef HAVE_PGTK
+#ifdef HAVE_GTK4
 static cairo_pattern_t *
 image_create_pattern_from_pixbuf (struct frame *f, GdkPixbuf *pixbuf)
 {
   GdkPixbuf *pb = gdk_pixbuf_add_alpha (pixbuf, TRUE, 255, 255, 255);
-  cairo_surface_t *surface = cairo_surface_create_similar_image (f->output_data.pgtk->cr_surface,
+  cairo_surface_t *surface = cairo_surface_create_similar_image (f->output_data.gtk4->cr_surface,
 								 CAIRO_FORMAT_A1,
 								 gdk_pixbuf_get_width (pb),
 								 gdk_pixbuf_get_height (pb));
@@ -461,7 +461,7 @@ image_create_bitmap_from_data (struct frame *f, char *bits,
       return -1;
 #endif
 
-#ifdef HAVE_PGTK
+#ifdef HAVE_GTK4
   GdkPixbuf *pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB,
 				     FALSE,
 				     8,
@@ -504,7 +504,7 @@ image_create_bitmap_from_data (struct frame *f, char *bits,
   dpyinfo->bitmaps[id - 1].depth = 1;
 #endif
 
-#ifdef HAVE_PGTK
+#ifdef HAVE_GTK4
   dpyinfo->bitmaps[id - 1].img = pixbuf;
   dpyinfo->bitmaps[id - 1].depth = 1;
   dpyinfo->bitmaps[id - 1].pattern = image_create_pattern_from_pixbuf (f, pixbuf);
@@ -562,7 +562,7 @@ image_create_bitmap_from_file (struct frame *f, Lisp_Object file)
   return id;
 #endif
 
-#ifdef HAVE_PGTK
+#ifdef HAVE_GTK4
   GError *err = NULL;
   ptrdiff_t id;
   void * bitmap = gdk_pixbuf_new_from_file(SSDATA(file), &err);
@@ -656,7 +656,7 @@ free_bitmap_record (Display_Info *dpyinfo, Bitmap_Record *bm)
   ns_release_object (bm->img);
 #endif
 
-#ifdef HAVE_PGTK
+#ifdef HAVE_GTK4
   if (bm->pattern != NULL)
     cairo_pattern_destroy (bm->pattern);
 #endif
@@ -3890,7 +3890,7 @@ xbm_load (struct frame *f, struct image *img)
 			      XPM images
  ***********************************************************************/
 
-#if defined (HAVE_XPM) || defined (HAVE_NS) || defined (HAVE_PGTK)
+#if defined (HAVE_XPM) || defined (HAVE_NS) || defined (HAVE_GTK4)
 
 static bool xpm_image_p (Lisp_Object object);
 static bool xpm_load (struct frame *f, struct image *img);

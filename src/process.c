@@ -5502,8 +5502,8 @@ wait_reading_process_output (intmax_t time_limit, int nsecs, int read_kbd,
 	    }
 #endif
 
-#if defined HAVE_PGTK
-	  nfds = pgtk_select (max_desc + 1,
+#if defined HAVE_GTK4
+	  nfds = gtk4_select (max_desc + 1,
 			      &Available, (check_write ? &Writeok : 0),
 			      NULL, &timeout, NULL);
 #elif defined HAVE_GLIB && !defined HAVE_NS

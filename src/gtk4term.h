@@ -24,21 +24,21 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "font.h"
 #include "sysselect.h"
 
-#ifdef HAVE_PGTK
+#ifdef HAVE_GTK4
 
 #include <gtk/gtk.h>
 
-// #define PGTK_DEBUG 1
+#define GTK4_DEBUG 1
 
-#ifdef PGTK_DEBUG
-extern void pgtk_log(const char *file, int lineno, const char *fmt, ...)
+#ifdef GTK4_DEBUG
+extern void gtk4_log(const char *file, int lineno, const char *fmt, ...)
   ATTRIBUTE_FORMAT_PRINTF (3, 4);
-#define PGTK_TRACE(fmt, ...) pgtk_log(__FILE__, __LINE__, fmt, ## __VA_ARGS__)
-extern void pgtk_backtrace(const char *file, int lineno);
-#define PGTK_BACKTRACE() pgtk_backtrace(__FILE__, __LINE__)
+#define GTK4_TRACE(fmt, ...) gtk4_log(__FILE__, __LINE__, fmt, ## __VA_ARGS__)
+extern void gtk4_backtrace(const char *file, int lineno);
+#define GTK4_BACKTRACE() gtk4_backtrace(__FILE__, __LINE__)
 #else
-#define PGTK_TRACE(fmt, ...) ((void) 0)
-#define PGTK_BACKTRACE() ((void) 0)
+#define GTK4_TRACE(fmt, ...) ((void) 0)
+#define GTK4_BACKTRACE() ((void) 0)
 #endif
 
 /* The GtkTooltip API came in 2.12, but gtk-enable-tooltips in 2.14. */
@@ -48,7 +48,7 @@ extern void pgtk_backtrace(const char *file, int lineno);
 
 /* could use list to store these, but rest of emacs has a big infrastructure
    for managing a table of bitmap "records" */
-struct pgtk_bitmap_record
+struct gtk4_bitmap_record
 {
   void *img;
   char *file;
@@ -119,13 +119,13 @@ struct scroll_bar
 };
 
 
-/* init'd in pgtk_initialize_display_info () */
-struct pgtk_display_info
+/* init'd in gtk4_initialize_display_info () */
+struct gtk4_display_info
 {
-  /* Chain of all pgtk_display_info structures.  */
-  struct pgtk_display_info *next;
+  /* Chain of all gtk4_display_info structures.  */
+  struct gtk4_display_info *next;
 
-  /* The generic display parameters corresponding to this PGTK display. */
+  /* The generic display parameters corresponding to this GTK4 display. */
   struct terminal *terminal;
 
   /* This says how to access this display in Gdk.  */
@@ -155,7 +155,7 @@ struct pgtk_display_info
   /* Minimum font height over all fonts in font_table.  */
   int smallest_font_height;
 
-  struct pgtk_bitmap_record *bitmaps;
+  struct gtk4_bitmap_record *bitmaps;
   ptrdiff_t bitmaps_size;
   ptrdiff_t bitmaps_last;
 
@@ -231,10 +231,10 @@ struct pgtk_display_info
   int meta_mod_mask, alt_mod_mask;
 };
 
-/* This is a chain of structures for all the PGTK displays currently in use.  */
-extern struct pgtk_display_info *x_display_list;
+/* This is a chain of structures for all the GTK4 displays currently in use.  */
+extern struct gtk4_display_info *x_display_list;
 
-struct pgtk_output
+struct gtk4_output
 {
 #if 0
   void *view;
@@ -262,7 +262,7 @@ struct pgtk_output
   Emacs_Cursor bottom_edge_cursor;
   Emacs_Cursor bottom_left_corner_cursor;
 
-  /* PGTK-specific */
+  /* GTK4-specific */
   Emacs_Cursor current_pointer;
 
   /* border color */
@@ -301,14 +301,14 @@ struct pgtk_output
      scroll bars, in pixels.  */
   int vertical_scroll_bar_extra;
 
-  /* The height of the titlebar decoration (included in PGTKWindow's frame). */
+  /* The height of the titlebar decoration (included in GTK4Window's frame). */
   int titlebar_height;
 
   /* The height of the toolbar if displayed, else 0. */
   int toolbar_height;
 
-  /* This is the Emacs structure for the PGTK display this frame is on.  */
-  struct pgtk_display_info *display_info;
+  /* This is the Emacs structure for the GTK4 display this frame is on.  */
+  struct gtk4_display_info *display_info;
 
   /* Non-zero if we are zooming (maximizing) the frame.  */
   int zooming;
@@ -322,7 +322,7 @@ struct pgtk_output
   int preferred_width, preferred_height;
 
   /* The widget of this screen.  This is the window of a top widget.  */
-  GtkWidget *widget;
+  GtkWindow *widget;
   /* The widget of the edit portion of this screen; the window in
      "window_desc" is inside of this.  */
   GtkWidget *edit_widget;
@@ -385,6 +385,9 @@ struct pgtk_output
      frame, or IMPLICIT if we received an EnterNotify.
      FocusOut and LeaveNotify clears EXPLICIT/IMPLICIT. */
   int focus_state;
+
+  bool menubar_active;
+
 };
 
 /* this dummy decl needed to support TTYs */
@@ -405,8 +408,8 @@ enum
   FOCUS_EXPLICIT = 2
 };
 
-/* This gives the pgtk_display_info structure for the display F is on.  */
-#define FRAME_X_OUTPUT(f)         ((f)->output_data.pgtk)
+/* This gives the gtk4_display_info structure for the display F is on.  */
+#define FRAME_X_OUTPUT(f)         ((f)->output_data.gtk4)
 #define FRAME_OUTPUT_DATA(f)      FRAME_X_OUTPUT (f)
 
 #define FRAME_DISPLAY_INFO(f)     (FRAME_X_OUTPUT(f)->display_info)
@@ -415,11 +418,12 @@ enum
 #define FRAME_CURSOR_COLOR(f)     (FRAME_X_OUTPUT(f)->cursor_color)
 #define FRAME_POINTER_TYPE(f)     (FRAME_X_OUTPUT(f)->current_pointer)
 #define FRAME_FONT(f)             (FRAME_X_OUTPUT(f)->font)
-#define FRAME_GTK_OUTER_WIDGET(f) (FRAME_X_OUTPUT(f)->widget)
+#define FRAME_GTK_OUTER_WINDOW(f) (FRAME_X_OUTPUT(f)->widget)
+#define FRAME_GTK_OUTER_WIDGET(f) (GTK_WIDGET (FRAME_X_OUTPUT(f)->widget))
 #define FRAME_GTK_WIDGET(f)       (FRAME_X_OUTPUT(f)->edit_widget)
 
 /* aliases */
-#define FRAME_PGTK_VIEW(f)         FRAME_GTK_WIDGET(f)
+#define FRAME_GTK4_VIEW(f)         FRAME_GTK_WIDGET(f)
 #define FRAME_X_WINDOW(f)          FRAME_GTK_WIDGET(f)
 #define FRAME_NATIVE_WINDOW(f)     FRAME_GTK_WIDGET(f)
 
@@ -430,23 +434,23 @@ enum
 /* Turning a lisp vector value into a pointer to a struct scroll_bar.  */
 #define XSCROLL_BAR(vec) ((struct scroll_bar *) XVECTOR (vec))
 
-#define PGTK_FACE_FOREGROUND(f) ((f)->foreground)
-#define PGTK_FACE_BACKGROUND(f) ((f)->background)
+#define GTK4_FACE_FOREGROUND(f) ((f)->foreground)
+#define GTK4_FACE_BACKGROUND(f) ((f)->background)
 #define FRAME_DEFAULT_FACE(f) FACE_FROM_ID_OR_NULL (f, DEFAULT_FACE_ID)
 
 /* Compute pixel height of the frame's titlebar. */
-#define FRAME_PGTK_TITLEBAR_HEIGHT(f)                                     0
+#define FRAME_GTK4_TITLEBAR_HEIGHT(f)                                     0
 #if 0
-  (PGTKHeight([FRAME_PGTK_VIEW (f) frame]) == 0 ?                           \
+  (GTK4Height([FRAME_GTK4_VIEW (f) frame]) == 0 ?                           \
    0                                                                    \
-   : (int)(PGTKHeight([FRAME_PGTK_VIEW (f) window].frame)                   \
-           - PGTKHeight([PGTKWindow contentRectForFrameRect:                \
-                       [[FRAME_PGTK_VIEW (f) window] frame]               \
-                       styleMask:[[FRAME_PGTK_VIEW (f) window] styleMask]])))
+   : (int)(GTK4Height([FRAME_GTK4_VIEW (f) window].frame)                   \
+           - GTK4Height([GTK4Window contentRectForFrameRect:                \
+                       [[FRAME_GTK4_VIEW (f) window] frame]               \
+                       styleMask:[[FRAME_GTK4_VIEW (f) window] styleMask]])))
 #endif
 
 /* Compute pixel size for vertical scroll bars */
-#define PGTK_SCROLL_BAR_WIDTH(f)					\
+#define GTK4_SCROLL_BAR_WIDTH(f)					\
   (FRAME_HAS_VERTICAL_SCROLL_BARS (f)					\
    ? rint (FRAME_CONFIG_SCROLL_BAR_WIDTH (f) > 0			\
 	   ? FRAME_CONFIG_SCROLL_BAR_WIDTH (f)				\
@@ -454,7 +458,7 @@ enum
    : 0)
 
 /* Compute pixel size for horizontal scroll bars */
-#define PGTK_SCROLL_BAR_HEIGHT(f)					\
+#define GTK4_SCROLL_BAR_HEIGHT(f)					\
   (FRAME_HAS_HORIZONTAL_SCROLL_BARS (f)					\
    ? rint (FRAME_CONFIG_SCROLL_BAR_HEIGHT (f) > 0			\
 	   ? FRAME_CONFIG_SCROLL_BAR_HEIGHT (f)				\
@@ -463,41 +467,41 @@ enum
 
 /* Difference btwn char-column-calculated and actual SB widths.
    This is only a concern for rendering when SB on left. */
-#define PGTK_SCROLL_BAR_ADJUST(w, f)				\
+#define GTK4_SCROLL_BAR_ADJUST(w, f)				\
   (WINDOW_HAS_VERTICAL_SCROLL_BAR_ON_LEFT (w) ?			\
    (FRAME_SCROLL_BAR_COLS (f) * FRAME_COLUMN_WIDTH (f)		\
-    - PGTK_SCROLL_BAR_WIDTH (f)) : 0)
+    - GTK4_SCROLL_BAR_WIDTH (f)) : 0)
 
 /* Difference btwn char-line-calculated and actual SB heights.
    This is only a concern for rendering when SB on top. */
-#define PGTK_SCROLL_BAR_ADJUST_HORIZONTALLY(w, f)		\
+#define GTK4_SCROLL_BAR_ADJUST_HORIZONTALLY(w, f)		\
   (WINDOW_HAS_HORIZONTAL_SCROLL_BARS (w) ?		\
    (FRAME_SCROLL_BAR_LINES (f) * FRAME_LINE_HEIGHT (f)	\
-    - PGTK_SCROLL_BAR_HEIGHT (f)) : 0)
+    - GTK4_SCROLL_BAR_HEIGHT (f)) : 0)
 
 #define FRAME_MENUBAR_HEIGHT(f) (FRAME_X_OUTPUT(f)->menubar_height)
 
 /* Calculate system coordinates of the left and top of the parent
    window or, if there is no parent window, the screen. */
-#define PGTK_PARENT_WINDOW_LEFT_POS(f)                                    \
+#define GTK4_PARENT_WINDOW_LEFT_POS(f)                                    \
   (FRAME_PARENT_FRAME (f) != NULL                                       \
-   ? [[FRAME_PGTK_VIEW (f) window] parentWindow].frame.origin.x : 0)
-#define PGTK_PARENT_WINDOW_TOP_POS(f)                                     \
+   ? [[FRAME_GTK4_VIEW (f) window] parentWindow].frame.origin.x : 0)
+#define GTK4_PARENT_WINDOW_TOP_POS(f)                                     \
   (FRAME_PARENT_FRAME (f) != NULL                                       \
-   ? ([[FRAME_PGTK_VIEW (f) window] parentWindow].frame.origin.y          \
-      + [[FRAME_PGTK_VIEW (f) window] parentWindow].frame.size.height     \
-      - FRAME_PGTK_TITLEBAR_HEIGHT (FRAME_PARENT_FRAME (f)))              \
-   : [[[PGTKScreen screepgtk] objectAtIndex: 0] frame].size.height)
+   ? ([[FRAME_GTK4_VIEW (f) window] parentWindow].frame.origin.y          \
+      + [[FRAME_GTK4_VIEW (f) window] parentWindow].frame.size.height     \
+      - FRAME_GTK4_TITLEBAR_HEIGHT (FRAME_PARENT_FRAME (f)))              \
+   : [[[GTK4Screen screegtk4] objectAtIndex: 0] frame].size.height)
 
-#define FRAME_PGTK_FONT_TABLE(f) (FRAME_DISPLAY_INFO (f)->font_table)
+#define FRAME_GTK4_FONT_TABLE(f) (FRAME_DISPLAY_INFO (f)->font_table)
 
-#define FRAME_TOOLBAR_TOP_HEIGHT(f) ((f)->output_data.pgtk->toolbar_top_height)
+#define FRAME_TOOLBAR_TOP_HEIGHT(f) ((f)->output_data.gtk4->toolbar_top_height)
 #define FRAME_TOOLBAR_BOTTOM_HEIGHT(f) \
-  ((f)->output_data.pgtk->toolbar_bottom_height)
+  ((f)->output_data.gtk4->toolbar_bottom_height)
 #define FRAME_TOOLBAR_HEIGHT(f) \
   (FRAME_TOOLBAR_TOP_HEIGHT (f) + FRAME_TOOLBAR_BOTTOM_HEIGHT (f))
-#define FRAME_TOOLBAR_LEFT_WIDTH(f) ((f)->output_data.pgtk->toolbar_left_width)
-#define FRAME_TOOLBAR_RIGHT_WIDTH(f) ((f)->output_data.pgtk->toolbar_right_width)
+#define FRAME_TOOLBAR_LEFT_WIDTH(f) ((f)->output_data.gtk4->toolbar_left_width)
+#define FRAME_TOOLBAR_RIGHT_WIDTH(f) ((f)->output_data.gtk4->toolbar_right_width)
 #define FRAME_TOOLBAR_WIDTH(f) \
   (FRAME_TOOLBAR_LEFT_WIDTH (f) + FRAME_TOOLBAR_RIGHT_WIDTH (f))
 
@@ -514,43 +518,43 @@ enum
    : FRAME_SCROLL_BAR_COLS (f))
 
 
-/* Display init/shutdown functions implemented in pgtkterm.c */
-extern struct pgtk_display_info *pgtk_term_init (Lisp_Object display_name, char *resource_name);
-extern void pgtk_term_shutdown (int sig);
+/* Display init/shutdown functions implemented in gtk4term.c */
+extern struct gtk4_display_info *gtk4_term_init (Lisp_Object display_name, char *resource_name);
+extern void gtk4_term_shutdown (int sig);
 
-/* Implemented in pgtkterm, published in or needed from pgtkfns. */
-extern void pgtk_clear_frame (struct frame *f);
-extern char *pgtk_xlfd_to_fontname (const char *xlfd);
+/* Implemented in gtk4term, published in or needed from gtk4fns. */
+extern void gtk4_clear_frame (struct frame *f);
+extern char *gtk4_xlfd_to_fontname (const char *xlfd);
 
-/* Implemented in pgtkfns. */
-extern void pgtk_set_doc_edited (void);
-extern const char *pgtk_get_defaults_value (const char *key);
-extern const char *pgtk_get_string_resource (XrmDatabase rdb, const char *name, const char *class);
-extern void pgtk_implicitly_set_name (struct frame *f, Lisp_Object arg, Lisp_Object oldval);
+/* Implemented in gtk4fns. */
+extern void gtk4_set_doc_edited (void);
+extern const char *gtk4_get_defaults_value (const char *key);
+extern const char *gtk4_get_string_resource (XrmDatabase rdb, const char *name, const char *class);
+extern void gtk4_implicitly_set_name (struct frame *f, Lisp_Object arg, Lisp_Object oldval);
 
-/* Color management implemented in pgtkterm. */
-extern bool pgtk_defined_color (struct frame *f,
+/* Color management implemented in gtk4term. */
+extern bool gtk4_defined_color (struct frame *f,
 				const char *name,
 				Emacs_Color *color_def, bool alloc,
 				bool makeIndex);
-extern void pgtk_query_color (struct frame *f, Emacs_Color *color);
-extern void pgtk_query_colors (struct frame *f, Emacs_Color *colors, int ncolors);
-extern int pgtk_parse_color (const char *color_name, Emacs_Color *color);
-extern int pgtk_lisp_to_color (Lisp_Object color, Emacs_Color *col);
+extern void gtk4_query_color (struct frame *f, Emacs_Color *color);
+extern void gtk4_query_colors (struct frame *f, Emacs_Color *colors, int ncolors);
+extern int gtk4_parse_color (const char *color_name, Emacs_Color *color);
+extern int gtk4_lisp_to_color (Lisp_Object color, Emacs_Color *col);
 
-/* Implemented in pgtkterm.c */
-extern void pgtk_clear_area (struct frame *f, int x, int y, int width, int height);
-extern int pgtk_gtk_to_emacs_modifiers (struct pgtk_display_info *dpyinfo, int state);
-extern void pgtk_clear_under_internal_border (struct frame *f);
-extern void pgtk_set_event_handler(struct frame *f);
+/* Implemented in gtk4term.c */
+extern void gtk4_clear_area (struct frame *f, int x, int y, int width, int height);
+extern int gtk4_gtk_to_emacs_modifiers (struct gtk4_display_info *dpyinfo, int state);
+extern void gtk4_clear_under_internal_border (struct frame *f);
+extern void gtk4_set_event_handler(struct frame *f);
 
-/* Implemented in pgtkterm.c */
-extern int x_display_pixel_height (struct pgtk_display_info *);
-extern int x_display_pixel_width (struct pgtk_display_info *);
+/* Implemented in gtk4term.c */
+extern int x_display_pixel_height (struct gtk4_display_info *);
+extern int x_display_pixel_width (struct gtk4_display_info *);
 
-/* Implemented in pgtkterm.c */
+/* Implemented in gtk4term.c */
 extern void x_destroy_window (struct frame *f);
-extern void x_set_parent_frame (struct frame *f, Lisp_Object new_value,
+extern void gtk4_set_parent_frame (struct frame *f, Lisp_Object new_value,
                                 Lisp_Object old_value);
 extern void x_set_no_focus_on_map (struct frame *f, Lisp_Object new_value,
                                    Lisp_Object old_value);
@@ -558,50 +562,50 @@ extern void x_set_no_accept_focus (struct frame *f, Lisp_Object new_value,
                                    Lisp_Object old_value);
 extern void x_set_z_group (struct frame *f, Lisp_Object new_value,
                            Lisp_Object old_value);
-extern int pgtk_select (int nfds, fd_set *readfds, fd_set *writefds,
+extern int gtk4_select (int nfds, fd_set *readfds, fd_set *writefds,
 			fd_set *exceptfds, struct timespec *timeout,
 			sigset_t *sigmask);
 
-/* Cairo related functions implemented in pgtkterm.c */
-extern cairo_t *pgtk_begin_cr_clip (struct frame *f);
-extern void pgtk_end_cr_clip (struct frame *f);
-extern void pgtk_set_cr_source_with_gc_foreground (struct frame *f, Emacs_GC *gc);
-extern void pgtk_set_cr_source_with_gc_background (struct frame *f, Emacs_GC *gc);
-extern void pgtk_set_cr_source_with_color (struct frame *f, unsigned long color);
-extern void pgtk_cr_draw_frame (cairo_t *cr, struct frame *f);
-extern void pgtk_cr_destroy_surface(struct frame *f);
+/* Cairo related functions implemented in gtk4term.c */
+extern cairo_t *gtk4_begin_cr_clip (struct frame *f);
+extern void gtk4_end_cr_clip (struct frame *f);
+extern void gtk4_set_cr_source_with_gc_foreground (struct frame *f, Emacs_GC *gc);
+extern void gtk4_set_cr_source_with_gc_background (struct frame *f, Emacs_GC *gc);
+extern void gtk4_set_cr_source_with_color (struct frame *f, unsigned long color);
+extern void gtk4_cr_draw_frame (cairo_t *cr, struct frame *f);
+extern void gtk4_cr_destroy_surface(struct frame *f);
 
-/* Defined in pgtkmenu.c */
-extern Lisp_Object pgtk_popup_dialog (struct frame *f, Lisp_Object header, Lisp_Object contents);
-extern Lisp_Object pgtk_dialog_show (struct frame *f, Lisp_Object title, Lisp_Object header, char **error);
+/* Defined in gtk4menu.c */
+extern Lisp_Object gtk4_popup_dialog (struct frame *f, Lisp_Object header, Lisp_Object contents);
+extern Lisp_Object gtk4_dialog_show (struct frame *f, Lisp_Object title, Lisp_Object header, char **error);
 extern void initialize_frame_menubar (struct frame *);
 
 
-/* Symbol initializations implemented in each pgtk sources. */
-extern void syms_of_pgtkterm (void);
-extern void syms_of_pgtkfns (void);
-extern void syms_of_pgtkmenu (void);
-extern void syms_of_pgtkselect (void);
+/* Symbol initializations implemented in each gtk4 sources. */
+extern void syms_of_gtk4term (void);
+extern void syms_of_gtk4fns (void);
+extern void syms_of_gtk4menu (void);
+extern void syms_of_gtk4select (void);
 
-/* Implemented in pgtkselect. */
-extern void nxatoms_of_pgtkselect (void);
+/* Implemented in gtk4select. */
+extern void nxatoms_of_gtk4select (void);
 
-/* Initialization and marking implemented in pgtkterm.c */
-extern void init_pgtkterm (void);
-extern void mark_pgtkterm(void);
-extern void pgtk_delete_terminal (struct terminal *terminal);
+/* Initialization and marking implemented in gtk4term.c */
+extern void init_gtk4term (void);
+extern void mark_gtk4term(void);
+extern void gtk4_delete_terminal (struct terminal *terminal);
 
-extern void pgtk_make_frame_visible (struct frame *f);
-extern void pgtk_make_frame_invisible (struct frame *f);
+extern void gtk4_make_frame_visible (struct frame *f);
+extern void gtk4_make_frame_invisible (struct frame *f);
 extern void x_wm_set_size_hint (struct frame *, long, bool);
 extern void x_free_frame_resources (struct frame *);
-extern void pgtk_iconify_frame (struct frame *f);
-extern void pgtk_focus_frame (struct frame *f, bool noactivate);
-extern void pgtk_set_scroll_bar_default_width (struct frame *f);
-extern void pgtk_set_scroll_bar_default_height (struct frame *f);
+extern void gtk4_iconify_frame (struct frame *f);
+extern void gtk4_focus_frame (struct frame *f, bool noactivate);
+extern void gtk4_set_scroll_bar_default_width (struct frame *f);
+extern void gtk4_set_scroll_bar_default_height (struct frame *f);
 extern Lisp_Object x_get_focus_frame (struct frame *frame);
 
-extern void pgtk_frame_rehighlight (struct pgtk_display_info *dpyinfo);
+extern void gtk4_frame_rehighlight (struct gtk4_display_info *dpyinfo);
 
 
-#endif	/* HAVE_PGTK */
+#endif	/* HAVE_GTK4 */

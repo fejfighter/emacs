@@ -52,7 +52,7 @@
   (when (bound-and-true-p mouse-wheel-mode) (mouse-wheel-mode 1)))
 
 (defcustom mouse-wheel-down-event
-  (if (or (featurep 'w32-win) (featurep 'ns-win) (featurep 'pgtk))
+  (if (or (featurep 'w32-win) (featurep 'ns-win) (featurep 'gtk4))
       'wheel-up
     'mouse-4)
   "Event used for scrolling down."
@@ -61,7 +61,7 @@
   :set 'mouse-wheel-change-button)
 
 (defcustom mouse-wheel-up-event
-  (if (or (featurep 'w32-win) (featurep 'ns-win) (featurep 'pgtk))
+  (if (or (featurep 'w32-win) (featurep 'ns-win) (featurep 'gtk4))
       'wheel-down
     'mouse-5)
   "Event used for scrolling up."
@@ -192,13 +192,13 @@ This can be slightly disconcerting, but some people prefer it."
   "Function that does the job of scrolling right.")
 
 (defvar mouse-wheel-left-event
-  (if (or (featurep 'w32-win) (featurep 'ns-win) (featurep 'pgtk))
+  (if (or (featurep 'w32-win) (featurep 'ns-win) (featurep 'gtk4))
       'wheel-left
     (intern "mouse-6"))
   "Event used for scrolling left.")
 
 (defvar mouse-wheel-right-event
-  (if (or (featurep 'w32-win) (featurep 'ns-win) (featurep 'pgtk))
+  (if (or (featurep 'w32-win) (featurep 'ns-win) (featurep 'gtk4))
       'wheel-right
     (intern "mouse-7"))
   "Event used for scrolling right.")

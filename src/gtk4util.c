@@ -19,7 +19,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include <config.h>
 
-#if defined(USE_GTK)
+#if defined(HAVE_GTK4)
 #include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -55,7 +55,7 @@ typedef struct gtk4_output xp_output;
 #include <X11/Xft/Xft.h>
 #endif
 
-#ifdef HAVE_GTK3
+#ifdef HAVE_GTK4
 #ifndef HAVE_GTK4
 #include <gtk/gtkx.h>
 #endif
@@ -66,7 +66,7 @@ typedef struct gtk4_output xp_output;
 #include <X11/extensions/Xdbe.h>
 #endif
 
-#ifdef HAVE_GTK3
+#ifdef HAVE_GTK4
 #define XG_TEXT_CANCEL "Cancel"
 #define XG_TEXT_OK     "OK"
 #define XG_TEXT_OPEN   "Open"
@@ -76,7 +76,8 @@ typedef struct gtk4_output xp_output;
 #define XG_TEXT_OPEN   GTK_STOCK_OPEN
 #endif
 
-#ifndef HAVE_GTK3
+//#ifndef HAVE_GTK4
+#ifndef HAVE_GTK4
 
 #ifdef HAVE_FREETYPE
 #define gtk_font_chooser_dialog_new(x, y) \
@@ -95,7 +96,7 @@ typedef struct gtk4_output xp_output;
 #define gtk_scrollbar_new(ori, spacing)                                 \
   ((ori) == GTK_ORIENTATION_HORIZONTAL                                  \
    ? gtk_hscrollbar_new ((spacing)) : gtk_vscrollbar_new ((spacing)))
-#endif /* HAVE_GTK3 */
+#endif /* HAVE_GTK4 */
 
 #define XG_BIN_CHILD(x) gtk_bin_get_child (GTK_BIN (x))
 
@@ -146,7 +147,7 @@ xg_set_screen (GtkWidget *w, struct frame *f)
       else
 	gtk_window_set_screen (GTK_WINDOW (w), gscreen);
     }
-#elif HAVE_GTK4
+#elseif HAVE_GTK4
   if (FRAME_X_DISPLAY (f) != DEFAULT_GDK_DISPLAY ())
     {
 
@@ -228,7 +229,7 @@ xg_get_gdk_scale (void)
 int
 xg_get_scale (struct frame *f)
 {
-#ifdef HAVE_GTK3
+#ifdef HAVE_GTK4
   if (FRAME_GTK_WIDGET (f))
     return gtk_widget_get_scale_factor (FRAME_GTK_WIDGET (f));
 #endif
@@ -384,7 +385,7 @@ xg_get_pixbuf_from_pix_and_mask (struct frame *f,
 
 
 
-#if defined USE_CAIRO && !defined HAVE_GTK3
+#if defined USE_CAIRO && !defined HAVE_GTK4
 static GdkPixbuf *
 xg_get_pixbuf_from_surface (cairo_surface_t *surface)
 {
@@ -432,7 +433,7 @@ xg_get_pixbuf_from_surface (cairo_surface_t *surface)
 
   return icon_buf;
 }
-#endif	/* USE_CAIRO && !HAVE_GTK3 */
+#endif	/* USE_CAIRO && !HAVE_GTK4 */
 
 #endif /* !HAVE_GTK4 */
 static Lisp_Object
@@ -522,13 +523,13 @@ xg_get_image_for_pixmap (struct frame *f,
 	    gtk_image_set_from_pixbuf (old_widget, pb);
 	}
 
-#elif HAVE_GTK3
+#elif HAVE_GTK4
       if (! old_widget)
 	old_widget = GTK_IMAGE (gtk_image_new_from_surface (surface));
       else
 	gtk_image_set_from_surface (old_widget, surface);
 
-#else  /* !HAVE_GTK3 */
+#else  /* !HAVE_GTK4 */
 
       GdkPixbuf *icon_buf = xg_get_pixbuf_from_surface (surface);
 
@@ -541,7 +542,7 @@ xg_get_image_for_pixmap (struct frame *f,
 
 	  g_object_unref (G_OBJECT (icon_buf));
 	}
-#endif	/* !HAVE_GTK3 */
+#endif	/* !HAVE_GTK4 */
     }
 #else
   /* This is a workaround to make icons look good on pseudo color
@@ -578,10 +579,10 @@ static void
 xg_set_cursor (GtkWidget *w, GdkCursor *cursor)
 {
 #ifdef HAVE_GTK4
-  GtkWindow *surface = gtk_native_get_surface (GTK_NATIVE (w);
+  //GtkWindow *surface = gtk_widget_get_surface (w);
   //GList *children =   gdk_surface_get_children (surface);
 
-  gdk_surface_set_cursor (surface, cursor);
+  //ygdk_surface_set_cursor (surface, cursor);
 #if 0
   for ( ; children; children = g_list_next (children))
     gdk_surface_set_cursor (GDK_SURFACE (children->data), cursor);
@@ -733,7 +734,7 @@ xg_check_special_colors (struct frame *f,
   block_input ();
   {
 #ifndef HAVE_GTK4
-#ifdef HAVE_GTK3
+#ifdef HAVE_GTK4
     GtkStyleContext *gsty
       = gtk_widget_get_style_context (FRAME_GTK_OUTER_WIDGET (f));
     GdkRGBA col;
@@ -797,12 +798,12 @@ hierarchy_ch_cb (GtkWidget *widget,
 		 GtkWidget *previous_toplevel,
 		 gpointer   user_data)
 {
-  struct frame *f = user_data;
-  xp_output *x = f->output_data.xp;
-  GtkWidget *top = gtk_widget_get_toplevel (x->ttip_lbl);
+  /* struct frame *f = user_data; */
+  /* xp_output *x = f->output_data.xp; */
+  //GtkWidget *top = gtk_window_get_toplevels (x->ttip_lbl);
 
-  if (! top || ! GTK_IS_WINDOW (top))
-      gtk_widget_hide (previous_toplevel);
+  /* if (! top || ! GTK_IS_WINDOW (top)) */
+  /*     gtk_widget_hide (previous_toplevel); */
 }
 
 /* Callback called when Gtk+ thinks a tooltip should be displayed.
@@ -832,7 +833,7 @@ qttip_cb (GtkWidget  *widget,
       x->ttip_lbl = gtk_label_new ("");
       g_object_ref (G_OBJECT (x->ttip_lbl));
       gtk_tooltip_set_custom (tooltip, x->ttip_lbl);
-      x->ttip_window = GTK_WINDOW (gtk_widget_get_toplevel (x->ttip_lbl));
+      x->ttip_window = GTK_WINDOW (gtk_widget_get_root (x->ttip_lbl));
 
       /* Change stupid Gtk+ default line wrapping.  */
       p = gtk_widget_get_parent (x->ttip_lbl);
@@ -841,7 +842,9 @@ qttip_cb (GtkWidget  *widget,
 	{
 	  GtkWidget *w = GTK_WIDGET (iter->data);
 	  if (GTK_IS_LABEL (w))
-	    gtk_label_set_line_wrap (GTK_LABEL (w), FALSE);
+	    {
+	    //gtk_label_set_line_wrap (GTK_LABEL (w), FALSE);
+	    }
 	}
       g_list_free (list);
 
@@ -874,6 +877,7 @@ xg_prepare_tooltip (struct frame *f,
   GtkWidget *widget;
   //GtkWindow *gwin;
   //GdkScreen *screen;
+  GdkDisplay *gdpy;
   GtkSettings *settings;
   gboolean tt_enabled = TRUE;
   GtkRequisition req;
@@ -887,7 +891,8 @@ xg_prepare_tooltip (struct frame *f,
   widget = GTK_WIDGET (x->ttip_lbl);
   //gwin = gtk_widget_get_window (GTK_WIDGET (x->ttip_window));
   /* screen = gdk_window_get_screen (gwin); */
-  /* settings = gtk_settings_get_for_screen (screen); */
+  gdpy = gtk_widget_get_display(widget);
+  settings = gtk_settings_get_for_display (gdpy);
   g_object_get (settings, "gtk-enable-tooltips", &tt_enabled, NULL);
   if (tt_enabled)
     {
@@ -924,6 +929,10 @@ xg_show_tooltip (struct frame *f, int root_x, int root_y)
 {
 #ifdef USE_GTK_TOOLTIP
   xp_output *x = f->output_data.xp;
+#ifdef HAVE_GTK4
+  GdkSurface *surf = gtk_native_get_surface(gtk_widget_get_native(GTK_WIDGET (x->ttip_window)));
+  GdkRectangle *rect;
+#endif
   if (x->ttip_window)
     {
       block_input ();
@@ -933,9 +942,8 @@ xg_show_tooltip (struct frame *f, int root_x, int root_y)
       gtk_widget_show (GTK_WIDGET (x->ttip_window));
 #else
       gtk_widget_show (GTK_WIDGET (x->ttip_window));
-      gdk_surface_move (gtk_widget_get_surface(GTK_WIDGET (x->ttip_window)),
-			root_x / xg_get_scale (f),
-			root_y / xg_get_scale (f));
+      gdk_surface_move_to_rect(surf, rect, GDK_GRAVITY_NORTH_EAST, GDK_GRAVITY_NORTH_EAST, GDK_ANCHOR_FLIP,
+			       0,0);
 #endif
       unblock_input ();
     }
@@ -960,7 +968,7 @@ xg_hide_tooltip (struct frame *f)
       if (g_object_get_data (G_OBJECT (win), "restore-tt"))
 	{
 #ifdef HAVE_GTK4
-	  GtkWindow *gsurf = gtk_widget_get_surface (GTK_WIDGET (win));
+	  GtkWindow *gsurf = gtk_native_get_surface (gtk_widget_get_native (win));
 	  GdkDisplay *dpy = gdk_surface_get_display (gsurf);
 #else
 	  GtkWindow *gwin = gtk_widget_get_window (GTK_WIDGET (win));
@@ -1034,8 +1042,8 @@ xg_set_geometry (struct frame *f)
 
 	  /* GTK works in scaled pixels, so convert from X pixels.  */
 #ifdef HAVE_GTK4
-	  gdk_surface_move (FRAME_GTK_OUTER_WIDGET (f),
-			   f->left_pos / scale, f->top_pos / scale);
+	  /* gtk_window_move (FRAME_GTK_OUTER_WIDGET (f), */
+	  /*		   f->left_pos / scale, f->top_pos / scale); */
 #else
 	  gtk_window_move (GTK_WINDOW (FRAME_GTK_OUTER_WIDGET (f)),
 			   f->left_pos / scale, f->top_pos / scale);
@@ -1092,12 +1100,15 @@ void
 xg_frame_resized (struct frame *f, int pixelwidth, int pixelheight)
 {
   int width, height;
+  GdkSurface *gsurf = gtk_native_get_surface (gtk_widget_get_native(FRAME_GTK_WIDGET (f)));
 
   if (pixelwidth == -1 && pixelheight == -1)
     {
       if (FRAME_GTK_WIDGET (f) && gtk_widget_get_mapped (FRAME_GTK_WIDGET (f)))
-	gdk_surface_get_geometry (gtk_widget_get_surface (FRAME_GTK_WIDGET (f)),
-				 0, 0, &pixelwidth, &pixelheight);
+	{
+	  height = gdk_surface_get_height(gsurf);
+	  width = gdk_surface_get_width(gsurf);
+	}
       else
 	return;
     }
@@ -1149,16 +1160,14 @@ xg_frame_set_char_size (struct frame *f, int width, int height)
   if (FRAME_PIXEL_HEIGHT (f) == 0)
     return;
 
-#ifndef HAVE_GTK4
+/* #ifndef HAVE_GTK4   */
   gtk_window_get_size (GTK_WINDOW (FRAME_GTK_OUTER_WIDGET (f)),
 		       &gwidth, &gheight);
-#else
-  gdk_surface_get_geometry(FRAME_GTK_OUTER_WIDGET (f),
-			   NULL, NULL,
-			   &gwidth, &gheight);
-
-
-#endif
+/* #else */
+/*   gdk_surface_get_geometry(FRAME_GTK_OUTER_WIDGET (f), */
+/*			   NULL, NULL, */
+/*			   &gwidth, &gheight); */
+/* #endif */
 
   /* Do this before resize, as we don't know yet if we will be resized.  */
   FRAME_RIF (f)->clear_under_internal_border (f);
@@ -1183,26 +1192,26 @@ xg_frame_set_char_size (struct frame *f, int width, int height)
 	(f, Qxg_frame_set_char_size_1, width, height,
 	 list2i (gheight, totalheight));
 
-#ifdef HAVE_GTK4
-      gdk_surface_resize (FRAME_GTK_OUTER_WIDGET (f),
-			 gwidth, totalheight);
-#else
+/* #ifdef HAVE_GTK4 */
+/*       gdk_surface_resize (gtk_widget_get_surface(FRAME_GTK_OUTER_WIDGET (f)), */
+/*			 gwidth, totalheight); */
+/* #else */
       gtk_window_resize (GTK_WINDOW (FRAME_GTK_OUTER_WIDGET (f)),
 			 gwidth, totalheight);
-#endif
+/* #endif  */
     }
   else if (EQ (fullscreen, Qfullheight) && height == FRAME_TEXT_HEIGHT (f))
     {
       frame_size_history_add
 	(f, Qxg_frame_set_char_size_2, width, height,
 	 list2i (gwidth, totalwidth));
-#ifdef HAVE_GTK4
-      gdk_surface_resize (FRAME_GTK_OUTER_WIDGET (f),
-			 totalwidth, gheight);
-#else
+/* #ifdef HAVE_GTK4 */
+/*       gdk_surface_resize (FRAME_GTK_OUTER_WIDGET (f), */
+/*			 totalwidth, gheight); */
+/* #else */
       gtk_window_resize (GTK_WINDOW (FRAME_GTK_OUTER_WIDGET (f)),
 			 totalwidth, gheight);
-#endif
+/* #endif  */
     }
   else
     {
@@ -1210,13 +1219,13 @@ xg_frame_set_char_size (struct frame *f, int width, int height)
 	(f, Qxg_frame_set_char_size_3, width, height,
 	 list2i (totalwidth, totalheight));
 
-#ifdef HAVE_GTK4
-      gdk_surface_resize (FRAME_GTK_OUTER_WIDGET (f),
-			 totalwidth, totalheight);
-#else
+/* #ifdef HAVE_GTK4 */
+/*       gdk_surface_resize (FRAME_GTK_OUTER_WIDGET (f), */
+/*			 totalwidth, totalheight); */
+/* #else */
       gtk_window_resize (GTK_WINDOW (FRAME_GTK_OUTER_WIDGET (f)),
 			 totalwidth, totalheight);
-#endif
+/* #endif  */
       fullscreen = Qnil;
     }
 
@@ -1301,7 +1310,7 @@ xg_win_to_widget (Display *dpy, Window wdesc)
 static void
 xg_set_widget_bg (struct frame *f, GtkWidget *w, unsigned long pixel)
 {
-#ifdef HAVE_GTK3
+#if defined (HAVE_GTK4) || defined (HAVE_GTK4)
   Emacs_Color xbg;
   xbg.pixel = pixel;
 #ifndef HAVE_GTK4
@@ -1411,16 +1420,12 @@ delete_cb (GtkWidget *widget,
 bool
 xg_create_frame_widgets (struct frame *f)
 {
-#ifndef HAVE_GTK4
   GtkWidget *wtop;
-#else
-  GtkWindow *wtop;
-#endif
   GtkWidget *wvbox, *whbox;
   GtkWidget *wfixed;
-#ifndef HAVE_GTK3
-  GtkRcStyle *style;
-#endif
+/* #ifndef HAVE_GTK4 */
+/*   GtkRcStyle *style; */
+/* #endif */
   char *title = 0;
 
   GTK4_TRACE("xg_create_frame_widgets.");
@@ -1435,20 +1440,17 @@ xg_create_frame_widgets (struct frame *f)
   else
 #endif
     {
-      GdkDisplay *gdpy = gdk_display_get_default();// (FRAME_X_DISPLAY (f));
+      //      GdkDisplay *gdpy = gdk_display_get_default();// (FRAME_X_DISPLAY (f));
 
-    if (NILP(f->parent_frame))
-      {
-	wtop = gdk_surface_new_toplevel (gdpy, 40, 50);
-      }
-    else
-      {
-	GdkRectangle pos = {.x=4, .y=5, .height=50, .width=60};
-	wtop = gdk_surface_new_child (GDK_SURFACE (FRAME_GTK_OUTER_WIDGET(XFRAME(f->parent_frame))), &pos);
-	/* gtk_window_set_decorated(GTK_WINDOW (wtop), FALSE); */
-	/* gtk_window_set_transient_for(GTK_WINDOW (wtop), GTK_WINDOW (FRAME_GTK_OUTER_WIDGET(XFRAME(f->parent_frame)))); */
-	/* gtk_window_set_default_size(GTK_WINDOW(wtop), 30, 40); */
+      wtop = gtk_window_new (GTK_WINDOW_TOPLEVEL);
 
+      if (!NILP(f->parent_frame))
+      {
+	/* GdkRectangle pos = {.x=4, .y=5, .height=50, .width=60}; */
+	/* wtop = gdk_surface_new_child (GDK_SURFACE (FRAME_GTK_OUTER_WINDOW(XFRAME(f->parent_frame))), &pos); */
+	gtk_window_set_decorated(GTK_WINDOW (wtop), FALSE);
+	gtk_window_set_transient_for(GTK_WINDOW (wtop), GTK_WINDOW (FRAME_GTK_OUTER_WIDGET(XFRAME(f->parent_frame))));
+	gtk_window_set_default_size(GTK_WINDOW(wtop), 30, 40);
       }
     }
 #ifndef HAVE_GTK4
@@ -1459,7 +1461,7 @@ xg_create_frame_widgets (struct frame *f)
      has backported it to Gtk+ 2.0 and they add the resize grip for
      Gtk+ 2.0 applications also.  But it has a bug that makes Emacs loop
      forever, so disable the grip.  */
-#if (! defined HAVE_GTK3 \
+#if (! defined HAVE_GTK4 \
      && defined HAVE_GTK_WINDOW_SET_HAS_RESIZE_GRIP)
   gtk_window_set_has_resize_grip (GTK_WINDOW (wtop), FALSE);
 #endif
@@ -1471,7 +1473,7 @@ xg_create_frame_widgets (struct frame *f)
   gtk_box_set_homogeneous (GTK_BOX (wvbox), FALSE);
   gtk_box_set_homogeneous (GTK_BOX (whbox), FALSE);
 
-#ifdef HAVE_GTK3
+#ifdef HAVE_GTK4
   wfixed = emacs_fixed_new (f);
 #else
   wfixed = gtk_fixed_new ();
@@ -1508,7 +1510,7 @@ xg_create_frame_widgets (struct frame *f)
       store_frame_param (f, Qundecorated, Qt);
     }
 
-  FRAME_GTK_OUTER_WIDGET (f) = wtop;
+  FRAME_GTK_OUTER_WINDOW(f) = GTK_WINDOW (wtop);
   FRAME_GTK_WIDGET (f) = wfixed;
   f->output_data.xp->vbox_widget = wvbox;
   f->output_data.xp->hbox_widget = whbox;
@@ -1516,7 +1518,7 @@ xg_create_frame_widgets (struct frame *f)
 #ifndef HAVE_GTK4
   gtk_widget_set_has_window (wfixed, TRUE);
 #else
-  gtk_widget_set_has_surface (wfixed, TRUE);
+  //   gtk_widget_set_has_surface (wfixed, TRUE);
 #endif
 
   gtk_container_add (GTK_CONTAINER (wtop), wvbox);
@@ -1582,13 +1584,12 @@ xg_create_frame_widgets (struct frame *f)
 
   /* Must realize the windows so the X window gets created.  It is used
      by callers of this function.  */
-#ifndef HAVE_GTK4
-  gtk_widget_realize (wfixed);
-#else
-  gdk_surface_show(wtop);
-  GTK4_TRACE("___________________________gtk widget show");
-  //gtk_widget_show_all(wtop);
-#endif
+  //gtk_widget_realize (wfixed);
+
+  //gdk_surface_show(wtop);
+  /* GTK4_TRACE("___________________________gtk widget show"); */
+  //gtk_widget_show(wtop);
+
 #ifndef HAVE_GTK4
   FRAME_X_WINDOW (f) = GTK_WIDGET_TO_X_WIN (wfixed);
 #endif
@@ -1600,7 +1601,7 @@ xg_create_frame_widgets (struct frame *f)
      we must keep X and GTK background in sync.  */
   xg_set_widget_bg (f, wfixed, FRAME_BACKGROUND_PIXEL (f));
 
-#ifndef HAVE_GTK3
+#ifndef HAVE_GTK4
   /* Also, do not let any background pixmap to be set, this looks very
      bad as Emacs overwrites the background pixmap with its own idea
      of background color.  */
@@ -1618,7 +1619,7 @@ xg_create_frame_widgets (struct frame *f)
   if (FRAME_OVERRIDE_REDIRECT (f))
     {
 #ifdef HAVE_GTK4
-      GtkWindow *gwin = wtop;
+      GtkWindow *gwin = GTK_WINDOW (wtop);
       if (gwin)
 	{
 	}
@@ -1697,7 +1698,7 @@ xg_free_frame_widgets (struct frame *f)
 #ifndef HAVE_GTK4
       FRAME_X_RAW_DRAWABLE (f) = 0;
 #endif
-      FRAME_GTK_OUTER_WIDGET (f) = 0;
+      FRAME_GTK_OUTER_WINDOW (f) = 0;
 #ifdef USE_GTK_TOOLTIP
       if (x->ttip_lbl)
 	gtk_widget_destroy (x->ttip_lbl);
@@ -1898,8 +1899,8 @@ xg_frame_restack (struct frame *f1, struct frame *f2, bool above_flag)
       GtkWindow *gwin1 = gtk_widget_get_window (FRAME_GTK_OUTER_WIDGET (f1));
       GtkWindow *gwin2 = gtk_widget_get_window (FRAME_GTK_OUTER_WIDGET (f2));
 #else
-      GtkWindow *gwin1 = gtk_widget_get_surface (FRAME_GTK_OUTER_WIDGET (f1));
-      GtkWindow *gwin2 = gtk_widget_get_surface (FRAME_GTK_OUTER_WIDGET (f2));
+      GdkSurface *gwin1 = gtk_native_get_surface (gtk_widget_get_native(FRAME_GTK_OUTER_WIDGET (f1)));
+      GdkSurface *gwin2 = gtk_native_get_surface (gtk_widget_get_native(FRAME_GTK_OUTER_WIDGET (f2)));
 #endif
       Lisp_Object frame1, frame2;
 
@@ -2599,7 +2600,7 @@ xg_get_file_name (struct frame *f,
 
 #ifdef HAVE_FREETYPE
 
-#ifdef HAVE_GTK3
+#ifdef HAVE_GTK4
 
 #define XG_WEIGHT_TO_SYMBOL(w)			\
   (w <= PANGO_WEIGHT_THIN ? Qextra_light	\
@@ -2616,7 +2617,7 @@ xg_get_file_name (struct frame *f,
    : s == PANGO_STYLE_ITALIC ? Qitalic		\
    : Qnormal)
 
-#endif /* HAVE_GTK3 */
+#endif /* HAVE_GTK4 */
 
 
 static char *x_last_font_name;
@@ -2663,8 +2664,8 @@ xg_get_font (struct frame *f, const char *default_name)
   done = xg_dialog_run (f, w);
   if (done == GTK_RESPONSE_OK)
     {
-#ifdef HAVE_GTK3
-      /* Use the GTK3 font chooser.  */
+#ifdef HAVE_GTK4
+      /* Use the GTK4 font chooser.  */
       PangoFontDescription *desc
 	= gtk_font_chooser_get_font_desc (GTK_FONT_CHOOSER (w));
 
@@ -2696,7 +2697,7 @@ xg_get_font (struct frame *f, const char *default_name)
 	  g_free (x_last_font_name);
 	  x_last_font_name = font_name;
 	}
-#endif /* HAVE_GTK3 */
+#endif /* HAVE_GTK4 */
     }
 
   gtk_widget_destroy (w);
@@ -4061,7 +4062,8 @@ xg_get_widget_from_map (ptrdiff_t idx)
 static void
 update_theme_scrollbar_width (void)
 {
-#ifdef HAVE_GTK3
+#if 0
+#ifdef HAVE_GTK4
   GtkAdjustment *vadj;
 #else
   GtkObject *vadj;
@@ -4076,16 +4078,18 @@ update_theme_scrollbar_width (void)
   gtk_widget_destroy (wscroll);
   g_object_unref (G_OBJECT (wscroll));
   w += 2*b;
-#ifndef HAVE_GTK3
+#ifndef HAVE_GTK4
   if (w < 16) w = 16;
 #endif
   scroll_bar_width_for_theme = w;
+#endif
 }
 
 static void
 update_theme_scrollbar_height (void)
 {
-#ifdef HAVE_GTK3
+#if 0
+#ifdef HAVE_GTK4
   GtkAdjustment *hadj;
 #else
   GtkObject *hadj;
@@ -4102,6 +4106,7 @@ update_theme_scrollbar_height (void)
   w += 2*b;
   if (w < 12) w = 12;
   scroll_bar_height_for_theme = w;
+#endif
 }
 
 int
@@ -4164,7 +4169,7 @@ xg_finish_scroll_bar_creation (struct frame *f,
 #endif
 
   gtk_widget_set_name (wscroll, scroll_bar_name);
-#ifndef HAVE_GTK3
+#ifndef HAVE_GTK4
   gtk_range_set_update_policy (GTK_RANGE (wscroll), GTK_UPDATE_CONTINUOUS);
 #endif
   g_object_set_data (G_OBJECT (wscroll), XG_FRAME_DATA, (gpointer)f);
@@ -4232,7 +4237,7 @@ xg_create_scroll_bar (struct frame *f,
 		      const char *scroll_bar_name)
 {
   GtkWidget *wscroll;
-#ifdef HAVE_GTK3
+#ifdef HAVE_GTK4
   GtkAdjustment *vadj;
 #else
   GtkObject *vadj;
@@ -4264,7 +4269,7 @@ xg_create_horizontal_scroll_bar (struct frame *f,
 				 const char *scroll_bar_name)
 {
   GtkWidget *wscroll;
-#ifdef HAVE_GTK3
+#ifdef HAVE_GTK4
   GtkAdjustment *hadj;
 #else
   GtkObject *hadj;
@@ -4658,10 +4663,10 @@ xg_event_is_for_scrollbar (struct frame *f, const EVENT *event)
       GtkWindow *gwin;
 #else
       GdkDisplay *gdpy = FRAME_X_DISPLAY(f);
-      GtkWindow *surface;
+      GdkSurface *surface;
 #endif
 
-#if defined(HAVE_GTK3) | defined(HAVE_GTK4)
+#if defined(HAVE_GTK4) | defined(HAVE_GTK4)
 #if GTK_CHECK_VERSION (3, 20, 0)
       GdkDevice *gdev
 	= gdk_seat_get_pointer (gdk_display_get_default_seat (gdpy));
@@ -4681,7 +4686,7 @@ xg_event_is_for_scrollbar (struct frame *f, const EVENT *event)
 #ifndef HAVE_GTK4
       retval = gwin != gtk_widget_get_window (f->output_data.xp->edit_widget);
 #else
-      retval = surface != gtk_widget_get_surface (f->output_data.xp->edit_widget);
+      retval = surface != gtk_native_get_surface (gtk_widget_get_native(f->output_data.xp->edit_widget));
 #endif
 
     }
@@ -4948,7 +4953,7 @@ xg_tool_bar_help_callback (GtkWidget *w,
 }
 
 
-#ifndef HAVE_GTK3
+#ifndef HAVE_GTK4
 /* This callback is called when a tool bar item shall be redrawn.
    It modifies the expose event so that the GtkImage widget redraws the
    whole image.  This to overcome a bug that makes GtkImage draw the image
@@ -5064,7 +5069,7 @@ static void
 xg_create_tool_bar (struct frame *f)
 {
   xp_output *x = f->output_data.xp;
-#ifdef HAVE_GTK3
+#ifdef HAVE_GTK4
   GtkStyleContext *gsty;
 #endif
   struct xg_frame_tb_info *tbinfo
@@ -5092,7 +5097,7 @@ xg_create_tool_bar (struct frame *f)
 				  GTK_ORIENTATION_HORIZONTAL);
   g_signal_connect (x->toolbar_widget, "size-allocate",
 		    G_CALLBACK (tb_size_cb), f);
-#ifdef HAVE_GTK3
+#ifdef HAVE_GTK4
   gsty = gtk_widget_get_style_context (x->toolbar_widget);
   gtk_style_context_add_class (gsty, "primary-toolbar");
 #endif
@@ -5145,7 +5150,7 @@ xg_make_tool_item (struct frame *f,
   GtkWidget *wb = gtk_button_new ();
   /* The eventbox is here so we can have tooltips on disabled items.  */
   //GtkWidget *weventbox = gtk_event_box_new ();
-#ifdef HAVE_GTK3
+#ifdef HAVE_GTK4
   GtkCssProvider *css_prov = gtk_css_provider_new ();
   GtkStyleContext *gsty;
 
@@ -5201,7 +5206,7 @@ xg_make_tool_item (struct frame *f,
 
       //g_object_set_data (G_OBJECT (weventbox), XG_FRAME_DATA, (gpointer)f);
 
-#ifndef HAVE_GTK3
+#ifndef HAVE_GTK4
       /* Catch expose events to overcome an annoying redraw bug, see
 	 comment for xg_tool_bar_item_expose_callback.  */
       g_signal_connect (G_OBJECT (ti),
@@ -5242,7 +5247,7 @@ xg_make_tool_item (struct frame *f,
 static bool
 is_box_type (GtkWidget *vb, bool is_horizontal)
 {
-#ifdef HAVE_GTK3
+#ifdef HAVE_GTK4
   bool ret = 0;
   if (GTK_IS_BOX (vb))
     {
@@ -5359,7 +5364,7 @@ find_icon_from_name (char *name,
 		     GtkIconTheme *icon_theme,
 		     char **icon_name)
 {
-#ifndef HAVE_GTK3
+#ifndef HAVE_GTK4
   GtkStockItem stock_item;
 #endif
 
@@ -5372,7 +5377,7 @@ find_icon_from_name (char *name,
 	*icon_name = NULL;
     }
 
-#ifndef HAVE_GTK3
+#ifndef HAVE_GTK4
   else if (gtk_stock_lookup (name, &stock_item))
     *icon_name = NULL;
 #endif
@@ -5633,7 +5638,7 @@ update_frame_tool_bar (struct frame *f)
 
 #ifdef HAVE_GTK4
 	      w = gtk_image_new_from_icon_name (stock_name);
-#elif HAVE_GTK3
+#elif HAVE_GTK4
 	      w = gtk_image_new_from_icon_name (stock_name, icon_size);
 #else
 	      w = gtk_image_new_from_stock (stock_name, icon_size);
@@ -5659,7 +5664,7 @@ update_frame_tool_bar (struct frame *f)
 	    }
 	  else
 	    {
-	      w = xg_get_image_for_pixmap (f, img, x->widget, NULL);
+	      w = xg_get_image_for_pixmap (f, img, GTK_WIDGET (x->widget), NULL);
 	      g_object_set_data (G_OBJECT (w), XG_TOOL_BAR_IMAGE_DATA,
 #ifdef USE_CAIRO
 				 (gpointer)img->cr_data
@@ -5843,7 +5848,7 @@ xg_initialize (void)
 #else
   settings = gtk_settings_get_for_display (gdk_display_get_default());
 #endif
-#ifndef HAVE_GTK3
+#ifndef HAVE_GTK4
   /* Remove F10 as a menu accelerator, it does not mix well with Emacs key
      bindings.  It doesn't seem to be any way to remove properties,
      so we set it to "" which in means "no key".  */

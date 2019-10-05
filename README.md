@@ -25,7 +25,7 @@ mkdir /tmp/emacs
 cd /tmp/emacs
 wget https://raw.githubusercontent.com/masm11/emacs/master/PKGBUILD
 makepkg -s
-sudo pacman -U emacs-pgtk*.tar.xz
+sudo pacman -U emacs-gtk4*.tar.xz
 ```
 
 ## Running
@@ -37,7 +37,7 @@ GDK_BACKEND=wayland ./emacs  (or try ./emacs -Q if you have problems.)
 
 ## X11 and Wayland
 
-Of course, PGTK supports X11 and Wayland connections.
+Of course, GTK4 supports X11 and Wayland connections.
 
 You can use `GDK_BACKEND` environment variable and `--display` option,
 and you can do `(make-frame-on-display display-name)` with display-name of
@@ -46,7 +46,7 @@ different backend from the first frame.
 You can know which backend is used for a frame:
 
 ```elisp
-(pgtk-backend-display-class)
+(gtk4-backend-display-class)
 ```
 
 This returns `"GdkWaylandDisplay"` for Wayland, or `"GdkX11Display"` for X11.
@@ -61,7 +61,7 @@ Gtk/Gdk can't handle it even if on X11, so I implemented similar feature using g
 
 Saving:
 ```elisp
-(pgtk-set-resource "background" "gray")
+(gtk4-set-resource "background" "gray")
 ```
 
 Getting:
@@ -99,10 +99,10 @@ I may not develop them because I don't use them.
 
 ## Debugging
 
-Edit src/pgtkterm.h to uncomment:
+Edit src/gtk4term.h to uncomment:
 
 ```c
-#define PGTK_DEBUG 1
+#define GTK4_DEBUG 1
 ```
 
 It enables so much debugging outputs.
@@ -120,7 +120,7 @@ By default, color fonts are ignored.
 To use them, you can write this code in `~/.emacs`:
 
 ```elisp
-(when (featurep 'pgtk)
+(when (featurep 'gtk4)
   (setq xft-ignore-color-fonts nil))
 ```
 

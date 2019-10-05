@@ -24,7 +24,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "lisp.h"
 #include "dynlib.h"
-#include "pgtkconn.h"
+#include "gtk4conn.h"
 
 
 /***
@@ -33,9 +33,9 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #ifdef GDK_WINDOWING_WAYLAND
 
-#include <gdk/gdkwayland.h>
+#include <gdk/wayland/gdkwayland.h>
 
-static int pgtk_detect_wayland_connection(dynlib_handle_ptr h, GdkDisplay *gdpy)
+static int gtk4_detect_wayland_connection(dynlib_handle_ptr h, GdkDisplay *gdpy)
 {
   /* Check gdpy is an instance of GdkWaylandDisplay. */
   if (!GDK_IS_WAYLAND_DISPLAY (gdpy))
@@ -55,9 +55,9 @@ static int pgtk_detect_wayland_connection(dynlib_handle_ptr h, GdkDisplay *gdpy)
 
 #ifdef GDK_WINDOWING_X11
 
-#include <gdk/gdkx.h>
+#include <gdk/x11/gdkx.h>
 
-static int pgtk_detect_x11_connection(dynlib_handle_ptr h, GdkDisplay *gdpy)
+static int gtk4_detect_x11_connection(dynlib_handle_ptr h, GdkDisplay *gdpy)
 {
   /* Check gdpy is an instance of GdkX11Display. */
   if (!GDK_IS_X11_DISPLAY (gdpy))
@@ -74,7 +74,7 @@ static int pgtk_detect_x11_connection(dynlib_handle_ptr h, GdkDisplay *gdpy)
 
 #endif
 
-int pgtk_detect_connection(GdkDisplay *gdpy)
+int gtk4_detect_connection(GdkDisplay *gdpy)
 {
   static dynlib_handle_ptr h = NULL;
   int fd;
@@ -87,12 +87,12 @@ int pgtk_detect_connection(GdkDisplay *gdpy)
   }
 
 #ifdef GDK_WINDOWING_X11
-  if ((fd = pgtk_detect_x11_connection(h, gdpy)) != -1)
+  if ((fd = gtk4_detect_x11_connection(h, gdpy)) != -1)
     return fd;
 #endif
 
 #ifdef GDK_WINDOWING_WAYLAND
-  if ((fd = pgtk_detect_wayland_connection(h, gdpy)) != -1)
+  if ((fd = gtk4_detect_wayland_connection(h, gdpy)) != -1)
     return fd;
 #endif
 

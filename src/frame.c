@@ -260,8 +260,8 @@ See also `frame-live-p'.  */)
       return Qpc;
     case output_ns:
       return Qns;
-    case output_pgtk:
-      return Qpgtk;
+    case output_gtk4:
+      return Qgtk4;
     default:
       emacs_abort ();
     }
@@ -2102,7 +2102,7 @@ delete_frame (Lisp_Object frame, Lisp_Object force)
        builds (see Bug#5802, Bug#21509, Bug#23499, Bug#27816), we now
        don't delete the terminal for these builds either.  */
     if (terminal->reference_count == 0 &&
-	(terminal->type == output_x_window || terminal->type == output_pgtk))
+	(terminal->type == output_x_window || terminal->type == output_gtk4))
       terminal->reference_count = 1;
 #endif /* USE_X_TOOLKIT || USE_GTK */
     if (terminal->reference_count == 0)
@@ -4590,14 +4590,14 @@ gui_set_border_width (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
   if (XFIXNUM (arg) == f->border_width)
     return;
 
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
   if (FRAME_NATIVE_WINDOW (f) != 0)
     error ("Cannot change the border width of a frame");
 #endif
 
   f->border_width = XFIXNUM (arg);
 
-#ifdef HAVE_PGTK
+#ifdef HAVE_GTK4
   if (FRAME_TERMINAL (f)->frame_rehighlight_hook)
     (*FRAME_TERMINAL (f)->frame_rehighlight_hook) (f);
 #endif
@@ -5685,7 +5685,7 @@ selected frame.  This is useful when `make-pointer-invisible' is set.  */)
 
 #ifdef HAVE_WINDOW_SYSTEM
 
-# if (defined USE_GTK || defined HAVE_PGTK || defined HAVE_NS || defined HAVE_XINERAMA \
+# if (defined USE_GTK || defined HAVE_GTK4 || defined HAVE_NS || defined HAVE_XINERAMA \
       || defined HAVE_XRANDR)
 void
 free_monitors (struct MonitorInfo *monitors, int n_monitors)
@@ -5812,7 +5812,7 @@ syms_of_frame (void)
   DEFSYM (Qw32, "w32");
   DEFSYM (Qpc, "pc");
   DEFSYM (Qns, "ns");
-  DEFSYM (Qpgtk, "pgtk");
+  DEFSYM (Qgtk4, "gtk4");
   DEFSYM (Qvisible, "visible");
   DEFSYM (Qbuffer_predicate, "buffer-predicate");
   DEFSYM (Qbuffer_list, "buffer-list");

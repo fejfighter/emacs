@@ -47,7 +47,7 @@
 	  (pcase (url-device-type)
 	    ('x "X11")
 	    ('ns "OpenStep")
-	    ('pgtk "PureGTK")
+	    ('gtk4 "GTK4")
 	    ('tty "TTY")
 	    (_ nil)))))
 

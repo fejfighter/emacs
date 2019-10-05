@@ -22,10 +22,10 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include <cairo-ft.h>
 
 #include "lisp.h"
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
 #include "xterm.h"
 #else
-#include "pgtkterm.h"
+#include "gtk4term.h"
 #endif
 #include "blockinput.h"
 #include "charset.h"
@@ -497,18 +497,18 @@ ftcrfont_draw (struct glyph_string *s,
 
   block_input ();
 
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
   cr = x_begin_cr_clip (f, s->gc);
 #else
-  cr = pgtk_begin_cr_clip (f);
+  cr = gtk4_begin_cr_clip (f);
 #endif
 
   if (with_background)
     {
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
       x_set_cr_source_with_gc_background (f, s->gc);
 #else
-      pgtk_set_cr_source_with_color (f, s->xgcv.background);
+      gtk4_set_cr_source_with_color (f, s->xgcv.background);
 #endif
       cairo_rectangle (cr, x, y - FONT_BASE (face->font),
 		       s->width, FONT_HEIGHT (face->font));
@@ -526,18 +526,18 @@ ftcrfont_draw (struct glyph_string *s,
                                                        NULL));
     }
 
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
   x_set_cr_source_with_gc_foreground (f, s->gc);
 #else
-  pgtk_set_cr_source_with_color (f, s->xgcv.foreground);
+  gtk4_set_cr_source_with_color (f, s->xgcv.foreground);
 #endif
   cairo_set_scaled_font (cr, ftcrfont_info->cr_scaled_font);
   cairo_show_glyphs (cr, glyphs, len);
 
-#ifndef HAVE_PGTK
+#ifndef HAVE_GTK4
   x_end_cr_clip (f);
 #else
-  pgtk_end_cr_clip (f);
+  gtk4_end_cr_clip (f);
 #endif
 
   unblock_input ();

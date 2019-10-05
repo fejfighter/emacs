@@ -5937,8 +5937,8 @@ garbage_collect_1 (struct gcstat *gcst)
   mark_terminals ();
   mark_kboards ();
   mark_threads ();
-#ifdef HAVE_PGTK
-  mark_pgtkterm();
+#ifdef HAVE_GTK4
+  mark_gtk4term();
 #endif
 
 #if defined(USE_GTK)

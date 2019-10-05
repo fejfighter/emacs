@@ -132,10 +132,10 @@ typedef Emacs_Pixmap Emacs_Pix_Context;
 #define FACE_COLOR_TO_PIXEL(face_color, frame) face_color
 #endif
 
-#ifdef HAVE_PGTK
-#include "pgtkgui.h"
+#ifdef HAVE_GTK4
+#include "gtk4gui.h"
 /* Following typedef needed to accommodate the MSDOS port, believe it or not.  */
-typedef struct pgtk_display_info Display_Info;
+typedef struct gtk4_display_info Display_Info;
 typedef Emacs_Pixmap XImagePtr;
 typedef XImagePtr XImagePtr_or_DC;
 #endif
@@ -1383,7 +1383,7 @@ struct glyph_string
   Emacs_GC *gc;
   HDC hdc;
 #endif
-#if defined (HAVE_PGTK)
+#if defined (HAVE_GTK4)
   Emacs_GC xgcv;
 #endif
 

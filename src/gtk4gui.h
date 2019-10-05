@@ -16,8 +16,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
-#ifndef __PGTKGUI_H__
-#define __PGTKGUI_H__
+#ifndef __GTK4GUI_H__
+#define __GTK4GUI_H__
 
 /* Emulate XCharStruct.  */
 typedef struct _XCharStruct
@@ -123,4 +123,4 @@ typedef double CGFloat;
    (nr).width  = (pwidth),				\
    (nr).height = (pheight))
 
-#endif  /* __PGTKGUI_H__ */
+#endif  /* __GTK4GUI_H__ */

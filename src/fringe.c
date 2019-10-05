@@ -31,7 +31,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "termhooks.h"
 #include "pdumper.h"
 
-#include "pgtkterm.h"
+#include "gtk4term.h"
 
 /* Fringe bitmaps are represented in three different ways:
 
@@ -1397,7 +1397,7 @@ If BITMAP overrides a standard fringe bitmap, the original bitmap is restored.  
    On W32 and MAC (little endian), there's no need to do this.
 */
 
-#if defined (HAVE_X_WINDOWS) || defined(HAVE_PGTK)
+#if defined (HAVE_X_WINDOWS) || defined(HAVE_GTK4)
 static const unsigned char swap_nibble[16] = {
   0x0, 0x8, 0x4, 0xc,           /* 0000 1000 0100 1100 */
   0x2, 0xa, 0x6, 0xe,           /* 0010 1010 0110 1110 */
@@ -1460,7 +1460,7 @@ init_fringe_bitmap (int which, struct fringe_bitmap *fb, int once_p)
 #endif /* not USE_CAIRO */
 #endif /* HAVE_X_WINDOWS */
 
-#if !defined(HAVE_X_WINDOWS) && defined (HAVE_PGTK)
+#if !defined(HAVE_X_WINDOWS) && defined (HAVE_GTK4)
       unsigned short *bits = fb->bits;
       int j;
 
@@ -1477,7 +1477,7 @@ init_fringe_bitmap (int which, struct fringe_bitmap *fb, int once_p)
 	  *bits++ = (b >> (16 - fb->width));
 #endif
 	}
-#endif /* !HAVE_X_WINDOWS && HAVE_PGTK */
+#endif /* !HAVE_X_WINDOWS && HAVE_GTK4 */
 
 #ifdef HAVE_NTGUI
       unsigned short *bits = fb->bits;

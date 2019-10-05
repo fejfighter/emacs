@@ -14125,7 +14125,7 @@ redisplay_internal (void)
   if (!fr->glyphs_initialized_p)
     return;
 
-#if defined (USE_X_TOOLKIT) || (defined (USE_GTK) && !defined(HAVE_PGTK)) || defined (HAVE_NS)
+#if defined (USE_X_TOOLKIT) || (defined (USE_GTK) && !defined(HAVE_GTK4)) || defined (HAVE_NS)
   if (popup_activated ())
     {
       return;
@@ -23461,8 +23461,8 @@ display_menu_bar (struct window *w)
   if (FRAME_W32_P (f))
     return;
 #endif
-#if defined (HAVE_PGTK)
-  if (FRAME_PGTK_P (f))
+#if defined (HAVE_GTK4)
+  if (FRAME_GTK4_P (f))
     return;
 #endif
 
@@ -31657,7 +31657,7 @@ note_mouse_highlight (struct frame *f, int x, int y)
   struct buffer *b;
 
   /* When a menu is active, don't highlight because this looks odd.  */
-#if defined (USE_X_TOOLKIT) || (defined (USE_GTK) && !defined(HAVE_PGTK)) || defined (HAVE_NS) || defined (MSDOS)
+#if defined (USE_X_TOOLKIT) || (defined (USE_GTK) && !defined(HAVE_GTK4)) || defined (HAVE_NS) || defined (MSDOS)
   if (popup_activated ())
     return;
 #endif

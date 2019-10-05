@@ -59,10 +59,10 @@ extern Lisp_Object ns_menu_show (struct frame *, int, int, int,
 				 Lisp_Object, const char **);
 extern void ns_activate_menubar (struct frame *);
 #endif
-#ifdef HAVE_PGTK
-extern Lisp_Object pgtk_menu_show (struct frame *, int, int, int,
+#ifdef HAVE_GTK4
+extern Lisp_Object gtk4_menu_show (struct frame *, int, int, int,
 				 Lisp_Object, const char **);
-extern void pgtk_activate_menubar (struct frame *);
+extern void gtk4_activate_menubar (struct frame *);
 #endif
 
 extern Lisp_Object tty_menu_show (struct frame *, int, int, int,

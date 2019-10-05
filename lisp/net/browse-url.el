@@ -800,8 +800,8 @@ as ARGS."
     (let ((dpy (frame-parameter nil 'display))
           classname)
       (cond
-       ((featurep 'pgtk)
-        (setq classname (pgtk-backend-display-class))
+       ((featurep 'gtk4)
+        (setq classname (gtk4-backend-display-class))
         (if (equal classname "GdkWaylandDisplay")
             (setenv "WAYLAND_DISPLAY" dpy)
           (setenv "DISPLAY" dpy)))

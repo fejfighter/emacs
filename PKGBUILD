@@ -60,11 +60,11 @@ NOGZ=             # Don't compress el files.
 if [[ BRANCH = "emacs-26" ]]; then
   pkgname=emacs26-git
 else
-  pkgname=emacs-pgtk
+  pkgname=emacs-gtk4
 fi
 pkgver=27.0.50.131872
 pkgrel=1
-pkgdesc="GNU Emacs. PGTK Development."
+pkgdesc="GNU Emacs. GTK4 Development."
 arch=('x86_64') # Arch Linux only. Users of derivatives are on their own.
 url="https://github.com/masm11/emacs/"
 license=('GPL3')
@@ -140,11 +140,11 @@ fi
 #######################################################################
 conflicts=('emacs')
 provides=('emacs')
-source=("emacs-pgtk::git+https://github.com/masm11/emacs#branch=$BRANCH")
+source=("emacs-gtk4::git+https://github.com/masm11/emacs#branch=$BRANCH")
 md5sums=('SKIP')
 
 pkgver() {
-  cd "$srcdir/emacs-pgtk"
+  cd "$srcdir/emacs-gtk4"
 
   printf "%s.%s" \
     "$(grep AC_INIT configure.ac | \
@@ -156,12 +156,12 @@ pkgver() {
 # There is no need to run autogen.sh after first checkout.
 # Doing so, breaks incremental compilation.
 prepare() {
-  cd "$srcdir/emacs-pgtk"
+  cd "$srcdir/emacs-gtk4"
   [[ -x configure ]] || ( ./autogen.sh git && ./autogen.sh autoconf )
 }
 
 build() {
-  cd "$srcdir/emacs-pgtk"
+  cd "$srcdir/emacs-gtk4"
 
   local _conf=(
     --prefix=/usr
@@ -254,7 +254,7 @@ fi
   make
 
   # You may need to run this if 'loaddefs.el' files corrupt.
-  #cd "$srcdir/emacs-pgtk/lisp"
+  #cd "$srcdir/emacs-gtk4/lisp"
   #make autoloads
   #cd ../
 
@@ -272,7 +272,7 @@ fi
 }
 
 package() {
-  cd "$srcdir/emacs-pgtk"
+  cd "$srcdir/emacs-gtk4"
 
   make DESTDIR="$pkgdir/" install
 

@@ -229,7 +229,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #define GCGraphicsExposures 0
 #endif /* HAVE_NS */
 
-#ifdef HAVE_PGTK
+#ifdef HAVE_GTK4
 #define GCGraphicsExposures 0
 #endif /* HAVE_NS */
 #endif /* HAVE_WINDOW_SYSTEM */
@@ -557,8 +557,8 @@ x_free_gc (struct frame *f, Emacs_GC *gc)
 }
 #endif  /* HAVE_NS */
 
-#ifdef HAVE_PGTK
-/* PGTK emulation of GCs */
+#ifdef HAVE_GTK4
+/* GTK4 emulation of GCs */
 
 static Emacs_GC *
 x_create_gc (struct frame *f,

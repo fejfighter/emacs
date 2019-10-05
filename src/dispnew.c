@@ -6198,14 +6198,14 @@ init_display_interactive (void)
     }
 #endif
 
-#ifdef HAVE_PGTK
+#ifdef HAVE_GTK4
   if (!inhibit_window_system
 #ifndef CANNOT_DUMP
      && initialized
 #endif
       )
     {
-      Vinitial_window_system = Qpgtk;
+      Vinitial_window_system = Qgtk4;
       Vwindow_system_version = make_fixnum (1);
       return;
     }
