@@ -1471,7 +1471,7 @@ xg_create_frame_widgets (struct frame *f)
   gtk_box_set_homogeneous (GTK_BOX (wvbox), FALSE);
   gtk_box_set_homogeneous (GTK_BOX (whbox), FALSE);
 
-#ifdef HAVE_GTK3
+#ifdef HAVE_GTK4
   wfixed = emacs_fixed_new (f);
 #else
   wfixed = gtk_fixed_new ();
@@ -1516,7 +1516,7 @@ xg_create_frame_widgets (struct frame *f)
 #ifndef HAVE_GTK4
   gtk_widget_set_has_window (wfixed, TRUE);
 #else
-  gtk_widget_set_has_surface (wfixed, TRUE);
+  //  gtk_widget_set_has_surface (wfixed, TRUE);
 #endif
 
   gtk_container_add (GTK_CONTAINER (wtop), wvbox);
@@ -1585,9 +1585,9 @@ xg_create_frame_widgets (struct frame *f)
 #ifndef HAVE_GTK4
   gtk_widget_realize (wfixed);
 #else
-  gdk_surface_show(wtop);
+  //gdk_surface_show(wtop);
   GTK4_TRACE("___________________________gtk widget show");
-  //gtk_widget_show_all(wtop);
+  gtk_widget_show(wtop);
 #endif
 #ifndef HAVE_GTK4
   FRAME_X_WINDOW (f) = GTK_WIDGET_TO_X_WIN (wfixed);

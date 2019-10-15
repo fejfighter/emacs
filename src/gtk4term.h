@@ -24,11 +24,12 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "font.h"
 #include "sysselect.h"
 
+
 #ifdef HAVE_GTK4
 
 #include <gtk/gtk.h>
 
-#define GTK4_DEBUG 1
+#define GTK4_DEBUG
 
 #ifdef GTK4_DEBUG
 extern void gtk4_log(const char *file, int lineno, const char *fmt, ...)
@@ -606,6 +607,7 @@ extern void gtk4_set_scroll_bar_default_height (struct frame *f);
 extern Lisp_Object x_get_focus_frame (struct frame *frame);
 
 extern void gtk4_frame_rehighlight (struct gtk4_display_info *dpyinfo);
+extern void update_frame_tool_bar (struct frame *f);
 
 
 #endif	/* HAVE_GTK4 */

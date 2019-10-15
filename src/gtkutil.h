@@ -153,7 +153,9 @@ extern bool xg_event_is_for_scrollbar (struct frame *, const EVENT *);
 extern int xg_get_default_scrollbar_width (struct frame *f);
 extern int xg_get_default_scrollbar_height (struct frame *f);
 
+#ifndef HAVE_GTK4
 extern void update_frame_tool_bar (struct frame *f);
+#endif
 extern void free_frame_tool_bar (struct frame *f);
 extern void xg_change_toolbar_position (struct frame *f, Lisp_Object pos);
 

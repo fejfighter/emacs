@@ -52,7 +52,14 @@ static void emacs_fixed_get_preferred_height (GtkWidget *widget,
 					      gint      *minimum,
 					      gint      *natural);
 static GType emacs_fixed_get_type (void);
+/* static void             gtk_emacsfixed_native_interface_init (GtkNativeInterface  *iface); */
+
 G_DEFINE_TYPE (EmacsFixed, emacs_fixed, GTK_TYPE_FIXED)
+
+/* G_DEFINE_TYPE_WITH_CODE (EmacsFixed, emacs_fixed, GTK_TYPE_FIXED, */
+/*			   G_IMPLEMENT_INTERFACE (GTK_TYPE_NATIVE, */
+/*						  gtk_emacsfixed_native_interface_init)) */
+
 
 static EmacsFixed *
 EMACS_FIXED (GtkWidget *widget)
@@ -147,6 +154,115 @@ emacs_fixed_gtk_widget_size_allocate (GtkWidget *widget,
 
 #endif  /* HAVE_XWIDGETS */
 
+#if 0 //def HAVE_GTK4
+#define FRAME_CR_SURFACE(f)	((f)->output_data.gtk4->cr_surface)
+
+static GdkSurface *
+gtk_emacsfixed_native_get_surface (GtkNative *native)
+{
+  /* GtkWindow *self = GTK_WINDOW (native); */
+  /* GtkWindowPrivate *priv = gtk_emacsfixed_get_instance_private (self); */
+
+  /* return priv->surface; */
+
+  GTK4_TRACE("snapshot____");
+  EmacsFixed *fixed = EMACS_FIXED (native);
+  EmacsFixedPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE (native, emacs_fixed_get_type (),
+				      EmacsFixedPrivate);
+
+  return FRAME_CR_SURFACE (priv->f);
+
+  /* return NULL; */
+}
+
+static GskRenderer *
+gtk_emacsfixed_native_get_renderer (GtkNative *native)
+{
+  /* GtkWindow *self = GTK_WINDOW (native); */
+  /* GtkWindowPrivate *priv = gtk_emacsfixed_get_instance_private (self); */
+
+  /* return priv->renderer; */
+  return NULL;
+}
+
+static void
+gtk_emacsfixed_native_get_surface_transform (GtkNative *native,
+					 int       *x,
+					 int       *y)
+{
+  GtkWindow *self = GTK_WINDOW (native);
+  GtkStyleContext *context;
+  GtkBorder margin, border, padding;
+
+  context = gtk_widget_get_style_context (GTK_WIDGET (self));
+  gtk_style_context_get_margin (context, &margin);
+  gtk_style_context_get_border (context, &border);
+  gtk_style_context_get_padding (context, &padding);
+
+  *x = margin.left + border.left + padding.left;
+  *y = margin.top + border.top + padding.top;
+}
+
+static void
+gtk_emacsfixed_native_check_resize (GtkNative *native)
+{
+  //  gtk_emacsfixed_check_resize (GTK_WINDOW (native));
+}
+
+
+static void gtk_emacsfixed_native_interface_init (GtkNativeInterface  *iface)
+{
+  iface->get_renderer = gtk_emacsfixed_native_get_renderer;
+  iface->get_surface = gtk_emacsfixed_native_get_surface;
+  iface->get_surface_transform = gtk_emacsfixed_native_get_surface_transform;
+  iface->check_resize = gtk_emacsfixed_native_check_resize;
+}
+#endif
+#if 1
+#define FRAME_CR_SURFACE(f)	((f)->output_data.gtk4->cr_surface)
+
+static void emacs_fixed_snapshot (GtkWidget   *widget,
+				  GtkSnapshot *snapshot)
+{
+  GTK4_TRACE("snapshot____");
+  EmacsFixed *fixed = EMACS_FIXED (widget);
+  EmacsFixedPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE (fixed, emacs_fixed_get_type (),
+				      EmacsFixedPrivate);
+
+
+  //EmacsFixedPrivate *priv = fixed->priv;
+  //GList *list;
+  cairo_t *cr =  gtk4_begin_cr_clip(priv->f);
+  cairo_surface_t *src = NULL;
+
+
+  /* priv = G_TYPE_INSTANCE_GET_PRIVATE (widget, GTK_TYPE_FIXED, */
+  /*				      ); */
+  //struct GtkFixedPrivateL *priv;
+
+  /* for (list = priv->children; list != NULL; list = list->next) */
+  /*   { */
+  /*     // we have none? */
+  /*   } */
+
+  //gtk_widget_snapshot_child(widget, GTK_WIDGET(&fixed->container), snapshot);
+
+  /* cr = gtk_snapshot_append_cairo (snapshot,   &GRAPHENE_RECT_INIT ( */
+  /*                                   0, 0, */
+  /*                                   gtk_widget_get_width (widget), */
+  /*                                   gtk_widget_get_height (widget) */
+  /*                                 )); */
+  //gtk4_begin_cr_clip
+  src = FRAME_CR_SURFACE (priv->f);
+
+  cairo_set_source_surface (cr, src, 0, 0);
+  cairo_paint(cr);
+  GTK4_TRACE("snapshot____2");
+  gtk4_end_cr_clip(priv->f);
+}
+
+#endif
+
 static void
 emacs_fixed_class_init (EmacsFixedClass *klass)
 {
@@ -157,7 +273,7 @@ emacs_fixed_class_init (EmacsFixedClass *klass)
   widget_class->get_preferred_width = emacs_fixed_get_preferred_width;
   widget_class->get_preferred_height = emacs_fixed_get_preferred_height;
 #else
-
+  widget_class->snapshot = emacs_fixed_snapshot;
 #endif
 
 #ifdef HAVE_XWIDGETS

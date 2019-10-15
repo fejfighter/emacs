@@ -931,7 +931,7 @@ xg_show_tooltip (struct frame *f, int root_x, int root_y)
   xp_output *x = f->output_data.xp;
 #ifdef HAVE_GTK4
   GdkSurface *surf = gtk_native_get_surface(gtk_widget_get_native(GTK_WIDGET (x->ttip_window)));
-  GdkRectangle *rect;
+  GdkRectangle rect = {root_x, root_y, 400, 600 };
 #endif
   if (x->ttip_window)
     {
@@ -942,7 +942,7 @@ xg_show_tooltip (struct frame *f, int root_x, int root_y)
       gtk_widget_show (GTK_WIDGET (x->ttip_window));
 #else
       gtk_widget_show (GTK_WIDGET (x->ttip_window));
-      gdk_surface_move_to_rect(surf, rect, GDK_GRAVITY_NORTH_EAST, GDK_GRAVITY_NORTH_EAST, GDK_ANCHOR_FLIP,
+      gdk_surface_move_to_rect(surf, &rect, GDK_GRAVITY_NORTH_EAST, GDK_GRAVITY_NORTH_EAST, GDK_ANCHOR_FLIP,
 			       0,0);
 #endif
       unblock_input ();
@@ -968,7 +968,7 @@ xg_hide_tooltip (struct frame *f)
       if (g_object_get_data (G_OBJECT (win), "restore-tt"))
 	{
 #ifdef HAVE_GTK4
-	  GtkWindow *gsurf = gtk_native_get_surface (gtk_widget_get_native (win));
+	  GdkSurface *gsurf = gtk_native_get_surface (GTK_NATIVE (win));
 	  GdkDisplay *dpy = gdk_surface_get_display (gsurf);
 #else
 	  GtkWindow *gwin = gtk_widget_get_window (GTK_WIDGET (win));
@@ -1518,7 +1518,7 @@ xg_create_frame_widgets (struct frame *f)
 #ifndef HAVE_GTK4
   gtk_widget_set_has_window (wfixed, TRUE);
 #else
-  //   gtk_widget_set_has_surface (wfixed, TRUE);
+  //gtk_widget_set_has_surface (wfixed, TRUE); //should be caled in init
 #endif
 
   gtk_container_add (GTK_CONTAINER (wtop), wvbox);
@@ -1585,10 +1585,10 @@ xg_create_frame_widgets (struct frame *f)
   /* Must realize the windows so the X window gets created.  It is used
      by callers of this function.  */
   //gtk_widget_realize (wfixed);
+  gtk_widget_show (wfixed);
 
-  //gdk_surface_show(wtop);
-  /* GTK4_TRACE("___________________________gtk widget show"); */
-  //gtk_widget_show(wtop);
+  GTK4_TRACE("___________________________gtk widget show");
+  gtk_widget_show(wtop);
 
 #ifndef HAVE_GTK4
   FRAME_X_WINDOW (f) = GTK_WIDGET_TO_X_WIN (wfixed);
@@ -1832,8 +1832,8 @@ x_wm_set_size_hint (struct frame *f, long int flags, bool user_position)
       gtk_window_set_geometry_hints (GTK_WINDOW (FRAME_GTK_OUTER_WIDGET (f)),
 				     NULL, &size_hints, hint_flags);
 #else
-      gdk_surface_set_geometry_hints (GDK_SURFACE (FRAME_GTK_OUTER_WIDGET (f)),
-				      &size_hints, hint_flags);
+      gtk_window_set_default_size (FRAME_GTK_OUTER_WINDOW (f),
+				   base_width, base_height);
 #endif
 
       f->output_data.xp->size_hints = size_hints;
@@ -3101,14 +3101,14 @@ create_menus (widget_value *data,
 	/* Connect this to the menu instead of items so we get enter/leave for
 	   disabled items also.  TODO:  Still does not get enter/leave for
 	   disabled items in detached menus.  */
-	g_signal_connect (G_OBJECT (wmenu),
-			  "enter-notify-event",
-			  G_CALLBACK (menuitem_highlight_callback),
-			  NULL);
-	g_signal_connect (G_OBJECT (wmenu),
-			  "leave-notify-event",
-			  G_CALLBACK (menuitem_highlight_callback),
-			  NULL);
+	/* g_signal_connect (G_OBJECT (wmenu), */
+	/* 		  "enter-notify-event", */
+	/* 		  G_CALLBACK (menuitem_highlight_callback), */
+	/* 		  NULL); */
+	/* g_signal_connect (G_OBJECT (wmenu), */
+	/* 		  "leave-notify-event", */
+	/* 		  G_CALLBACK (menuitem_highlight_callback), */
+	/* 		  NULL); */
       }
       else
 	{
@@ -5317,45 +5317,45 @@ static bool
 xg_update_tool_bar_sizes (struct frame *f)
 {
   xp_output *x = f->output_data.xp;
-  GtkRequisition req;
-  int nl = 0, nr = 0, nt = 0, nb = 0;
-  GtkWidget *top_widget = x->toolbar_widget;
+  /* GtkRequisition req; */
+  /* int nl = 0, nr = 0, nt = 0, nb = 0; */
+  /* GtkWidget *top_widget = x->toolbar_widget; */
 
-  gtk_widget_get_preferred_size (GTK_WIDGET (top_widget), NULL, &req);
-  /* if (x->toolbar_in_hbox) */
+  /* gtk_widget_get_preferred_size (GTK_WIDGET (top_widget), NULL, &req); */
+  /* /\* if (x->toolbar_in_hbox) *\/ */
+  /* /\*   { *\/ */
+  /* /\*     int pos; *\/ */
+  /* /\*     gtk_container_child_get (GTK_CONTAINER (x->hbox_widget), *\/ */
+  /* /\*			       top_widget, *\/ */
+  /* /\*			       "position", &pos, NULL); *\/ */
+  /* /\*     if (pos == 0) nl = req.width; *\/ */
+  /* /\*     else nr = req.width; *\/ */
+  /* /\*   } *\/ */
+  /* /\* else *\/ */
+  /* /\*   { *\/ */
+  /* /\*     int pos; *\/ */
+  /* /\*     gtk_container_child_get (GTK_CONTAINER (x->vbox_widget), *\/ */
+  /* /\*			       top_widget, *\/ */
+  /* /\*			       "position", &pos, NULL); *\/ */
+  /* /\*     if (pos == 0 || (pos == 1 && x->menubar_widget)) nt = req.height; *\/ */
+  /* /\*     else nb = req.height; *\/ */
+  /* /\*   } *\/ */
+
+  /* if (nl != FRAME_TOOLBAR_LEFT_WIDTH (f) */
+  /*     || nr != FRAME_TOOLBAR_RIGHT_WIDTH (f) */
+  /*     || nt != FRAME_TOOLBAR_TOP_HEIGHT (f) */
+  /*     || nb != FRAME_TOOLBAR_BOTTOM_HEIGHT (f)) */
   /*   { */
-  /*     int pos; */
-  /*     gtk_container_child_get (GTK_CONTAINER (x->hbox_widget), */
-  /*			       top_widget, */
-  /*			       "position", &pos, NULL); */
-  /*     if (pos == 0) nl = req.width; */
-  /*     else nr = req.width; */
+  /*     FRAME_TOOLBAR_RIGHT_WIDTH (f) = FRAME_TOOLBAR_LEFT_WIDTH (f) */
+  /* 	= FRAME_TOOLBAR_TOP_HEIGHT (f) = FRAME_TOOLBAR_BOTTOM_HEIGHT (f) = 0; */
+  /*     FRAME_TOOLBAR_LEFT_WIDTH (f) = nl; */
+  /*     FRAME_TOOLBAR_RIGHT_WIDTH (f) = nr; */
+  /*     FRAME_TOOLBAR_TOP_HEIGHT (f) = nt; */
+  /*     FRAME_TOOLBAR_BOTTOM_HEIGHT (f) = nb; */
+
+  /*     return true; */
   /*   } */
   /* else */
-  /*   { */
-  /*     int pos; */
-  /*     gtk_container_child_get (GTK_CONTAINER (x->vbox_widget), */
-  /*			       top_widget, */
-  /*			       "position", &pos, NULL); */
-  /*     if (pos == 0 || (pos == 1 && x->menubar_widget)) nt = req.height; */
-  /*     else nb = req.height; */
-  /*   } */
-
-  if (nl != FRAME_TOOLBAR_LEFT_WIDTH (f)
-      || nr != FRAME_TOOLBAR_RIGHT_WIDTH (f)
-      || nt != FRAME_TOOLBAR_TOP_HEIGHT (f)
-      || nb != FRAME_TOOLBAR_BOTTOM_HEIGHT (f))
-    {
-      FRAME_TOOLBAR_RIGHT_WIDTH (f) = FRAME_TOOLBAR_LEFT_WIDTH (f)
-	= FRAME_TOOLBAR_TOP_HEIGHT (f) = FRAME_TOOLBAR_BOTTOM_HEIGHT (f) = 0;
-      FRAME_TOOLBAR_LEFT_WIDTH (f) = nl;
-      FRAME_TOOLBAR_RIGHT_WIDTH (f) = nr;
-      FRAME_TOOLBAR_TOP_HEIGHT (f) = nt;
-      FRAME_TOOLBAR_BOTTOM_HEIGHT (f) = nb;
-
-      return true;
-    }
-  else
     return false;
 }
 
@@ -5709,7 +5709,7 @@ update_frame_tool_bar (struct frame *f)
 	xg_pack_tool_bar (f, FRAME_TOOL_BAR_POSITION (f));
 #ifndef HAVE_GTK4
       gtk_widget_show_all (x->toolbar_widget);
-      #endif
+#endif
       if (xg_update_tool_bar_sizes (f))
 	{
 	  int inhibit

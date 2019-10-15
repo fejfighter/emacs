@@ -1309,7 +1309,7 @@ This function is an internal primitive--use `make-frame' instead.  */)
 #endif
 
   /* Create the X widget or window.  */
-  // x_window (f);
+  //x_window (f);
   xg_create_frame_widgets (f);
   gtk4_set_event_handler(f);
 
