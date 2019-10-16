@@ -5448,9 +5448,9 @@ static gboolean window_state_event(GtkWidget *widget, GdkEvent *event, gpointer 
   return TRUE;
 }
 
-static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
+static gboolean delete_event(GtkWidget *widget, gpointer *user_data)
 {
-  struct frame *f = gtk4_any_event_to_frame (event);
+  struct frame *f = gtk4_any_window_to_frame (widget);
 
   union buffered_input_event inev;
 
@@ -6090,7 +6090,7 @@ gtk4_set_event_handler(struct frame *f)
   /* gtk_drag_dest_add_uri_targets(FRAME_GTK_WIDGET(f)); */
 
   //  g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "window-state-event", G_CALLBACK(window_state_event), NULL);
-  //g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "delete-event", G_CALLBACK(delete_event), NULL);
+  g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "destroy", G_CALLBACK(delete_event), NULL);
   g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "map", G_CALLBACK(map_event), NULL);
   //g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "event", G_CALLBACK(gtk4_handle_event), NULL);
 
