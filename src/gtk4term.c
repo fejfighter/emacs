@@ -88,7 +88,7 @@ static void gtk4_fill_rectangle(struct frame *f, unsigned long color, int x, int
 static void gtk4_clip_to_row (struct window *w, struct glyph_row *row,
 				enum glyph_row_area area, cairo_t *cr);
 static struct frame *
-gtk4_any_window_to_frame (GtkWindow *window);
+gtk4_any_window_to_frame (GtkWidget *window);
 
 
 static void evq_enqueue(union buffered_input_event *ev)
@@ -4831,10 +4831,10 @@ gtk4_handle_event(GtkWidget *widget, GdkEvent *event, gpointer *data)
   case GDK_PAD_RING:              GTK4_TRACE("GDK_PAD_RING"); break;
   case GDK_PAD_STRIP:             GTK4_TRACE("GDK_PAD_STRIP"); break;
   case GDK_PAD_GROUP_MODE:        GTK4_TRACE("GDK_PAD_GROUP_MODE"); break;
-  default:                        GTK4_TRACE("GDK_EVENT %d", event->type);
+  default:                        GTK4_TRACE("GDK_EVENT %d", gdk_event_get_event_type(event));
   }
   GTK4_TRACE(" Widget is %s", type_name);
-#endif
+
   return FALSE;
 }
 
