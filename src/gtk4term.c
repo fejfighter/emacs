@@ -87,7 +87,7 @@ static void gtk4_clear_frame_area(struct frame *f, int x, int y, int width, int 
 static void gtk4_fill_rectangle(struct frame *f, unsigned long color, int x, int y, int width, int height);
 static void gtk4_clip_to_row (struct window *w, struct glyph_row *row,
 				enum glyph_row_area area, cairo_t *cr);
-static struct frame *
+ struct frame *
 gtk4_any_window_to_frame (GtkWidget *window);
 
 
@@ -4723,7 +4723,7 @@ gtk4_window_is_of_frame_recursive(GtkWidget *widget, gpointer data)
 static bool
 gtk4_window_is_of_frame(struct frame *f, GtkWidget *window)
 {
-  return !(FRAME_GTK_OUTER_WINDOW(f) == gtk_widget_get_native(window));
+  return (FRAME_GTK_OUTER_WINDOW(f) == gtk_widget_get_native(window));
 }
 
 /* Like x_window_to_frame but also compares the window with the widget's
@@ -4961,14 +4961,15 @@ gtk4_handle_draw(GtkWidget *widget, cairo_t *cr, gpointer *data)
   return FALSE;
 }
 
-static void size_allocate(GtkWidget *widget, GtkAllocation *alloc, gpointer *user_data)
+static void size_allocate(GtkWidget *widget, int width, int  height,
+                        int baseline, gpointer *user_data)
 {
-  GTK4_TRACE("size-alloc: %dx%d+%d+%d.", alloc->width, alloc->height, alloc->x, alloc->y);
+  GTK4_TRACE("___size-alloc: %dx%d + %d.", width, height, baseline);
 
   struct frame *f = gtk4_any_window_to_frame (widget);
   if (f) {
-    GTK4_TRACE("resized: %dx%d", alloc->width, alloc->height);
-    xg_frame_resized(f, alloc->width, alloc->height);
+    GTK4_TRACE("resized: %dx%d", width, height);
+    xg_frame_resized(f, width, height -40);
   }
 }
 
@@ -5355,7 +5356,7 @@ static gboolean configure_event(GtkWidget *widget,
 
   if (f && widget == FRAME_GTK_OUTER_WIDGET (f)) {
     GTK4_TRACE("%dx%d", width, height);
-    xg_frame_resized(f, width, height);
+    xg_frame_resized(f, width, height-80);
   }
   return TRUE;
 }
@@ -6090,7 +6091,7 @@ gtk4_set_event_handler(struct frame *f)
 
   g_signal_connect_swapped(gsurf,
 		   "notify::state", G_CALLBACK(window_state_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
-  g_signal_connect_swapped(gsurf, "size-changed", G_CALLBACK(configure_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
+  g_signal_connect_swapped(gsurf, "size-changed", G_CALLBACK(configure_event), FRAME_GTK_OUTER_WIDGET(f));
 
   g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "destroy", G_CALLBACK(delete_event), NULL);
   g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "map", G_CALLBACK(map_event), NULL);
