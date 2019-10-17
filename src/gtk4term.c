@@ -4784,18 +4784,17 @@ gtk4_any_event_to_frame (GdkEvent *event)
 static gboolean
 gtk4_handle_event(GtkWidget *widget, GdkEvent *event, gpointer *data)
 {
-  #if 0
   //#ifdef GTK4_DEBUG
   const char *type_name = G_OBJECT_TYPE_NAME(widget);
-  switch (event->type) {
+  switch (gdk_event_get_event_type(event)) {
   case GDK_NOTHING:               GTK4_TRACE("GDK_NOTHING"); break;
   case GDK_DELETE:                GTK4_TRACE("GDK_DELETE"); break;
   case GDK_DESTROY:               GTK4_TRACE("GDK_DESTROY"); break;
-  case GDK_EXPOSE:                GTK4_TRACE("GDK_EXPOSE"); break;
+    //case GDK_EXPOSE:                GTK4_TRACE("GDK_EXPOSE"); break;
   case GDK_MOTION_NOTIFY:         GTK4_TRACE("GDK_MOTION_NOTIFY"); break;
   case GDK_BUTTON_PRESS:          GTK4_TRACE("GDK_BUTTON_PRESS"); break;
-  case GDK_2BUTTON_PRESS:         GTK4_TRACE("GDK_2BUTTON_PRESS"); break;
-  case GDK_3BUTTON_PRESS:         GTK4_TRACE("GDK_3BUTTON_PRESS"); break;
+  /* case GDK_2BUTTON_PRESS:         GTK4_TRACE("GDK_2BUTTON_PRESS"); break; */
+  /* case GDK_3BUTTON_PRESS:         GTK4_TRACE("GDK_3BUTTON_PRESS"); break; */
   case GDK_BUTTON_RELEASE:        GTK4_TRACE("GDK_BUTTON_RELEASE"); break;
   case GDK_KEY_PRESS:             GTK4_TRACE("GDK_KEY_PRESS"); break;
   case GDK_KEY_RELEASE:           GTK4_TRACE("GDK_KEY_RELEASE"); break;
@@ -4803,28 +4802,28 @@ gtk4_handle_event(GtkWidget *widget, GdkEvent *event, gpointer *data)
   case GDK_LEAVE_NOTIFY:          GTK4_TRACE("GDK_LEAVE_NOTIFY"); break;
   case GDK_FOCUS_CHANGE:          GTK4_TRACE("GDK_FOCUS_CHANGE"); break;
   case GDK_CONFIGURE:             GTK4_TRACE("GDK_CONFIGURE"); break;
-  case GDK_MAP:                   GTK4_TRACE("GDK_MAP"); break;
-  case GDK_UNMAP:                 GTK4_TRACE("GDK_UNMAP"); break;
-  case GDK_PROPERTY_NOTIFY:       GTK4_TRACE("GDK_PROPERTY_NOTIFY"); break;
-  case GDK_SELECTION_CLEAR:       GTK4_TRACE("GDK_SELECTION_CLEAR"); break;
-  case GDK_SELECTION_REQUEST:     GTK4_TRACE("GDK_SELECTION_REQUEST"); break;
-  case GDK_SELECTION_NOTIFY:      GTK4_TRACE("GDK_SELECTION_NOTIFY"); break;
+  /* case GDK_MAP:                   GTK4_TRACE("GDK_MAP"); break; */
+  /* case GDK_UNMAP:                 GTK4_TRACE("GDK_UNMAP"); break; */
+  /* case GDK_PROPERTY_NOTIFY:       GTK4_TRACE("GDK_PROPERTY_NOTIFY"); break; */
+  /* case GDK_SELECTION_CLEAR:       GTK4_TRACE("GDK_SELECTION_CLEAR"); break; */
+  /* case GDK_SELECTION_REQUEST:     GTK4_TRACE("GDK_SELECTION_REQUEST"); break; */
+  /* case GDK_SELECTION_NOTIFY:      GTK4_TRACE("GDK_SELECTION_NOTIFY"); break; */
   case GDK_PROXIMITY_IN:          GTK4_TRACE("GDK_PROXIMITY_IN"); break;
   case GDK_PROXIMITY_OUT:         GTK4_TRACE("GDK_PROXIMITY_OUT"); break;
   case GDK_DRAG_ENTER:            GTK4_TRACE("GDK_DRAG_ENTER"); break;
   case GDK_DRAG_LEAVE:            GTK4_TRACE("GDK_DRAG_LEAVE"); break;
   case GDK_DRAG_MOTION:           GTK4_TRACE("GDK_DRAG_MOTION"); break;
-  case GDK_DRAG_STATUS:           GTK4_TRACE("GDK_DRAG_STATUS"); break;
+  /* case GDK_DRAG_STATUS:           GTK4_TRACE("GDK_DRAG_STATUS"); break; */
   case GDK_DROP_START:            GTK4_TRACE("GDK_DROP_START"); break;
-  case GDK_DROP_FINISHED:         GTK4_TRACE("GDK_DROP_FINISHED"); break;
-  case GDK_CLIENT_EVENT:          GTK4_TRACE("GDK_CLIENT_EVENT"); break;
-  case GDK_VISIBILITY_NOTIFY:     GTK4_TRACE("GDK_VISIBILITY_NOTIFY"); break;
+  /* case GDK_DROP_FINISHED:         GTK4_TRACE("GDK_DROP_FINISHED"); break; */
+  /* case GDK_CLIENT_EVENT:          GTK4_TRACE("GDK_CLIENT_EVENT"); break; */
+  /* case GDK_VISIBILITY_NOTIFY:     GTK4_TRACE("GDK_VISIBILITY_NOTIFY"); break; */
   case GDK_SCROLL:                GTK4_TRACE("GDK_SCROLL"); break;
-  case GDK_WINDOW_STATE:          GTK4_TRACE("GDK_WINDOW_STATE"); break;
-  case GDK_SETTING:               GTK4_TRACE("GDK_SETTING"); break;
-  case GDK_OWNER_CHANGE:          GTK4_TRACE("GDK_OWNER_CHANGE"); break;
+  /* case GDK_WINDOW_STATE:          GTK4_TRACE("GDK_WINDOW_STATE"); break; */
+  /* case GDK_SETTING:               GTK4_TRACE("GDK_SETTING"); break; */
+  /* case GDK_OWNER_CHANGE:          GTK4_TRACE("GDK_OWNER_CHANGE"); break; */
   case GDK_GRAB_BROKEN:           GTK4_TRACE("GDK_GRAB_BROKEN"); break;
-  case GDK_DAMAGE:                GTK4_TRACE("GDK_DAMAGE"); break;
+  /* case GDK_DAMAGE:                GTK4_TRACE("GDK_DAMAGE"); break; */
   case GDK_TOUCH_BEGIN:           GTK4_TRACE("GDK_TOUCH_BEGIN"); break;
   case GDK_TOUCH_UPDATE:          GTK4_TRACE("GDK_TOUCH_UPDATE"); break;
   case GDK_TOUCH_END:             GTK4_TRACE("GDK_TOUCH_END"); break;
@@ -6089,10 +6088,11 @@ gtk4_set_event_handler(struct frame *f)
   /* gtk_drag_dest_set(FRAME_GTK_WIDGET(f), GTK_DEST_DEFAULT_ALL, NULL, 0, GDK_ACTION_COPY); */
   /* gtk_drag_dest_add_uri_targets(FRAME_GTK_WIDGET(f)); */
 
-  //  g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "window-state-event", G_CALLBACK(window_state_event), NULL);
+  g_signal_connect(gtk_native_get_surface(gtk_widget_get_native(FRAME_GTK_OUTER_WIDGET(f))), \
+		   "notify::state", G_CALLBACK(window_state_event), NULL);
   g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "destroy", G_CALLBACK(delete_event), NULL);
   g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "map", G_CALLBACK(map_event), NULL);
-  //g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "event", G_CALLBACK(gtk4_handle_event), NULL);
+  g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "event", G_CALLBACK(gtk4_handle_event), NULL);
 
   g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "size-allocate", G_CALLBACK(size_allocate), NULL);
   /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "key-press-event", G_CALLBACK(key_press_event), NULL); */
@@ -6106,10 +6106,10 @@ gtk4_set_event_handler(struct frame *f)
   /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "button-release-event", G_CALLBACK(button_event), NULL); */
   /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "scroll-event", G_CALLBACK(scroll_event), NULL); */
   /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "selection-clear-event", G_CALLBACK(gtk4_selection_lost), NULL); */
-  /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "configure-event", G_CALLBACK(configure_event), NULL); */
+  g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "size-changed", G_CALLBACK(configure_event), NULL);
   /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "drag-drop", G_CALLBACK(drag_drop), NULL); */
   /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "drag-data-received", G_CALLBACK(drag_data_received), NULL); */
-  /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "event", G_CALLBACK(gtk4_handle_event), NULL); */
+  g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "event", G_CALLBACK(gtk4_handle_event), NULL);
 }
 
 static void
