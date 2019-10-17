@@ -598,7 +598,7 @@ gtk4_make_frame_visible (struct frame *f)
       gtk_window_present(win);
       //gdk_surface_deiconify(gtk_native_get_surface(gtk_widget_get_native(win));
       GTK4_TRACE("gtk4_make_frame_visible - show-present");
-
+      SET_FRAME_VISIBLE(f, 1);
       if (FLOATP (Vgtk4_wait_for_event_timeout)) {
 	guint msec = (guint) (XFLOAT_DATA (Vgtk4_wait_for_event_timeout) * 1000);
 	int found = 0;
@@ -5429,17 +5429,17 @@ static gboolean window_state_event(GtkWidget *widget, GdkEvent *event, gpointer 
   if (f) {
     /* if (event->window_state.new_window_state & GDK_SURFACE_STATE_FOCUSED) */
     /*   { */
-    /*	if (FRAME_ICONIFIED_P (f)) */
-    /*	  { */
-    /*	    /\* Gnome shell does not iconify us when C-z is pressed. */
-    /*	       It hides the frame.  So if our state says we aren't */
-    /*	       hidden anymore, treat it as deiconified.  *\/ */
-    /*	    SET_FRAME_VISIBLE (f, 1); */
-    /*	    SET_FRAME_ICONIFIED (f, false); */
-    /*	    FRAME_X_OUTPUT(f)->has_been_visible = true; */
-    /*	    inev.ie.kind = DEICONIFY_EVENT; */
-    /*	    XSETFRAME (inev.ie.frame_or_window, f); */
-    /*	  } */
+	if (FRAME_ICONIFIED_P (f))
+	  {
+	    /* Gnome shell does not iconify us when C-z is pressed.
+	       It hides the frame.  So if our state says we aren't
+	       hidden anymore, treat it as deiconified.  */
+	    SET_FRAME_VISIBLE (f, 1);
+	    SET_FRAME_ICONIFIED (f, false);
+	    FRAME_X_OUTPUT(f)->has_been_visible = true;
+	    inev.ie.kind = DEICONIFY_EVENT;
+	    XSETFRAME (inev.ie.frame_or_window, f);
+	  }
     /*   } */
   }
 

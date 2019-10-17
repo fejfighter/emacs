@@ -2707,7 +2707,7 @@ if test "${opsys}" != "mingw32"; then
     fi
     if test "$pkg_check_gtk4" = "yes"; then
        AC_DEFINE(HAVE_GTK4, 1, [Define to 1 if using GTK 4 or later.])
-       GTK_OBJ=emacsgtkfixed.o
+       GTK_OBJ=gtk4widget.o
        gtk_term_header=gtkutil.h
        USE_GTK_TOOLKIT="GTK4"
        AC_SUBST(GTK_CFLAGS)
