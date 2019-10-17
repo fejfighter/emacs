@@ -225,60 +225,20 @@ static void emacs_fixed_snapshot (GtkWidget   *widget,
   EmacsFixed *fixed = EMACS_FIXED (widget);
   EmacsFixedPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE (fixed, emacs_fixed_get_type (),
 				      EmacsFixedPrivate);
-
-
-  //EmacsFixedPrivate *priv = fixed->priv;
-  //GList *list;
   cairo_t *cr = NULL;
   cairo_surface_t *src = NULL;
-
-
-  /* priv = G_TYPE_INSTANCE_GET_PRIVATE (widget, GTK_TYPE_FIXED, */
-  /*				      ); */
-  //struct GtkFixedPrivateL *priv;
-
-  /* for (list = priv->children; list != NULL; list = list->next) */
-  /*   { */
-  /*     // we have none? */
-  /*   } */
-
-  //gtk_widget_snapshot_child(widget, GTK_WIDGET(&fixed->container), snapshot);
+  struct frame *f = priv->f;
 
   cr = gtk_snapshot_append_cairo (snapshot,   &GRAPHENE_RECT_INIT (
 				    0, 0,
-				    200,300
+				    gtk_widget_get_width (widget),
+				    gtk_widget_get_height (widget)));
+  src = FRAME_CR_SURFACE(f);
 
-				  ));
-  //gtk4_begin_cr_clip
-
-  /* cairo_set_source_rgb (cr, 1, 1, 1); */
-  /* cairo_paint (cr); */
-
-  /* src = FRAME_CR_SURFACE (priv->f); */
-
-/* cairo_set_source_rgb (cr, 0, 0, 0); */
-/* cairo_move_to (cr, 0, 0); */
-/* cairo_line_to (cr, 1, 1); */
-/* cairo_move_to (cr, 1, 0); */
-/* cairo_line_to (cr, 0, 1); */
-/* cairo_set_line_width (cr, 0.2); */
-/* cairo_stroke (cr); */
-
-/* cairo_rectangle (cr, 0, 0, 0.5, 0.5); */
-/* cairo_set_source_rgba (cr, 1, 0, 0, 0.80); */
-/* cairo_fill (cr); */
-
-/* cairo_rectangle (cr, 0, 0.5, 0.5, 0.5); */
-/* cairo_set_source_rgba (cr, 0, 1, 0, 0.60); */
-/* cairo_fill (cr); */
-
-/* cairo_rectangle (cr, 0.5, 0, 0.5, 0.5); */
-/* cairo_set_source_rgba (cr, 0, 0, 1, 0.40); */
-/* cairo_fill (cr); */
   cairo_set_source_surface (cr, src, 0, 0);
   cairo_paint(cr);
+
   GTK4_TRACE("snapshot____2");
-  //gtk4_end_cr_clip(priv->f);
   cairo_destroy(cr);
 }
 

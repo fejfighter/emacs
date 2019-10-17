@@ -6734,8 +6734,8 @@ void
 gtk4_cr_draw_frame (cairo_t *cr, struct frame *f)
 {
   GTK4_TRACE("gtk4_cr_draw_frame");
-  cairo_set_source_surface(cr, FRAME_CR_SURFACE(f), 0, 0);
-  cairo_paint(cr);
+
+  gtk_widget_queue_draw(FRAME_GTK_WIDGET(f));
 }
 
 void
