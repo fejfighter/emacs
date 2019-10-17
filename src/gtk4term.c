@@ -5351,13 +5351,16 @@ static gboolean key_release_event(GtkWidget *widget, GdkEvent *event, gpointer *
   return TRUE;
 }
 
-static gboolean configure_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
+static gboolean configure_event(GtkWidget *widget,
+				guint      width,
+				guint      height)
 {
-  //  struct frame *f = gtk4_any_window_to_frame (gdk_event_get_surface(event));
-  /* if (f && widget == FRAME_GTK_OUTER_WIDGET (f)) { */
-  /*   GTK4_TRACE("%dx%d", event->configure.width, event->configure.height); */
-  /*   xg_frame_resized(f, event->configure.width, event->configure.height); */
-  /* } */
+  struct frame *f = gtk4_any_window_to_frame (widget);
+
+  if (f && widget == FRAME_GTK_OUTER_WIDGET (f)) {
+    GTK4_TRACE("%dx%d", width, height);
+    xg_frame_resized(f, width, height);
+  }
   return TRUE;
 }
 
@@ -6087,12 +6090,15 @@ gtk4_set_event_handler(struct frame *f)
 {
   /* gtk_drag_dest_set(FRAME_GTK_WIDGET(f), GTK_DEST_DEFAULT_ALL, NULL, 0, GDK_ACTION_COPY); */
   /* gtk_drag_dest_add_uri_targets(FRAME_GTK_WIDGET(f)); */
+  GdkSurface *gsurf = gtk_native_get_surface(gtk_widget_get_native(FRAME_GTK_OUTER_WIDGET(f)));
 
-  g_signal_connect(gtk_native_get_surface(gtk_widget_get_native(FRAME_GTK_OUTER_WIDGET(f))), \
-		   "notify::state", G_CALLBACK(window_state_event), NULL);
+  g_signal_connect_swapped(gsurf,
+		   "notify::state", G_CALLBACK(window_state_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
+  g_signal_connect_swapped(gsurf, "size-changed", G_CALLBACK(configure_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
+
   g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "destroy", G_CALLBACK(delete_event), NULL);
   g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "map", G_CALLBACK(map_event), NULL);
-  g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "event", G_CALLBACK(gtk4_handle_event), NULL);
+  //g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "event", G_CALLBACK(gtk4_handle_event), NULL);
 
   g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "size-allocate", G_CALLBACK(size_allocate), NULL);
   /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "key-press-event", G_CALLBACK(key_press_event), NULL); */
@@ -6106,10 +6112,9 @@ gtk4_set_event_handler(struct frame *f)
   /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "button-release-event", G_CALLBACK(button_event), NULL); */
   /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "scroll-event", G_CALLBACK(scroll_event), NULL); */
   /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "selection-clear-event", G_CALLBACK(gtk4_selection_lost), NULL); */
-  g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "size-changed", G_CALLBACK(configure_event), NULL);
   /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "drag-drop", G_CALLBACK(drag_drop), NULL); */
   /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "drag-data-received", G_CALLBACK(drag_data_received), NULL); */
-  g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "event", G_CALLBACK(gtk4_handle_event), NULL);
+  //g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "event", G_CALLBACK(gtk4_handle_event), NULL);
 }
 
 static void
