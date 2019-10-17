@@ -4721,19 +4721,15 @@ gtk4_window_is_of_frame_recursive(GtkWidget *widget, gpointer data)
 }
 
 static bool
-gtk4_window_is_of_frame(struct frame *f, GtkWindow *window)
+gtk4_window_is_of_frame(struct frame *f, GtkWidget *window)
 {
-  struct gtk4_window_is_of_frame_recursive_t data;
-  data.window = window;
-  data.result = false;
-  gtk4_window_is_of_frame_recursive(FRAME_GTK_OUTER_WIDGET(f), &data);
-  return data.result;
+  return !(FRAME_GTK_OUTER_WINDOW(f) == gtk_widget_get_native(window));
 }
 
 /* Like x_window_to_frame but also compares the window with the widget's
    windows.  */
 /* static */ struct frame *
-gtk4_any_window_to_frame (GtkWindow *window)
+gtk4_any_window_to_frame (GtkWidget *window)
 {
   Lisp_Object tail, frame;
   struct frame *f, *found = NULL;
@@ -4970,7 +4966,7 @@ static void size_allocate(GtkWidget *widget, GtkAllocation *alloc, gpointer *use
 {
   GTK4_TRACE("size-alloc: %dx%d+%d+%d.", alloc->width, alloc->height, alloc->x, alloc->y);
 
-  struct frame *f = gtk4_any_window_to_frame (GTK_WINDOW(widget));
+  struct frame *f = gtk4_any_window_to_frame (widget);
   if (f) {
     GTK4_TRACE("resized: %dx%d", alloc->width, alloc->height);
     xg_frame_resized(f, alloc->width, alloc->height);
@@ -5093,7 +5089,7 @@ static gboolean key_press_event(GtkWidget *widget, GdkEvent *event, gpointer *us
   inev.ie.kind = NO_EVENT;
   inev.ie.arg = Qnil;
 
-  struct frame *f = gtk4_any_window_to_frame(GTK_WINDOW(widget));
+  struct frame *f = gtk4_any_window_to_frame(widget);
   hlinfo = MOUSE_HL_INFO(f);
 
   /* If mouse-highlight is an integer, input clears out
@@ -5528,7 +5524,7 @@ enter_notify_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
 {
   GTK4_TRACE("enter_notify_event");
   union buffered_input_event inev;
-  struct frame *focus_frame = gtk4_any_window_to_frame(GTK_WINDOW(widget));
+  struct frame *focus_frame = gtk4_any_window_to_frame(widget);
   int focus_state
     = focus_frame ? focus_frame->output_data.gtk4->focus_state : 0;
 
@@ -5550,7 +5546,7 @@ leave_notify_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
 {
   GTK4_TRACE("leave_notify_event");
   union buffered_input_event inev;
-  struct frame *focus_frame = gtk4_any_window_to_frame(GTK_WINDOW(widget));
+  struct frame *focus_frame = gtk4_any_window_to_frame(widget);
   int focus_state
     = focus_frame ? focus_frame->output_data.gtk4->focus_state : 0;
 
@@ -5572,7 +5568,7 @@ focus_in_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
 {
   GTK4_TRACE("focus_in_event");
   union buffered_input_event inev;
-  struct frame *frame = gtk4_any_window_to_frame(GTK_WINDOW(widget));
+  struct frame *frame = gtk4_any_window_to_frame(widget);
 
   if (frame == NULL)
     return TRUE;
@@ -5593,7 +5589,7 @@ focus_out_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
 {
   GTK4_TRACE("focus_out_event");
   union buffered_input_event inev;
-  struct frame *frame = gtk4_any_window_to_frame(GTK_WINDOW(widget));
+  struct frame *frame = gtk4_any_window_to_frame(widget);
 
   if (frame == NULL)
     return TRUE;
@@ -5680,10 +5676,10 @@ motion_notify_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
   previous_help_echo_string = help_echo_string;
   help_echo_string = Qnil;
 
-  frame = gtk4_any_window_to_frame(GTK_WINDOW(widget));
+  frame = gtk4_any_window_to_frame(widget);
   dpyinfo = FRAME_DISPLAY_INFO (frame);
   f = (gui_mouse_grabbed (dpyinfo) ? dpyinfo->last_mouse_frame
-       : gtk4_any_window_to_frame(GTK_WINDOW(widget)));
+       : gtk4_any_window_to_frame(widget));
   hlinfo = MOUSE_HL_INFO (f);
 
   if (hlinfo->mouse_face_hidden)
@@ -5860,7 +5856,7 @@ button_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
   if (type != GDK_BUTTON_PRESS && type != GDK_BUTTON_RELEASE)
     return TRUE;
 
-  frame = gtk4_any_window_to_frame(GTK_WINDOW(widget));
+  frame = gtk4_any_window_to_frame(widget);
   dpyinfo = FRAME_DISPLAY_INFO (frame);
 
   dpyinfo->last_mouse_glyph_frame = NULL;
@@ -5872,7 +5868,7 @@ button_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
     f = dpyinfo->last_mouse_frame;
   else
     {
-      f = gtk4_any_window_to_frame(GTK_WINDOW(widget));
+      f = gtk4_any_window_to_frame(widget);
 
       if (f && type == GDK_BUTTON_PRESS
 	  && !FRAME_NO_ACCEPT_FOCUS (f))
@@ -5960,13 +5956,13 @@ scroll_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
   inev.ie.kind = NO_EVENT;
   inev.ie.arg = Qnil;
 
-  frame = gtk4_any_window_to_frame(GTK_WINDOW(widget));
+  frame = gtk4_any_window_to_frame(widget);
   dpyinfo = FRAME_DISPLAY_INFO (frame);
 
   if (gui_mouse_grabbed (dpyinfo))
     f = dpyinfo->last_mouse_frame;
   else
-    f = gtk4_any_window_to_frame(GTK_WINDOW(widget));
+    f = gtk4_any_window_to_frame(widget);
 
   inev.ie.kind = WHEEL_EVENT;
   inev.ie.timestamp = gdk_event_get_time(event);
