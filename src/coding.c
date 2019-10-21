@@ -2678,7 +2678,7 @@ encode_coding_emacs_mule (struct coding_system *coding)
    functions in this file, some parts are NOT ACCURATE or are OVERLY
    SIMPLIFIED.  For thorough understanding, please refer to the
    original document of ISO2022.  This is equivalent to the standard
-   ECMA-35, obtainable from <URL:http://www.ecma.ch/> (*).
+   ECMA-35, obtainable from <URL:https://www.ecma.ch/> (*).
 
    ISO2022 provides many mechanisms to encode several character sets
    in 7-bit and 8-bit environments.  For 7-bit environments, all text
@@ -9613,7 +9613,7 @@ get_char_bytes (int c, int *len)
    byte of the same value.
 
    If HANDLE-OVER-UNI is Qt, encode an over-unicode character
-   into the the same 4 or 5-byte sequence.
+   into the same 4 or 5-byte sequence.
 
    If the two arguments are Qnil, return Qnil if STRING has a
    non-Unicode character.  */

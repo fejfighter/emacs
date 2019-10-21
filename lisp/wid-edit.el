@@ -58,6 +58,10 @@
 (require 'cl-lib)
 (eval-when-compile (require 'subr-x)) 	; when-let
 
+;; The `string' widget completion uses this.
+(declare-function ispell-get-word "ispell"
+                  (following &optional extra-otherchars))
+
 ;;; Compatibility.
 
 (defun widget-event-point (event)
@@ -412,8 +416,20 @@ the :notify function can't know the new value.")
     (overlay-put overlay 'evaporate t)
     (widget-put widget :doc-overlay overlay)))
 
+(defun widget--should-indent-p (&optional check-after)
+  "Non-nil if we should indent at the current position.
+With CHECK-AFTER non-nil, considers also the content after point, if needed."
+  (save-restriction
+    (widen)
+    (and (eq (preceding-char) ?\n)
+         (or (not check-after)
+             ;; If there is a space character, then we probably already
+             ;; indented it.
+             (not (eq (following-char) ?\s))))))
+
 (defmacro widget-specify-insert (&rest form)
   "Execute FORM without inheriting any text properties."
+   (declare (debug body))
   `(save-restriction
     (let ((inhibit-read-only t)
 	  (inhibit-modification-hooks t))
@@ -1154,7 +1170,7 @@ When not inside a field, signal an error."
                               (plist-get completion-extra-properties
                                          :predicate))))
      (t
-      (error "Not in an editable field")))))
+      (error "No completions available for this field")))))
 ;; We may want to use widget completion in buffers where the major mode
 ;; hasn't added widget-completions-at-point to completion-at-point-functions,
 ;; so it's not really obsolete (yet).
@@ -1162,8 +1178,9 @@ When not inside a field, signal an error."
 
 (defun widget-completions-at-point ()
   (let ((field (widget-field-find (point))))
-    (when field
-      (widget-apply field :completions-function))))
+    (if field
+        (widget-apply field :completions-function)
+      (error "Not in an editable field"))))
 
 ;;; Setting up the buffer.
 
@@ -1646,7 +1663,8 @@ The value of the :type attribute should be an unconverted widget type."
       (and (not (widget-get widget :inactive))
 	   (let ((parent (widget-get widget :parent)))
 	     (or (null parent)
-		 (widget-apply parent :active))))))
+		 (widget-apply parent :active)))
+           t)))
 
 (defun widget-default-deactivate (widget)
   "Make WIDGET inactive for user modifications."
@@ -1938,7 +1956,7 @@ the earlier input."
     widget))
 
 (defun widget-field-value-set (widget value)
-  "Set an editable text field WIDGET to VALUE"
+  "Set an editable text field WIDGET to VALUE."
   (let ((from (widget-field-start widget))
 	(to (widget-field-text-end widget))
 	(buffer (widget-field-buffer widget)))
@@ -2253,7 +2271,7 @@ when he invoked the menu."
 (defun widget-checklist-add-item (widget type chosen)
   "Create checklist item in WIDGET of type TYPE.
 If the item is checked, CHOSEN is a cons whose cdr is the value."
-  (and (eq (preceding-char) ?\n)
+  (and (widget--should-indent-p)
        (widget-get widget :indent)
        (insert-char ?\s (widget-get widget :indent)))
   (widget-specify-insert
@@ -2434,7 +2452,7 @@ Return an alist of (TYPE MATCH)."
 (defun widget-radio-add-item (widget type)
   "Add to radio widget WIDGET a new radio button item of type TYPE."
   ;; (setq type (widget-convert type))
-  (and (eq (preceding-char) ?\n)
+  (and (widget--should-indent-p)
        (widget-get widget :indent)
        (insert-char ?\s (widget-get widget :indent)))
   (widget-specify-insert
@@ -2613,7 +2631,8 @@ Return an alist of (TYPE MATCH)."
   ;; We recognize the insert button.
     ;; (let ((widget-push-button-gui widget-editable-list-gui))
     (cond ((eq escape ?i)
-	   (and (widget-get widget :indent)
+	   (and (widget--should-indent-p)
+                (widget-get widget :indent)
 		(insert-char ?\s (widget-get widget :indent)))
 	   (apply 'widget-create-child-and-convert
 		  widget 'insert-button
@@ -2722,8 +2741,9 @@ Return an alist of (TYPE MATCH)."
 	child delete insert)
     (widget-specify-insert
      (save-excursion
-       (and (widget-get widget :indent)
-	    (insert-char ?\s (widget-get widget :indent)))
+       (and (widget--should-indent-p)
+            (widget-get widget :indent)
+            (insert-char ?\s (widget-get widget :indent)))
        (insert (widget-get widget :entry-format)))
      ;; Parse % escapes in format.
      (while (re-search-forward "%\\(.\\)" nil t)
@@ -2751,6 +2771,12 @@ Return an alist of (TYPE MATCH)."
        (if insert (push insert buttons))
        (if delete (push delete buttons))
        (widget-put widget :buttons buttons))
+     ;; After creating the entry, we must check if we should indent the
+     ;; following entry.  This is necessary, for example, to keep the correct
+     ;; indentation of editable lists inside group widgets.
+     (and (widget--should-indent-p t)
+          (widget-get widget :indent)
+          (insert-char ?\s (widget-get widget :indent)))
      (let ((entry-from (point-min-marker))
 	   (entry-to (point-max-marker)))
        (set-marker-insertion-type entry-from t)
@@ -2785,7 +2811,7 @@ Return an alist of (TYPE MATCH)."
 	    args (cdr args)
 	    answer (widget-match-inline arg value)
 	    value (cdr answer))
-      (and (eq (preceding-char) ?\n)
+      (and (widget--should-indent-p)
 	   (widget-get widget :indent)
 	   (insert-char ?\s (widget-get widget :indent)))
       (push (cond ((null answer)
@@ -3043,17 +3069,22 @@ as in (other DEFAULT) or (other :tag \"NAME\" DEFAULT).
 If the user selects this alternative, that specifies DEFAULT
 as the value."
   :tag "Other"
-  :format "%t%n"
+  :format "%t\n"
   :value 'other)
 
 (defvar widget-string-prompt-value-history nil
   "History of input to `widget-string-prompt-value'.")
 
 (define-widget 'string 'editable-field
-  "A string"
+  "A string."
   :tag "String"
   :format "%{%t%}: %v"
-  :complete-function 'ispell-complete-word
+  :complete (lambda (widget)
+              (require 'ispell)
+              (let ((start (save-excursion (nth 1 (ispell-get-word nil)))))
+                (if (< start (widget-field-start widget))
+                    (message "No word to complete inside field")
+                  (ispell-complete-word))))
   :prompt-history 'widget-string-prompt-value-history)
 
 (define-widget 'regexp 'string

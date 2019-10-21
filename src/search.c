@@ -2739,7 +2739,7 @@ since only regular expressions have distinguished subexpressions.  */)
 		    Qnil);
   else if (case_action == cap_initial)
     Fupcase_initials_region (make_fixnum (search_regs.start[sub]),
-			     make_fixnum (newpoint));
+			     make_fixnum (newpoint), Qnil);
 
   /* The replace_range etc. functions can trigger modification hooks
      (see signal_before_change and signal_after_change).  Try to error
@@ -3138,10 +3138,12 @@ DEFUN ("regexp-quote", Fregexp_quote, Sregexp_quote, 1, 1, 0,
     }
 
   Lisp_Object result
-    = make_specified_string (temp,
-			     SCHARS (string) + backslashes_added,
-			     out - temp,
-			     STRING_MULTIBYTE (string));
+    = (backslashes_added > 0
+       ? make_specified_string (temp,
+                                SCHARS (string) + backslashes_added,
+                                out - temp,
+                                STRING_MULTIBYTE (string))
+       : string);
   SAFE_FREE ();
   return result;
 }

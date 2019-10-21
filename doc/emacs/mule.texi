@@ -497,6 +497,10 @@ one of them selects that alternative.  The keys @kbd{C-f}, @kbd{C-b},
 do the highlighting in the buffer showing the possible characters,
 rather than in the echo area.
 
+  To enter characters according to the @dfn{pīnyīn} transliteration
+method instead, use the @code{chinese-sisheng} input method.  This is
+a composition based method, where e.g. @kbd{pi1} results in @samp{pī}.
+
   In Japanese input methods, first you input a whole word using
 phonetic spelling; then, after the word is in the buffer, Emacs
 converts it into one or more characters using a large dictionary.  One
@@ -1786,7 +1790,7 @@ Reordering of bidirectional text into the @dfn{visual} order happens
 at display time.  As a result, character positions no longer increase
 monotonically with their positions on display.  Emacs implements the
 Unicode Bidirectional Algorithm (UBA) described in the
-@uref{http://unicode.org/reports/tr9/, Unicode Standard Annex #9}, for
+@uref{https://unicode.org/reports/tr9/, Unicode Standard Annex #9}, for
 reordering of bidirectional text for display.
 It deviates from the UBA only in how continuation lines are displayed
 when text direction is opposite to the base paragraph direction,

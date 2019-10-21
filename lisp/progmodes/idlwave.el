@@ -3629,7 +3629,7 @@ Calling from a program, arguments are START END."
 (defun idlwave-quoted ()
   "Return t if point is in a comment or quoted string.
 Returns nil otherwise."
-  (or (idlwave-in-comment) (idlwave-in-quote)))
+  (and (or (idlwave-in-comment) (idlwave-in-quote)) t))
 
 (defun idlwave-in-quote ()
   "Return location of the opening quote
@@ -8271,7 +8271,7 @@ If we do not know about MODULE, just return KEYWORD literally."
       (select-window olh-window)
       (idlwave-help-quit))
     (when (window-live-p ri-window)
-      (delete-window ri-window))))
+      (quit-window nil ri-window))))
 
 (defun idlwave-display-calling-sequence (name type class
 					      &optional initial-class)

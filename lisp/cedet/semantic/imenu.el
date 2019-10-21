@@ -119,7 +119,7 @@ See `semantic-bucketize' and the FILTER argument for more details on this functi
 (make-variable-buffer-local 'semantic-imenu-sort-bucket-function)
 
 (defcustom semantic-imenu-index-directory nil
-  "Non nil to index the entire directory for tags.
+  "Non-nil to index the entire directory for tags.
 Doesn't actually parse the entire directory, but displays tags for all files
 currently listed in the current Semantic database.
 This variable has no meaning if semanticdb is not active."
@@ -240,10 +240,8 @@ Optional argument STREAM is an optional stream of tags used to create menus."
 	   (or stream (semantic-fetch-tags-fast)))
         (semantic-create-imenu-index-1
 	 (or stream (semantic-fetch-tags-fast)) nil))
-    (semantic-make-local-hook 'semantic-after-toplevel-cache-change-hook)
     (add-hook 'semantic-after-toplevel-cache-change-hook
               'semantic-imenu-flush-fcn nil t)
-    (semantic-make-local-hook 'semantic-after-partial-cache-change-hook)
     (add-hook 'semantic-after-partial-cache-change-hook
               'semantic-imenu-flush-fcn nil t)))
 

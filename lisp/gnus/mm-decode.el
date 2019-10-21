@@ -381,9 +381,11 @@ enables you to choose manually one of two types those mails include."
   :type 'directory
   :group 'mime-display)
 
-(defcustom mm-inline-large-images nil
-  "If t, then all images fit in the buffer.
-If `resize', try to resize the images so they fit."
+(defcustom mm-inline-large-images 'resize
+  "If nil, images larger than the window aren't displayed in the buffer.
+If `resize', try to resize the images so they fit in the buffer.
+If t, show the images as they are without resizing."
+  :version "27.1"
   :type '(radio
           (const :tag "Inline large images as they are." t)
           (const :tag "Resize large images." resize)
@@ -1644,13 +1646,21 @@ If RECURSIVE, search recursively."
 	    (setq result (buffer-string))))))
     result))
 
-(defvar mm-security-handle nil)
-
 (defsubst mm-set-handle-multipart-parameter (handle parameter value)
   ;; HANDLE could be a CTL.
   (when handle
     (put-text-property 0 (length (car handle)) parameter value
 		       (car handle))))
+
+;; Interface functions and variables for the decryption/verification
+;; functions.
+(defvar mm-security-handle nil)
+(defun mm-sec-status (&rest keys)
+  (cl-loop for (key val) on keys by #'cddr
+	   do (mm-set-handle-multipart-parameter mm-security-handle key val)))
+
+(defun mm-sec-error (&rest keys)
+  (apply #'mm-sec-status (append '(sec-error t) keys)))
 
 (autoload 'mm-view-pkcs7 "mm-view")
 
@@ -1670,6 +1680,8 @@ If RECURSIVE, search recursively."
 		    (t (y-or-n-p
 			(format "Decrypt (S/MIME) part? "))))
 		   (mm-view-pkcs7 parts from))
+	  (goto-char (point-min))
+	  (insert "Content-type: text/plain\n\n")
 	  (setq parts (mm-dissect-buffer t)))))
      ((equal subtype "signed")
       (unless (and (setq protocol
@@ -1702,9 +1714,8 @@ If RECURSIVE, search recursively."
 	(save-excursion
 	  (if func
 	      (setq parts (funcall func parts ctl))
-	    (mm-set-handle-multipart-parameter
-	     mm-security-handle 'gnus-details
-	     (format "Unknown sign protocol (%s)" protocol))))))
+	    (mm-sec-error 'gnus-details
+			  (format "Unknown sign protocol (%s)" protocol))))))
      ((equal subtype "encrypted")
       (unless (setq protocol
 		    (mm-handle-multipart-ctl-parameter ctl 'protocol))
@@ -1734,11 +1745,28 @@ If RECURSIVE, search recursively."
 	(save-excursion
 	  (if func
 	      (setq parts (funcall func parts ctl))
-	    (mm-set-handle-multipart-parameter
-	     mm-security-handle 'gnus-details
-	     (format "Unknown encrypt protocol (%s)" protocol))))))
-     (t nil))
-    parts))
+	    (mm-sec-error
+	     'gnus-details
+	     (format "Unknown encrypt protocol (%s)" protocol)))))))
+    ;; Check the results (which are now in `parts').
+    (let ((err (get-text-property 0 'sec-error (car mm-security-handle))))
+      (if (or (not err)
+	      (not (equal subtype "encrypted")))
+	  parts
+	;; We had an error during decryption.  Report what it is.
+	(list
+	 (mm-make-handle
+	  (with-current-buffer (generate-new-buffer " *mm*")
+	    (insert "Error!  Result from decryption:\n\n"
+		    (or (get-text-property 0 'gnus-details
+					   (car mm-security-handle))
+			"")
+		    "\n\n"
+		    (or (get-text-property 0 'gnus-details
+					   (car mm-security-handle))
+			""))
+	    (current-buffer))
+	  '("text/plain")))))))
 
 (defun mm-multiple-handles (handles)
   (and (listp handles)

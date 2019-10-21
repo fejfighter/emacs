@@ -607,8 +607,7 @@ This function appends the contents of the region delimited by
 @var{filename}.  If that file does not exist, it is created.  This
 function returns @code{nil}.
 
-An error is signaled if @var{filename} specifies a nonwritable file,
-or a nonexistent file in a directory where files cannot be created.
+An error is signaled if you cannot write or create @var{filename}.
 
 When called from Lisp, this function is completely equivalent to:
 
@@ -851,13 +850,13 @@ permissions.
 @defun file-exists-p filename
 This function returns @code{t} if a file named @var{filename} appears
 to exist.  This does not mean you can necessarily read the file, only
-that you can find out its attributes.  (On GNU and other POSIX-like
+that you can probably find out its attributes.  (On GNU and other POSIX-like
 systems, this is true if the file exists and you have execute
 permission on the containing directories, regardless of the
 permissions of the file itself.)
 
-If the file does not exist, or if access control policies prevent you
-from finding its attributes, this function returns @code{nil}.
+If the file does not exist, or if there was trouble determining
+whether the file exists, this function returns @code{nil}.
 
 Directories are files, so @code{file-exists-p} can return @code{t} when
 given a directory.  However, because @code{file-exists-p} follows
@@ -882,7 +881,7 @@ inside the directory, and open those files if their modes permit.
 This function returns @code{t} if the file @var{filename} can be written
 or created by you, and @code{nil} otherwise.  A file is writable if the
 file exists and you can write it.  It is creatable if it does not exist,
-but the specified directory does exist and you can write in that
+but its parent directory does exist and you can write in that
 directory.
 
 In the example below, @file{foo} is not writable because the parent
@@ -900,7 +899,7 @@ directory.
 @defun file-accessible-directory-p dirname
 This function returns @code{t} if you have permission to open existing
 files in the directory whose name as a file is @var{dirname};
-otherwise (or if there is no such directory), it returns @code{nil}.
+otherwise (e.g., if there is no such directory), it returns @code{nil}.
 The value of @var{dirname} may be either a directory name (such as
 @file{/foo/}) or the file name of a file which is a directory
 (such as @file{/foo}, without the final slash).
@@ -915,8 +914,8 @@ file in @file{/foo/} will give an error:
 @end defun
 
 @defun access-file filename string
-This function opens file @var{filename} for reading, then closes it and
-returns @code{nil}.  However, if the open fails, it signals an error
+If you can read @var{filename} this function returns @code{nil};
+otherwise it signals an error
 using @var{string} as the error message text.
 @end defun
 
@@ -1012,6 +1011,7 @@ absolute file name of the target; determining the full file name that
 the link points to is nontrivial, see below.)
 
 If the file @var{filename} is not a symbolic link, or does not exist,
+or if there is trouble determining whether it is a symbolic link,
 @code{file-symlink-p} returns @code{nil}.
 
 Here are a few examples of using this function:
@@ -1072,7 +1072,9 @@ link.  If you actually need the file name of the link target, use
 
 @defun file-directory-p filename
 This function returns @code{t} if @var{filename} is the name of an
-existing directory, @code{nil} otherwise.
+existing directory.  It returns @code{nil} if @var{filename} does
+not name a directory, or if there is trouble determining whether
+it is a directory.
 This function follows symbolic links.
 
 @example
@@ -1104,6 +1106,8 @@ This function follows symbolic links.
 This function returns @code{t} if the file @var{filename} exists and is
 a regular file (not a directory, named pipe, terminal, or
 other I/O device).
+It returns @code{nil} if @var{filename} does not exist or is not a regular
+file, or if there is trouble determining whether it is a regular file.
 This function follows symbolic links.
 @end defun
 
@@ -1262,7 +1266,7 @@ on the 19th, @file{aug-20} was written on the 20th, and the file
 @defun file-attributes filename &optional id-format
 @anchor{Definition of file-attributes}
 This function returns a list of attributes of file @var{filename}.  If
-the specified file's attributes cannot be accessed, it returns @code{nil}.
+the specified file does not exist, it returns @code{nil}.
 This function does not follow symbolic links.
 The optional parameter @var{id-format} specifies the preferred format
 of attributes @acronym{UID} and @acronym{GID} (see below)---the
@@ -1464,9 +1468,8 @@ The underlying ACL implementation is platform-specific; on GNU/Linux
 and BSD, Emacs uses the POSIX ACL interface, while on MS-Windows Emacs
 emulates the POSIX ACL interface with native file security APIs.
 
-If Emacs was not compiled with ACL support, or the file does not exist
-or is inaccessible, or Emacs was unable to determine the ACL entries
-for any other reason, then the return value is @code{nil}.
+If ACLs are not supported or the file does not exist,
+then the return value is @code{nil}.
 @end defun
 
 @defun file-selinux-context filename
@@ -1478,8 +1481,7 @@ for details about what these actually mean.  The return value has the
 same form as what @code{set-file-selinux-context} takes for its
 @var{context} argument (@pxref{Changing Files}).
 
-If Emacs was not compiled with SELinux support, or the file does not
-exist or is inaccessible, or if the system does not support SELinux,
+If SELinux is not supported or the file does not exist,
 then the return value is @code{(nil nil nil nil)}.
 @end defun
 
@@ -2921,6 +2923,7 @@ An error is signaled if @var{directory} is not the name of a directory
 that can be read.
 @end defun
 
+@cindex recursive traverse of directory tree
 @defun directory-files-recursively directory regexp &optional include-directories predicate follow-symlinks
 Return all files under @var{directory} whose names match @var{regexp}.
 This function searches the specified @var{directory} and its
@@ -2945,6 +2948,25 @@ if the directory is to be descended into.
 
 Symbolic links to subdirectories are not followed by default, but if
 @var{follow-symlinks} is non-@code{nil}, they are followed.
+@end defun
+
+
+@defun locate-dominating-file file name
+Starting at @var{file}, go up the directory tree hierarchy looking for
+the first directory where @var{name}, a string, exists, and return that
+directory.  If @var{file} is a file, its directory will serve as the
+starting point for the search; otherwise @var{file} should be a
+directory from which to start.  The function looks in the starting
+directory, then in its parent, then in its parent's parent, etc.,
+until it either finds a directory with @var{name} or reaches the root
+directory of the filesystem without finding @var{name} -- in the
+latter case the function returns @code{nil}.
+
+The argument @code{name} can also be a predicate function.  The
+predicate is called for every directory examined by the function,
+starting from @var{file} (even if @var{file} is not a directory).  It
+is called with one argument (the file or directory) and should return
+non-@code{nil} if that directory is the one it is looking for.
 @end defun
 
 @defun directory-files-and-attributes directory &optional full-name match-regexp nosort id-format

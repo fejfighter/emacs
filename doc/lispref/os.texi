@@ -475,7 +475,8 @@ the value refers to the corresponding source file.
 @defvar user-emacs-directory
 This variable holds the name of the Emacs default directory.
 It defaults to @file{$@{XDG_CONFIG_HOME-'~/.config'@}/emacs/}
-if that directory exists and @file{~/.emacs.d/} does not exist,
+if that directory exists and @file{~/.emacs.d/} and @file{~/.emacs} do
+not exist,
 otherwise to @file{~/.emacs.d/} on all platforms but MS-DOS@.
 Here, @file{$@{XDG_CONFIG_HOME-'~/.config'@}}
 stands for the value of the environment variable @env{XDG_CONFIG_HOME}
@@ -1434,9 +1435,9 @@ the past or future.
 
   Calendrical conversion functions always use the Gregorian calendar, even
 for dates before the Gregorian calendar was introduced.  Year numbers
-count the number of years since the year 1 B.C., and do not skip zero
+count the number of years since the year 1 BC, and do not skip zero
 as traditional Gregorian years do; for example, the year number
-@minus{}37 represents the Gregorian year 38 B.C@.
+@minus{}37 represents the Gregorian year 38 BC@.
 
 @defun time-convert time &optional form
 This function converts a time value into a Lisp timestamp.
@@ -2594,6 +2595,15 @@ if it is non-@code{nil}; this can be overridden by binding
 This variable is non-@code{nil} when Emacs is running in batch mode.
 @end defvar
 
+If Emacs exits due to signalling an error in batch mode, the exit
+status of the Emacs command is non-zero:
+
+@example
+$ emacs -Q --batch --eval '(error "foo")'; echo $?
+foo
+255
+@end example
+
 @node Session Management
 @section Session Management
 @cindex session manager
@@ -2717,7 +2727,7 @@ interpreted as icon name.
 
 @item :category @var{category}
 The type of notification this is, a string.  See the
-@uref{http://developer.gnome.org/notification-spec/#categories,
+@uref{https://developer.gnome.org/notification-spec/#categories,
 Desktop Notifications Specification} for a list of standard
 categories.
 

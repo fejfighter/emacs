@@ -219,7 +219,7 @@ void
 init_eval_once (void)
 {
   /* Don't forget to update docs (lispref node "Local Variables").  */
-  max_specpdl_size = 1500; /* 1300 is not enough for cl-generic.el.  */
+  max_specpdl_size = 1600; /* 1500 is not enough for cl-generic.el.  */
   max_lisp_eval_depth = 800;
   Vrun_hooks = Qnil;
   pdumper_do_now_and_after_load (init_eval_once_for_pdumper);
@@ -1890,7 +1890,6 @@ verror (const char *m, va_list ap)
 
 /* Dump an error message; called like printf.  */
 
-/* VARARGS 1 */
 void
 error (const char *m, ...)
 {
@@ -2649,7 +2648,6 @@ call0 (Lisp_Object fn)
 }
 
 /* Call function fn with 1 argument arg1.  */
-/* ARGSUSED */
 Lisp_Object
 call1 (Lisp_Object fn, Lisp_Object arg1)
 {
@@ -2657,7 +2655,6 @@ call1 (Lisp_Object fn, Lisp_Object arg1)
 }
 
 /* Call function fn with 2 arguments arg1, arg2.  */
-/* ARGSUSED */
 Lisp_Object
 call2 (Lisp_Object fn, Lisp_Object arg1, Lisp_Object arg2)
 {
@@ -2665,7 +2662,6 @@ call2 (Lisp_Object fn, Lisp_Object arg1, Lisp_Object arg2)
 }
 
 /* Call function fn with 3 arguments arg1, arg2, arg3.  */
-/* ARGSUSED */
 Lisp_Object
 call3 (Lisp_Object fn, Lisp_Object arg1, Lisp_Object arg2, Lisp_Object arg3)
 {
@@ -2673,7 +2669,6 @@ call3 (Lisp_Object fn, Lisp_Object arg1, Lisp_Object arg2, Lisp_Object arg3)
 }
 
 /* Call function fn with 4 arguments arg1, arg2, arg3, arg4.  */
-/* ARGSUSED */
 Lisp_Object
 call4 (Lisp_Object fn, Lisp_Object arg1, Lisp_Object arg2, Lisp_Object arg3,
        Lisp_Object arg4)
@@ -2682,7 +2677,6 @@ call4 (Lisp_Object fn, Lisp_Object arg1, Lisp_Object arg2, Lisp_Object arg3,
 }
 
 /* Call function fn with 5 arguments arg1, arg2, arg3, arg4, arg5.  */
-/* ARGSUSED */
 Lisp_Object
 call5 (Lisp_Object fn, Lisp_Object arg1, Lisp_Object arg2, Lisp_Object arg3,
        Lisp_Object arg4, Lisp_Object arg5)
@@ -2691,7 +2685,6 @@ call5 (Lisp_Object fn, Lisp_Object arg1, Lisp_Object arg2, Lisp_Object arg3,
 }
 
 /* Call function fn with 6 arguments arg1, arg2, arg3, arg4, arg5, arg6.  */
-/* ARGSUSED */
 Lisp_Object
 call6 (Lisp_Object fn, Lisp_Object arg1, Lisp_Object arg2, Lisp_Object arg3,
        Lisp_Object arg4, Lisp_Object arg5, Lisp_Object arg6)
@@ -2700,7 +2693,6 @@ call6 (Lisp_Object fn, Lisp_Object arg1, Lisp_Object arg2, Lisp_Object arg3,
 }
 
 /* Call function fn with 7 arguments arg1, arg2, arg3, arg4, arg5, arg6, arg7.  */
-/* ARGSUSED */
 Lisp_Object
 call7 (Lisp_Object fn, Lisp_Object arg1, Lisp_Object arg2, Lisp_Object arg3,
        Lisp_Object arg4, Lisp_Object arg5, Lisp_Object arg6, Lisp_Object arg7)
@@ -2710,7 +2702,6 @@ call7 (Lisp_Object fn, Lisp_Object arg1, Lisp_Object arg2, Lisp_Object arg3,
 
 /* Call function fn with 8 arguments arg1, arg2, arg3, arg4, arg5,
    arg6, arg7, arg8.  */
-/* ARGSUSED */
 Lisp_Object
 call8 (Lisp_Object fn, Lisp_Object arg1, Lisp_Object arg2, Lisp_Object arg3,
        Lisp_Object arg4, Lisp_Object arg5, Lisp_Object arg6, Lisp_Object arg7,

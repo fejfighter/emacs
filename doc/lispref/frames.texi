@@ -2392,6 +2392,7 @@ The color to use for the background of characters.  It is equivalent to
 the @code{:background} attribute of the @code{default} face.
 
 @vindex mouse-color@r{, a frame parameter}
+@vindex mouse@r{, a face}
 @item mouse-color
 The color for the mouse pointer.  It is equivalent to the @code{:background}
 attribute of the @code{mouse} face.
@@ -3861,7 +3862,7 @@ drop.
 
 @vindex dnd-protocol-alist
   When an URL is dropped on Emacs it may be a file, but it may also be
-another URL type (ftp, http, etc.).  Emacs first checks
+another URL type (https, etc.).  Emacs first checks
 @code{dnd-protocol-alist} to determine what to do with the URL@.  If
 there is no match there and if @code{browse-url-browser-function} is
 an alist, Emacs looks for a match there.  If no match is found the

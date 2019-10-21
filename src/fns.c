@@ -50,11 +50,11 @@ static bool internal_equal (Lisp_Object, Lisp_Object,
 			    enum equal_kind, int, Lisp_Object);
 
 DEFUN ("identity", Fidentity, Sidentity, 1, 1, 0,
-       doc: /* Return the argument unchanged.  */
+       doc: /* Return the ARGUMENT unchanged.  */
        attributes: const)
-  (Lisp_Object arg)
+  (Lisp_Object argument)
 {
-  return arg;
+  return argument;
 }
 
 DEFUN ("random", Frandom, Srandom, 0, 1, 0,
@@ -533,14 +533,12 @@ Do NOT use this function to compare file names for equality.  */)
 static Lisp_Object concat (ptrdiff_t nargs, Lisp_Object *args,
 			   enum Lisp_Type target_type, bool last_special);
 
-/* ARGSUSED */
 Lisp_Object
 concat2 (Lisp_Object s1, Lisp_Object s2)
 {
   return concat (2, ((Lisp_Object []) {s1, s2}), Lisp_String, 0);
 }
 
-/* ARGSUSED */
 Lisp_Object
 concat3 (Lisp_Object s1, Lisp_Object s2, Lisp_Object s3)
 {
@@ -2578,7 +2576,6 @@ This makes STRING unibyte and may change its length.  */)
   return Qnil;
 }
 
-/* ARGSUSED */
 Lisp_Object
 nconc2 (Lisp_Object s1, Lisp_Object s2)
 {
@@ -3097,6 +3094,7 @@ later with `widget-put'.  */)
 
 DEFUN ("widget-apply", Fwidget_apply, Swidget_apply, 2, MANY, 0,
        doc: /* Apply the value of WIDGET's PROPERTY to the widget itself.
+Return the result of applying the value of PROPERTY to WIDGET.
 ARGS are passed as extra arguments to the function.
 usage: (widget-apply WIDGET PROPERTY &rest ARGS)  */)
   (ptrdiff_t nargs, Lisp_Object *args)
@@ -3180,8 +3178,14 @@ The data read from the system are decoded using `locale-coding-system'.  */)
 # endif
 # ifdef HAVE_LANGINFO__NL_PAPER_WIDTH
   if (EQ (item, Qpaper))
-    return list2i ((intptr_t) nl_langinfo (_NL_PAPER_WIDTH),
-		   (intptr_t) nl_langinfo (_NL_PAPER_HEIGHT));
+    /* We have to cast twice here: first to a correctly-sized integer,
+       then to int, because that's what nl_langinfo is documented to
+       return for _NO_PAPER_{WIDTH,HEIGHT}.  The first cast doesn't
+       suffice because it could overflow an Emacs fixnum.  This can
+       happen when running under ASan, which fills allocated but
+       uninitialized memory with 0xBE bytes.  */
+    return list2i ((int) (intptr_t) nl_langinfo (_NL_PAPER_WIDTH),
+		   (int) (intptr_t) nl_langinfo (_NL_PAPER_HEIGHT));
 # endif
 #endif	/* HAVE_LANGINFO_CODESET*/
   return Qnil;
@@ -5085,7 +5089,7 @@ make_digest_string (Lisp_Object digest, int digest_size)
 
 DEFUN ("secure-hash-algorithms", Fsecure_hash_algorithms,
        Ssecure_hash_algorithms, 0, 0, 0,
-       doc: /* Return a list of all the supported `secure_hash' algorithms. */)
+       doc: /* Return a list of all the supported `secure-hash' algorithms. */)
   (void)
 {
   return list (Qmd5, Qsha1, Qsha224, Qsha256, Qsha384, Qsha512);
@@ -5380,7 +5384,10 @@ If OBJECT is a string, the most preferred coding system (see the
 command `prefer-coding-system') is used.
 
 If NOERROR is non-nil, silently assume the `raw-text' coding if the
-guesswork fails.  Normally, an error is signaled in such case.  */)
+guesswork fails.  Normally, an error is signaled in such case.
+
+Note that MD5 is not collision resistant and should not be used for
+anything security-related.  See `secure-hash' for alternatives.  */)
   (Lisp_Object object, Lisp_Object start, Lisp_Object end, Lisp_Object coding_system, Lisp_Object noerror)
 {
   return secure_hash (Qmd5, object, start, end, coding_system, noerror, Qnil);
@@ -5389,7 +5396,12 @@ guesswork fails.  Normally, an error is signaled in such case.  */)
 DEFUN ("secure-hash", Fsecure_hash, Ssecure_hash, 2, 5, 0,
        doc: /* Return the secure hash of OBJECT, a buffer or string.
 ALGORITHM is a symbol specifying the hash to use:
-md5, sha1, sha224, sha256, sha384 or sha512.
+- md5    corresponds to MD5
+- sha1   corresponds to SHA-1
+- sha224 corresponds to SHA-2 (SHA-224)
+- sha256 corresponds to SHA-2 (SHA-256)
+- sha384 corresponds to SHA-2 (SHA-384)
+- sha512 corresponds to SHA-2 (SHA-512)
 
 The two optional arguments START and END are positions specifying for
 which part of OBJECT to compute the hash.  If nil or omitted, uses the
@@ -5397,7 +5409,11 @@ whole OBJECT.
 
 The full list of algorithms can be obtained with `secure-hash-algorithms'.
 
-If BINARY is non-nil, returns a string in binary form.  */)
+If BINARY is non-nil, returns a string in binary form.
+
+Note that MD5 and SHA-1 are not collision resistant and should not be
+used for anything security-related.  For these applications, use one
+of the other hash types instead, e.g. sha256 or sha512.  */)
   (Lisp_Object algorithm, Lisp_Object object, Lisp_Object start, Lisp_Object end, Lisp_Object binary)
 {
   return secure_hash (algorithm, object, start, end, Qnil, Qnil, binary);
@@ -5406,7 +5422,14 @@ If BINARY is non-nil, returns a string in binary form.  */)
 DEFUN ("buffer-hash", Fbuffer_hash, Sbuffer_hash, 0, 1, 0,
        doc: /* Return a hash of the contents of BUFFER-OR-NAME.
 This hash is performed on the raw internal format of the buffer,
-disregarding any coding systems.  If nil, use the current buffer.  */ )
+disregarding any coding systems.  If nil, use the current buffer.
+
+This function is useful for comparing two buffers running in the same
+Emacs, but is not guaranteed to return the same hash between different
+Emacs versions.
+
+It should not be used for anything security-related.  See
+`secure-hash' for these applications.  */ )
   (Lisp_Object buffer_or_name)
 {
   Lisp_Object buffer;

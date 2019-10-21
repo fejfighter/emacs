@@ -286,12 +286,18 @@ from Lisp, if the optional arg LOCAL is non-nil, set the local value.
 When you find a tag with \\[find-tag], the buffer it finds the tag
 in is given a local value of this variable which is the name of the tags
 file the tag was in."
-  (interactive (list (read-file-name "Visit tags table (default TAGS): "
-				     default-directory
-				     (expand-file-name "TAGS"
-						       default-directory)
-				     t)
-		     current-prefix-arg))
+  (interactive
+   (let ((default-tag-dir
+           (or (locate-dominating-file default-directory "TAGS")
+               default-directory)))
+     (list (read-file-name
+            "Visit tags table (default TAGS): "
+            ;; default to TAGS from default-directory up to root.
+            default-tag-dir
+            (expand-file-name "TAGS" default-tag-dir)
+            t)
+           current-prefix-arg)))
+
   (or (stringp file) (signal 'wrong-type-argument (list 'stringp file)))
   ;; Bind tags-file-name so we can control below whether the local or
   ;; global value gets set.
@@ -1313,7 +1319,7 @@ buffer-local values of tags table format variables."
       ;; Find the end of the tag and record the whole tag text.
       (search-forward "\177")
       (setq tag-text (buffer-substring (1- (point)) (point-at-bol)))
-      ;; If use-explicit is non nil and explicit tag is present, use it as part of
+      ;; If use-explicit is non-nil and explicit tag is present, use it as part of
       ;; return value. Else just skip it.
       (setq explicit-start (point))
       (when (and (search-forward "\001" (point-at-bol 2) t)
@@ -1843,24 +1849,47 @@ For non-interactive use, superceded by `fileloop-initialize-replace'."
    delimited)
   (fileloop-continue))
 
-(defun tags-complete-tags-table-file (string predicate what) ; Doc string?
+(defun tags-complete-tags-table-file (string predicate what)
+  "Complete STRING from file names in the current tags table.
+PREDICATE, if non-nil, is a function to filter possible matches:
+if it returns nil, the match is ignored.  If PREDICATE is nil,
+every possible match is acceptable.
+WHAT is a flag specifying the type of completion: t means `all-completions'
+operation, any other value means `try-completions' operation.
+
+This function serves as COLLECTION argument to `completing-read',
+see the Info node `(elisp) Programmed Completion' for more detailed
+description of the arguments."
   (save-excursion
     ;; If we need to ask for the tag table, allow that.
     (let ((enable-recursive-minibuffers t))
       (visit-tags-table-buffer))
     (if (eq what t)
-	(all-completions string (tags-table-files) predicate)
+        (all-completions string (tags-table-files) predicate)
       (try-completion string (tags-table-files) predicate))))
+
+(defun tags--get-current-buffer-name-in-tags-file ()
+  "Get the file name that the current buffer corresponds in the tags file."
+  (let ((tag-dir
+         (save-excursion
+           (visit-tags-table-buffer)
+           (file-name-directory (buffer-file-name)))))
+    (file-relative-name (buffer-file-name) tag-dir)))
 
 ;;;###autoload
 (defun list-tags (file &optional _next-match)
   "Display list of tags in file FILE.
-This searches only the first table in the list, and no included tables.
-FILE should be as it appeared in the `etags' command, usually without a
-directory specification."
-  (interactive (list (completing-read "List tags in file: "
-				      'tags-complete-tags-table-file
-				      nil t nil)))
+This searches only the first table in the list, and no included
+tables.  FILE should be as it appeared in the `etags' command,
+usually without a directory specification.  If called
+interactively, FILE defaults to the file name of the current
+buffer."
+  (interactive (list (completing-read
+                      "List tags in file: "
+                      'tags-complete-tags-table-file
+                      nil t
+                      ;; Default FILE to the current buffer.
+                      (tags--get-current-buffer-name-in-tags-file))))
   (with-output-to-temp-buffer "*Tags List*"
     (princ (substitute-command-keys "Tags in file `"))
     (tags-with-face 'highlight (princ file))

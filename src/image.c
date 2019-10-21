@@ -1153,8 +1153,13 @@ DEFUN ("image-size", Fimage_size, Simage_size, 1, 3, 0,
        doc: /* Return the size of image SPEC as pair (WIDTH . HEIGHT).
 PIXELS non-nil means return the size in pixels, otherwise return the
 size in canonical character units.
+
 FRAME is the frame on which the image will be displayed.  FRAME nil
-or omitted means use the selected frame.  */)
+or omitted means use the selected frame.
+
+Calling this function will result in the image being stored in the
+image cache.  If this is not desirable, call `image-flush' after
+calling this function.  */)
   (Lisp_Object spec, Lisp_Object pixels, Lisp_Object frame)
 {
   Lisp_Object size;
@@ -3126,6 +3131,7 @@ enum xbm_keyword_index
   XBM_FILE,
   XBM_WIDTH,
   XBM_HEIGHT,
+  XBM_STRIDE,
   XBM_DATA,
   XBM_FOREGROUND,
   XBM_BACKGROUND,
@@ -3147,6 +3153,7 @@ static const struct image_keyword xbm_format[XBM_LAST] =
   {":file",		IMAGE_STRING_VALUE,			0},
   {":width",		IMAGE_POSITIVE_INTEGER_VALUE,		0},
   {":height",		IMAGE_POSITIVE_INTEGER_VALUE,		0},
+  {":stride",		IMAGE_POSITIVE_INTEGER_VALUE,		0},
   {":data",		IMAGE_DONT_CHECK_VALUE_TYPE,		0},
   {":foreground",	IMAGE_STRING_OR_NIL_VALUE,		0},
   {":background",	IMAGE_STRING_OR_NIL_VALUE,		0},
@@ -3222,7 +3229,7 @@ xbm_image_p (Lisp_Object object)
   else
     {
       Lisp_Object data;
-      int width, height;
+      int width, height, stride;
 
       /* Entries for `:width', `:height' and `:data' must be present.  */
       if (!kw[XBM_WIDTH].count
@@ -3233,6 +3240,11 @@ xbm_image_p (Lisp_Object object)
       data = kw[XBM_DATA].value;
       width = XFIXNAT (kw[XBM_WIDTH].value);
       height = XFIXNAT (kw[XBM_HEIGHT].value);
+
+      if (!kw[XBM_STRIDE].count)
+	stride = width;
+      else
+	stride = XFIXNAT (kw[XBM_STRIDE].value);
 
       /* Check type of data, and width and height against contents of
 	 data.  */
@@ -3252,8 +3264,7 @@ xbm_image_p (Lisp_Object object)
 
 	      if (STRINGP (elt))
 		{
-		  if (SCHARS (elt)
-		      < (width + CHAR_BIT - 1) / CHAR_BIT)
+		  if (SCHARS (elt) < stride / CHAR_BIT)
 		    return 0;
 		}
 	      else if (BOOL_VECTOR_P (elt))
@@ -3267,13 +3278,16 @@ xbm_image_p (Lisp_Object object)
 	}
       else if (STRINGP (data))
 	{
-	  if (SCHARS (data)
-	      < (width + CHAR_BIT - 1) / CHAR_BIT * height)
+	  if (SCHARS (data) < stride / CHAR_BIT * height)
 	    return 0;
 	}
       else if (BOOL_VECTOR_P (data))
 	{
-	  if (bool_vector_size (data) / height < width)
+	  if (height > 1 && stride != (width + CHAR_BIT - 1)
+	      / CHAR_BIT * CHAR_BIT)
+	    return 0;
+
+	  if (bool_vector_size (data) / height < stride)
 	    return 0;
 	}
       else
@@ -8403,7 +8417,7 @@ gif_load (struct frame *f, struct image *img)
       /* For disposal == 0, the spec says "No disposal specified. The
 	 decoder is not required to take any action."  In practice, it
 	 seems we need to treat this like "keep in place", see e.g.
-	 http://upload.wikimedia.org/wikipedia/commons/3/37/Clock.gif */
+	 https://upload.wikimedia.org/wikipedia/commons/3/37/Clock.gif */
       if (disposal == 0)
 	disposal = 1;
 
@@ -8996,12 +9010,28 @@ imagemagick_load_image (struct frame *f, struct image *img,
      "super-wand". */
   if (MagickGetNumberImages (image_wand) > 1)
     {
-      MagickWand *super_wand = image_wand;
-      image_wand = imagemagick_compute_animated_image (super_wand, ino);
-      if (! image_wand)
-	image_wand = super_wand;
+      /* This is an animated image (it has a delay), so compute the
+	 composite image etc. */
+      if (MagickGetImageDelay (image_wand) > 0)
+	{
+	  MagickWand *super_wand = image_wand;
+	  image_wand = imagemagick_compute_animated_image (super_wand, ino);
+	  if (! image_wand)
+	    image_wand = super_wand;
+	  else
+	    DestroyMagickWand (super_wand);
+	}
       else
-	DestroyMagickWand (super_wand);
+	/* This is not an animated image: It's just a multi-image file
+	   (like an .ico file).  Just return the correct
+	   sub-image.  */
+	{
+	  MagickWand *super_wand = image_wand;
+
+	  MagickSetIteratorIndex (super_wand, ino);
+	  image_wand = MagickGetImage (super_wand);
+	  DestroyMagickWand (super_wand);
+	}
     }
 
   /* Retrieve the frame's background color, for use later.  */
@@ -9305,7 +9335,7 @@ DEFUN ("imagemagick-types", Fimagemagick_types, Simagemagick_types, 0, 0, 0,
        doc: /* Return a list of image types supported by ImageMagick.
 Each entry in this list is a symbol named after an ImageMagick format
 tag.  See the ImageMagick manual for a list of ImageMagick formats and
-their descriptions (http://www.imagemagick.org/script/formats.php).
+their descriptions (https://www.imagemagick.org/script/formats.php).
 You can also try the shell command: `identify -list format'.
 
 Note that ImageMagick recognizes many file-types that Emacs does not
@@ -10137,7 +10167,7 @@ The list of capabilities can include one or more of the following:
 
 DEFUN ("init-image-library", Finit_image_library, Sinit_image_library, 1, 1, 0,
        doc: /* Initialize image library implementing image type TYPE.
-Return non-nil if TYPE is a supported image type.
+Return t if TYPE is a supported image type.
 
 If image libraries are loaded dynamically (currently only the case on
 MS-Windows), load the library for TYPE if it is not yet loaded, using

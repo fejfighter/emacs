@@ -894,7 +894,7 @@ images in Emacs."
 (defvar gnus-decode-address-function 'mail-decode-encoded-address-region
   "Function used to decode addresses.")
 
-(defvar gnus-article-dumbquotes-map
+(defvar gnus-article-smartquotes-map
   '((?\200 "EUR")
     (?\202 ",")
     (?\203 "f")
@@ -915,6 +915,8 @@ images in Emacs."
     (?\234 "oe")
     (?\264 "'"))
   "Table for MS-to-Latin1 translation.")
+(make-obsolete-variable 'gnus-article-dumbquotes-map
+			'gnus-article-smartquotes-map "27.1")
 
 (defcustom gnus-ignored-mime-types nil
   "List of MIME types that should be ignored by Gnus."
@@ -1594,7 +1596,7 @@ predicate.  See Info node `(gnus)Customizing Articles'."
 ;; gnus-article-encrypt-protocol-alist.
 (defcustom gnus-article-encrypt-protocol "PGP"
   "The protocol used for encrypt articles.
-It is a string, such as \"PGP\". If nil, ask user."
+It is a string, such as \"PGP\".  If nil, ask user."
   :version "22.1"
   :type 'string
   :group 'mime-security)
@@ -2074,18 +2076,20 @@ always hide."
 	    ))
 	  (forward-line 1))))))
 
-(defun article-treat-dumbquotes ()
-  "Translate M****s*** sm*rtq**t*s and other symbols into proper text.
-Note that this function guesses whether a character is a sm*rtq**t* or
+(defun article-treat-smartquotes ()
+  "Translate \"Microsoft smartquotes\" and other symbols into proper text.
+Note that this function guesses whether a character is a smartquote or
 not, so it should only be used interactively.
 
-Sm*rtq**t*s are M****s***'s unilateral extension to the
+Smartquotes are Microsoft's unilateral extension to the
 iso-8859-1 character map in an attempt to provide more quoting
 characters.  If you see something like \\222 or \\264 where
 you're expecting some kind of apostrophe or quotation mark, then
 try this wash."
   (interactive)
-  (article-translate-strings gnus-article-dumbquotes-map))
+  (article-translate-strings gnus-article-smartquotes-map))
+(define-obsolete-function-alias 'article-treat-dumquotes
+  #'article-treat-smartquotes "27.1")
 
 (defvar org-entities)
 
@@ -4371,11 +4375,13 @@ If variable `gnus-use-long-file-name' is non-nil, it is
      article-date-lapsed
      article-date-combined-lapsed
      article-emphasize
+     article-treat-smartquotes
+     ;; Obsolete alias.
      article-treat-dumbquotes
      article-treat-non-ascii
-     article-normalize-headers
-     ;;(article-show-all . gnus-article-show-all-headers)
-     )))
+     article-normalize-headers)))
+(define-obsolete-function-alias 'gnus-article-treat-dumbquotes
+  'gnus-article-treat-smartquotes "27.1")
 
 ;;;
 ;;; Gnus article mode
@@ -5378,9 +5384,9 @@ Compressed files like .gz and .bz2 are decompressed."
 				    'gnus-undeletable t))))
 	  ;; We're in the article header.
 	  (delete-char -1)
-	  (dolist (ovl (overlays-in btn (point)))
+	  (let ((ovl (make-overlay btn (point))))
 	    (overlay-put ovl 'gnus-button-attachment-extra t)
-	    (overlay-put ovl 'face nil))
+	    (overlay-put ovl 'evaporate t))
 	  (save-restriction
 	    (message-narrow-to-field)
 	    (let ((gnus-treatment-function-alist
@@ -5763,9 +5769,9 @@ all parts."
 				    'gnus-undeletable t))))
 	  ;; We're in the article header.
 	  (delete-char -1)
-	  (dolist (ovl (overlays-in point (point)))
+	  (let ((ovl (make-overlay point (point))))
 	    (overlay-put ovl 'gnus-button-attachment-extra t)
-	    (overlay-put ovl 'face nil))
+	    (overlay-put ovl 'evaporate t))
 	  (save-restriction
 	    (message-narrow-to-field)
 	    (let ((gnus-treatment-function-alist
@@ -6379,9 +6385,9 @@ in the body.  Use `gnus-header-face-alist' to highlight buttons."
 		  (insert "\n")
 		  (end-of-line)))
 	      (insert "\n")
-	      (dolist (ovl (overlays-in (point-min) (point)))
+	      (let ((ovl (make-overlay (point-min) (point))))
 		(overlay-put ovl 'gnus-button-attachment-extra t)
-		(overlay-put ovl 'face nil))
+		(overlay-put ovl 'evaporate t))
 	      (let ((gnus-treatment-function-alist
 		     '((gnus-treat-highlight-headers
 			gnus-article-highlight-headers))))
@@ -7374,7 +7380,7 @@ man page."
 Strings like this can be either a message ID or a mail address.  If it is one
 of the symbols `mid' or `mail', Gnus will always assume that the string is a
 message ID or a mail address, respectively.  If this variable is set to the
-symbol `ask', always query the user what do do.  If it is a function, this
+symbol `ask', always query the user what to do.  If it is a function, this
 function will be called with the string as its only argument.  The function
 must return `mid', `mail', `invalid' or `ask'."
   :version "22.1"

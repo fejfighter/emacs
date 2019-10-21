@@ -1,4 +1,4 @@
-;;; viper.el --- A full-featured Vi emulator for Emacs and XEmacs,  -*-lexical-binding:t -*-
+;;; viper.el --- A full-featured Vi emulator for Emacs  -*- lexical-binding:t -*-
 ;;		 a VI Plan for Emacs Rescue,
 ;;		 and a venomous VI PERil.
 ;;		 Viper Is also a Package for Emacs Rebels.
@@ -34,7 +34,7 @@
 
 ;;; Commentary:
 
-;; Viper is a full-featured Vi emulator for Emacs and XEmacs.  It emulates and
+;; Viper is a full-featured Vi emulator for Emacs.  It emulates and
 ;; improves upon the standard features of Vi and, at the same time, allows
 ;; full access to all Emacs facilities.  Viper supports multiple undo,
 ;; file name completion, command, file, and search history and it extends
@@ -541,7 +541,7 @@ If Viper is enabled, turn it off.  Otherwise, turn it on."
 		      "Viper Is a Package for Emacs Rebels,
 a VI Plan for Emacs Rescue, and a venomous VI PERil.
 
-Incidentally, Viper emulates Vi under Emacs/XEmacs 20.
+Incidentally, Viper emulates Vi under Emacs.
 It supports all of what is good in Vi and Ex, while extending
 and improving upon much of it.
 
@@ -689,11 +689,10 @@ It also can't undo some Viper settings."
                 (viper-standard-value 'major-mode
                                       viper-saved-non-viper-variables))
 
-  (if (featurep 'emacs)
-      (setq-default
-       mark-even-if-inactive
-       (viper-standard-value
-	'mark-even-if-inactive viper-saved-non-viper-variables)))
+  (setq-default
+   mark-even-if-inactive
+   (viper-standard-value
+    'mark-even-if-inactive viper-saved-non-viper-variables))
 
   ;; Ideally, we would like to be able to de-localize local variables
   (unless
@@ -1018,7 +1017,7 @@ Two differences:
      (lambda (orig-fun &rest args)
        "Adjust input-method toggling in vi-state."
        (if (and viper-special-input-method (eq viper-current-state 'vi-state))
-           (viper-deactivate-input-method)
+           (deactivate-input-method)
          (apply orig-fun args))))
 
   ) ; viper-set-hooks
@@ -1035,8 +1034,7 @@ Two differences:
 	require-final-newline t)
 
   ;; don't bark when mark is inactive
-  (if (featurep 'emacs)
-      (setq mark-even-if-inactive t))
+  (setq mark-even-if-inactive t)
 
   (setq scroll-step 1)
 
@@ -1134,9 +1132,7 @@ These two lines must come in the order given."))
 	   (cons 'mode-line-buffer-identification
 		 (list (default-value 'mode-line-buffer-identification)))
 	   (cons 'global-mode-string (list global-mode-string))
-	   (if (featurep 'emacs)
-	       (cons 'mark-even-if-inactive (list mark-even-if-inactive)))
-	   )))
+	   (cons 'mark-even-if-inactive (list mark-even-if-inactive)))))
 
 
 ;; Set some useful macros, advices

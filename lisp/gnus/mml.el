@@ -295,14 +295,6 @@ part.  This is for the internal use, you should never modify the value.")
 			(t
 			 (mm-find-mime-charset-region point (point)
 						      mm-hack-charsets))))
-	;; If the user has inserted a Content-Type header, then
-	;; respect that instead of overwriting with "text/plain".
-	(save-restriction
-	  (narrow-to-region point (point))
-	  (let ((content-type (mail-fetch-field "content-type")))
-	    (when (and content-type
-		       (eq (car tag) 'part))
-	      (setcdr (assq 'type tag) content-type))))
 	(when (and (not raw) (memq nil charsets))
 	  (if (or (memq 'unknown-encoding mml-confirmation-set)
 		  (message-options-get 'unknown-encoding)
@@ -479,15 +471,22 @@ If MML is non-nil, return the buffer up till the correspondent mml tag."
 (declare-function libxml-parse-html-region "xml.c"
 		  (start end &optional base-url discard-comments))
 
-(defun mml-generate-mime (&optional multipart-type)
+(defun mml-generate-mime (&optional multipart-type content-type)
   "Generate a MIME message based on the current MML document.
 MULTIPART-TYPE defaults to \"mixed\", but can also
-be \"related\" or \"alternate\"."
+be \"related\" or \"alternate\".
+
+If CONTENT-TYPE (and there's only one part), override the content
+type detected."
   (let ((cont (mml-parse))
 	(mml-multipart-number mml-multipart-number)
 	(options message-options))
     (if (not cont)
 	nil
+      (when (and (consp (car cont))
+		 (= (length cont) 1)
+		 content-type)
+	(setcdr (assq 'type (cdr (car cont))) content-type))
       (when (and (consp (car cont))
 		 (= (length cont) 1)
 		 (fboundp 'libxml-parse-html-region)
@@ -924,11 +923,13 @@ be \"related\" or \"alternate\"."
     (unless (eq encoding '7bit)
       (insert (format "Content-Transfer-Encoding: %s\n" encoding)))
     (when (setq description (cdr (assq 'description cont)))
-      (insert "Content-Description: ")
-      (setq description (prog1
-			    (point)
-			  (insert description "\n")))
-      (mail-encode-encoded-word-region description (point)))))
+      (insert "Content-Description: "
+	      ;; The current buffer is unibyte, so do the description
+	      ;; encoding in a temporary buffer.
+	      (with-temp-buffer
+		(insert description "\n")
+		(mail-encode-encoded-word-region (point-min) (point-max))
+		(buffer-string))))))
 
 (defun mml-parameter-string (cont types)
   (let ((string "")
@@ -1340,7 +1341,7 @@ If not set, `default-directory' will be used."
 	  (value (pop plist)))
       (when value
 	;; Quote VALUE if it contains suspicious characters.
-	(when (string-match "[\"'\\~/*;() \t\n]" value)
+	(when (string-match "[\"'\\~/*;() \t\n[:multibyte:]]" value)
 	  (setq value (with-output-to-string
 			(let (print-escape-nonascii)
 			  (prin1 value)))))

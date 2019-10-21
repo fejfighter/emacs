@@ -351,7 +351,8 @@ static struct face_cache *make_face_cache (struct frame *);
 static void free_face_cache (struct face_cache *);
 static bool merge_face_ref (struct window *w,
                             struct frame *, Lisp_Object, Lisp_Object *,
-			    bool, struct named_merge_point *);
+                            bool, struct named_merge_point *,
+                            enum lface_attribute_index);
 static int color_distance (Emacs_Color *x, Emacs_Color *y);
 
 #ifdef HAVE_WINDOW_SYSTEM
@@ -1233,7 +1234,7 @@ free_face_colors (struct frame *f, struct face *face)
       IF_DEBUG (--ncolors_allocated);
     }
 
-  if (face->underline_p
+  if (face->underline
       && !face->underline_defaulted_p)
     {
       x_free_colors (f, &face->underline_color, 1);
@@ -1614,6 +1615,7 @@ the WIDTH times as wide as FACE on FRAME.  */)
 #define LFACE_FONT(LFACE)	    AREF ((LFACE), LFACE_FONT_INDEX)
 #define LFACE_INHERIT(LFACE)	    AREF ((LFACE), LFACE_INHERIT_INDEX)
 #define LFACE_FONTSET(LFACE)	    AREF ((LFACE), LFACE_FONTSET_INDEX)
+#define LFACE_EXTEND(LFACE)	    AREF ((LFACE), LFACE_EXTEND_INDEX)
 #define LFACE_DISTANT_FOREGROUND(LFACE) \
   AREF ((LFACE), LFACE_DISTANT_FOREGROUND_INDEX)
 
@@ -1657,6 +1659,10 @@ check_lface_attrs (Lisp_Object attrs[LFACE_VECTOR_SIZE])
 	   || SYMBOLP (attrs[LFACE_UNDERLINE_INDEX])
 	   || STRINGP (attrs[LFACE_UNDERLINE_INDEX])
 	   || CONSP (attrs[LFACE_UNDERLINE_INDEX]));
+  eassert (UNSPECIFIEDP (attrs[LFACE_EXTEND_INDEX])
+	   || IGNORE_DEFFACE_P (attrs[LFACE_EXTEND_INDEX])
+	   || SYMBOLP (attrs[LFACE_EXTEND_INDEX])
+	   || STRINGP (attrs[LFACE_EXTEND_INDEX]));
   eassert (UNSPECIFIEDP (attrs[LFACE_OVERLINE_INDEX])
 	   || IGNORE_DEFFACE_P (attrs[LFACE_OVERLINE_INDEX])
 	   || SYMBOLP (attrs[LFACE_OVERLINE_INDEX])
@@ -1929,7 +1935,8 @@ get_lface_attributes (struct window *w,
 	    attrs[i] = Qunspecified;
 
 	  return merge_face_ref (w, f, XCDR (face_remapping), attrs,
-				 signal_p, named_merge_points);
+	                         signal_p, named_merge_points,
+	                         0);
 	}
     }
 
@@ -2084,7 +2091,8 @@ merge_face_vectors (struct window *w,
   if (!UNSPECIFIEDP (from[LFACE_INHERIT_INDEX])
       && !NILP (from[LFACE_INHERIT_INDEX]))
     merge_face_ref (w, f, from[LFACE_INHERIT_INDEX],
-                    to, false, named_merge_points);
+                    to, false, named_merge_points,
+		    0);
 
   if (FONT_SPEC_P (from[LFACE_FONT_INDEX]))
     {
@@ -2150,7 +2158,8 @@ merge_face_vectors (struct window *w,
 static bool
 merge_named_face (struct window *w,
                   struct frame *f, Lisp_Object face_name, Lisp_Object *to,
-		  struct named_merge_point *named_merge_points)
+                  struct named_merge_point *named_merge_points,
+                  enum lface_attribute_index attr_filter)
 {
   struct named_merge_point named_merge_point;
 
@@ -2160,9 +2169,13 @@ merge_named_face (struct window *w,
     {
       Lisp_Object from[LFACE_VECTOR_SIZE];
       bool ok = get_lface_attributes (w, f, face_name, from, false,
-				      named_merge_points);
+                                      named_merge_points);
 
-      if (ok)
+      eassert (attr_filter <  LFACE_VECTOR_SIZE);
+
+      if (ok && (attr_filter == 0
+                 || (!NILP (from[attr_filter])
+		     && !UNSPECIFIEDP (from[attr_filter]))))
 	merge_face_vectors (w, f, from, to, named_merge_points);
 
       return ok;
@@ -2293,6 +2306,11 @@ filter_face_ref (Lisp_Object face_ref,
    of ERR_MSGS).  Use NAMED_MERGE_POINTS to detect loops in face
    inheritance or list structure; it may be 0 for most callers.
 
+   ATTR_FILTER is the index of a parameter that conditions the merging
+   for named faces (case 1) to only the face_ref where
+   lface[merge_face_ref] is non-nil.  To merge unconditionally set this
+   value to 0.
+
    FACE_REF may be a single face specification or a list of such
    specifications.  Each face specification can be:
 
@@ -2321,7 +2339,8 @@ filter_face_ref (Lisp_Object face_ref,
 static bool
 merge_face_ref (struct window *w,
                 struct frame *f, Lisp_Object face_ref, Lisp_Object *to,
-		bool err_msgs, struct named_merge_point *named_merge_points)
+                bool err_msgs, struct named_merge_point *named_merge_points,
+                enum lface_attribute_index attr_filter)
 {
   bool ok = true;		/* Succeed without an error? */
   Lisp_Object filtered_face_ref;
@@ -2533,7 +2552,15 @@ merge_face_ref (struct window *w,
 		  /* This is not really very useful; it's just like a
 		     normal face reference.  */
 		  if (! merge_face_ref (w, f, value, to,
-					err_msgs, named_merge_points))
+		                        err_msgs, named_merge_points,
+		                        attr_filter))
+		    err = true;
+		}
+	      else if (EQ (keyword, QCextend))
+		{
+		  if (EQ (value, Qt) || NILP (value))
+		    to[LFACE_EXTEND_INDEX] = value;
+		  else
 		    err = true;
 		}
 	      else
@@ -2556,16 +2583,19 @@ merge_face_ref (struct window *w,
 	  Lisp_Object next = XCDR (face_ref);
 
 	  if (! NILP (next))
-	    ok = merge_face_ref (w, f, next, to, err_msgs, named_merge_points);
+	    ok = merge_face_ref (w, f, next, to, err_msgs,
+	                         named_merge_points, attr_filter);
 
-	  if (! merge_face_ref (w, f, first, to, err_msgs, named_merge_points))
+	  if (! merge_face_ref (w, f, first, to, err_msgs,
+	                        named_merge_points, attr_filter))
 	    ok = false;
 	}
     }
   else
     {
       /* FACE_REF ought to be a face name.  */
-      ok = merge_named_face (w, f, face_ref, to, named_merge_points);
+      ok = merge_named_face (w, f, face_ref, to, named_merge_points,
+                             attr_filter);
       if (!ok && err_msgs)
 	add_to_log ("Invalid face reference: %s", face_ref);
     }
@@ -3054,6 +3084,17 @@ FRAME 0 means change the face on all frames, and change the default
       old_value = LFACE_INVERSE (lface);
       ASET (lface, LFACE_INVERSE_INDEX, value);
     }
+  else if (EQ (attr, QCextend))
+    {
+      if (!UNSPECIFIEDP (value) && !IGNORE_DEFFACE_P (value))
+	{
+	  CHECK_SYMBOL (value);
+	  if (!EQ (value, Qt) && !NILP (value))
+	    signal_error ("Invalid extend face attribute value", value);
+	}
+      old_value = LFACE_EXTEND (lface);
+      ASET (lface, LFACE_EXTEND_INDEX, value);
+    }
   else if (EQ (attr, QCforeground))
     {
       /* Compatibility with 20.x.  */
@@ -3527,7 +3568,9 @@ DEFUN ("internal-set-lisp-face-attribute-from-resource",
     value = face_boolean_x_resource_value (value, true);
   else if (EQ (attr, QCweight) || EQ (attr, QCslant) || EQ (attr, QCwidth))
     value = intern (SSDATA (value));
-  else if (EQ (attr, QCreverse_video) || EQ (attr, QCinverse_video))
+  else if (EQ (attr, QCreverse_video)
+           || EQ (attr, QCinverse_video)
+           || EQ (attr, QCextend))
     value = face_boolean_x_resource_value (value, true);
   else if (EQ (attr, QCunderline)
 	   || EQ (attr, QCoverline)
@@ -3751,6 +3794,8 @@ frames).  If FRAME is omitted or nil, use the selected frame.  */)
     value = LFACE_SWIDTH (lface);
   else if (EQ (keyword, QCinherit))
     value = LFACE_INHERIT (lface);
+  else if (EQ (keyword, QCextend))
+    value = LFACE_EXTEND (lface);
   else if (EQ (keyword, QCfont))
     value = LFACE_FONT (lface);
   else if (EQ (keyword, QCfontset))
@@ -3778,7 +3823,9 @@ Value is nil if ATTR doesn't have a discrete set of valid values.  */)
 
   if (EQ (attr, QCunderline) || EQ (attr, QCoverline)
       || EQ (attr, QCstrike_through)
-      || EQ (attr, QCinverse_video) || EQ (attr, QCreverse_video))
+      || EQ (attr, QCinverse_video)
+      || EQ (attr, QCreverse_video)
+      || EQ (attr, QCextend))
     result = list2 (Qt, Qnil);
 
   return result;
@@ -4201,7 +4248,7 @@ color_distance (Emacs_Color *x, Emacs_Color *y)
 	 algorithm: it does not have a range of colors where it suddenly
 	 gives far from optimal results.
 
-     See <http://www.compuphase.com/cmetric.htm> for more info.  */
+     See <https://www.compuphase.com/cmetric.htm> for more info.  */
 
   long r = (x->red   - y->red)   >> 8;
   long g = (x->green - y->green) >> 8;
@@ -4529,7 +4576,8 @@ lookup_face (struct frame *f, Lisp_Object *attr)
    suitable face is found, realize a new one.  */
 
 int
-face_for_font (struct frame *f, Lisp_Object font_object, struct face *base_face)
+face_for_font (struct frame *f, Lisp_Object font_object,
+               struct face *base_face)
 {
   struct face_cache *cache = FRAME_FACE_CACHE (f);
   unsigned hash;
@@ -4610,6 +4658,8 @@ lookup_basic_face (struct window *w, struct frame *f, int face_id)
     case MODE_LINE_FACE_ID:		name = Qmode_line;		break;
     case MODE_LINE_INACTIVE_FACE_ID:	name = Qmode_line_inactive;	break;
     case HEADER_LINE_FACE_ID:		name = Qheader_line;		break;
+    case TAB_LINE_FACE_ID:		name = Qtab_line;		break;
+    case TAB_BAR_FACE_ID:		name = Qtab_bar;		break;
     case TOOL_BAR_FACE_ID:		name = Qtool_bar;		break;
     case FRINGE_FACE_ID:		name = Qfringe;			break;
     case SCROLL_BAR_FACE_ID:		name = Qscroll_bar;		break;
@@ -4762,7 +4812,7 @@ DEFUN ("face-attributes-as-vector", Fface_attributes_as_vector,
   Lisp_Object lface = make_vector (LFACE_VECTOR_SIZE, Qunspecified);
   merge_face_ref (NULL, XFRAME (selected_frame),
                   plist, XVECTOR (lface)->contents,
-		  true, 0);
+                  true, NULL, 0);
   return lface;
 }
 
@@ -4806,6 +4856,9 @@ gui_supports_face_attributes_p (struct frame *f,
       || (!UNSPECIFIEDP (attrs[LFACE_INVERSE_INDEX])
 	  && face_attr_equal_p (attrs[LFACE_INVERSE_INDEX],
 				def_attrs[LFACE_INVERSE_INDEX]))
+      || (!UNSPECIFIEDP (attrs[LFACE_EXTEND_INDEX])
+	  && face_attr_equal_p (attrs[LFACE_EXTEND_INDEX],
+				def_attrs[LFACE_EXTEND_INDEX]))
       || (!UNSPECIFIEDP (attrs[LFACE_FOREGROUND_INDEX])
 	  && face_attr_equal_p (attrs[LFACE_FOREGROUND_INDEX],
 				def_attrs[LFACE_FOREGROUND_INDEX]))
@@ -5116,7 +5169,7 @@ face for italic.  */)
 
   for (i = 0; i < LFACE_VECTOR_SIZE; i++)
     attrs[i] = Qunspecified;
-  merge_face_ref (NULL, f, attributes, attrs, true, 0);
+  merge_face_ref (NULL, f, attributes, attrs, true, NULL, 0);
 
   def_face = FACE_FROM_ID_OR_NULL (f, DEFAULT_FACE_ID);
   if (def_face == NULL)
@@ -5317,6 +5370,8 @@ realize_basic_faces (struct frame *f)
       realize_named_face (f, Qwindow_divider_last_pixel,
 			  WINDOW_DIVIDER_LAST_PIXEL_FACE_ID);
       realize_named_face (f, Qinternal_border, INTERNAL_BORDER_FACE_ID);
+      realize_named_face (f, Qtab_bar, TAB_BAR_FACE_ID);
+      realize_named_face (f, Qtab_line, TAB_LINE_FACE_ID);
 
       /* Reflect changes in the `menu' face in menu bars.  */
       if (FRAME_FACE_CACHE (f)->menu_face_changed_p)
@@ -5381,6 +5436,9 @@ realize_default_face (struct frame *f)
       if (UNSPECIFIEDP (LFACE_FONTSET (lface)))
 	ASET (lface, LFACE_FONTSET_INDEX, Qnil);
     }
+
+  if (UNSPECIFIEDP (LFACE_EXTEND (lface)))
+    ASET (lface, LFACE_EXTEND_INDEX, Qnil);
 
   if (UNSPECIFIEDP (LFACE_UNDERLINE (lface)))
     ASET (lface, LFACE_UNDERLINE_INDEX, Qnil);
@@ -5718,16 +5776,14 @@ realize_gui_face (struct face_cache *cache, Lisp_Object attrs[LFACE_VECTOR_SIZE]
   if (EQ (underline, Qt))
     {
       /* Use default color (same as foreground color).  */
-      face->underline_p = true;
-      face->underline_type = FACE_UNDER_LINE;
+      face->underline = FACE_UNDER_LINE;
       face->underline_defaulted_p = true;
       face->underline_color = 0;
     }
   else if (STRINGP (underline))
     {
       /* Use specified color.  */
-      face->underline_p = true;
-      face->underline_type = FACE_UNDER_LINE;
+      face->underline = FACE_UNDER_LINE;
       face->underline_defaulted_p = false;
       face->underline_color
 	= load_color (f, face, underline,
@@ -5735,7 +5791,7 @@ realize_gui_face (struct face_cache *cache, Lisp_Object attrs[LFACE_VECTOR_SIZE]
     }
   else if (NILP (underline))
     {
-      face->underline_p = false;
+      face->underline = FACE_NO_UNDERLINE;
       face->underline_defaulted_p = false;
       face->underline_color = 0;
     }
@@ -5743,10 +5799,9 @@ realize_gui_face (struct face_cache *cache, Lisp_Object attrs[LFACE_VECTOR_SIZE]
     {
       /* `(:color COLOR :style STYLE)'.
          STYLE being one of `line' or `wave'. */
-      face->underline_p = true;
+      face->underline = FACE_UNDER_LINE;
       face->underline_color = 0;
       face->underline_defaulted_p = true;
-      face->underline_type = FACE_UNDER_LINE;
 
       /* FIXME?  This is also not robust about checking the precise form.
          See comments in Finternal_set_lisp_face_attribute.  */
@@ -5779,9 +5834,9 @@ realize_gui_face (struct face_cache *cache, Lisp_Object attrs[LFACE_VECTOR_SIZE]
           else if (EQ (keyword, QCstyle))
             {
               if (EQ (value, Qline))
-                face->underline_type = FACE_UNDER_LINE;
+                face->underline = FACE_UNDER_LINE;
               else if (EQ (value, Qwave))
-                face->underline_type = FACE_UNDER_WAVE;
+                face->underline = FACE_UNDER_WAVE;
             }
         }
     }
@@ -6000,7 +6055,7 @@ compute_char_face (struct frame *f, int ch, Lisp_Object prop)
       Lisp_Object attrs[LFACE_VECTOR_SIZE];
       struct face *default_face = FACE_FROM_ID (f, DEFAULT_FACE_ID);
       memcpy (attrs, default_face->lface, sizeof attrs);
-      merge_face_ref (NULL, f, prop, attrs, true, 0);
+      merge_face_ref (NULL, f, prop, attrs, true, NULL, 0);
       face_id = lookup_face (f, attrs);
     }
 
@@ -6011,6 +6066,8 @@ compute_char_face (struct frame *f, int ch, Lisp_Object prop)
    displaying ASCII characters.  Return in *ENDPTR the position at
    which a different face is needed, as far as text properties and
    overlays are concerned.  W is a window displaying current_buffer.
+
+   ATTR_FILTER is passed merge_face_ref.
 
    REGION_BEG, REGION_END delimit the region, so it can be
    highlighted.
@@ -6031,7 +6088,8 @@ compute_char_face (struct frame *f, int ch, Lisp_Object prop)
 int
 face_at_buffer_position (struct window *w, ptrdiff_t pos,
 			 ptrdiff_t *endptr, ptrdiff_t limit,
-			 bool mouse, int base_face_id)
+                         bool mouse, int base_face_id,
+                         enum lface_attribute_index attr_filter)
 {
   struct frame *f = XFRAME (w->frame);
   Lisp_Object attrs[LFACE_VECTOR_SIZE];
@@ -6100,11 +6158,11 @@ face_at_buffer_position (struct window *w, ptrdiff_t pos,
     }
 
   /* Begin with attributes from the default face.  */
-  memcpy (attrs, default_face->lface, sizeof attrs);
+  memcpy (attrs, default_face->lface, sizeof(attrs));
 
   /* Merge in attributes specified via text properties.  */
   if (!NILP (prop))
-    merge_face_ref (w, f, prop, attrs, true, 0);
+    merge_face_ref (w, f, prop, attrs, true, NULL, attr_filter);
 
   /* Now merge the overlay data.  */
   noverlays = sort_overlays (overlay_vec, noverlays, w);
@@ -6124,7 +6182,7 @@ face_at_buffer_position (struct window *w, ptrdiff_t pos,
 		 so discard the mouse-face text property, if any, and
 		 use the overlay property instead.  */
 	      memcpy (attrs, default_face->lface, sizeof attrs);
-	      merge_face_ref (w, f, prop, attrs, true, 0);
+	      merge_face_ref (w, f, prop, attrs, true, NULL, attr_filter);
 	    }
 
 	  oend = OVERLAY_END (overlay_vec[i]);
@@ -6141,8 +6199,9 @@ face_at_buffer_position (struct window *w, ptrdiff_t pos,
 	  ptrdiff_t oendpos;
 
 	  prop = Foverlay_get (overlay_vec[i], propname);
+
 	  if (!NILP (prop))
-	    merge_face_ref (w, f, prop, attrs, true, 0);
+	    merge_face_ref (w, f, prop, attrs, true, NULL, attr_filter);
 
 	  oend = OVERLAY_END (overlay_vec[i]);
 	  oendpos = OVERLAY_POSITION (oend);
@@ -6208,7 +6267,7 @@ face_for_overlay_string (struct window *w, ptrdiff_t pos,
 
   /* Merge in attributes specified via text properties.  */
   if (!NILP (prop))
-    merge_face_ref (w, f, prop, attrs, true, 0);
+    merge_face_ref (w, f, prop, attrs, true, NULL, 0);
 
   *endptr = endpos;
 
@@ -6241,9 +6300,10 @@ face_for_overlay_string (struct window *w, ptrdiff_t pos,
 
 int
 face_at_string_position (struct window *w, Lisp_Object string,
-			 ptrdiff_t pos, ptrdiff_t bufpos,
-			 ptrdiff_t *endptr, enum face_id base_face_id,
-			 bool mouse_p)
+                         ptrdiff_t pos, ptrdiff_t bufpos,
+                         ptrdiff_t *endptr, enum face_id base_face_id,
+                         bool mouse_p,
+                         enum lface_attribute_index attr_filter)
 {
   Lisp_Object prop, position, end, limit;
   struct frame *f = XFRAME (WINDOW_FRAME (w));
@@ -6287,7 +6347,7 @@ face_at_string_position (struct window *w, Lisp_Object string,
 
   /* Merge in attributes specified via text properties.  */
   if (!NILP (prop))
-    merge_face_ref (w, f, prop, attrs, true, 0);
+    merge_face_ref (w, f, prop, attrs, true, NULL, attr_filter);
 
   /* Look up a realized face with the given face attributes,
      or realize a new one for ASCII characters.  */
@@ -6316,9 +6376,8 @@ merge_faces (struct window *w, Lisp_Object face_name, int face_id,
 {
   struct frame *f = WINDOW_XFRAME (w);
   Lisp_Object attrs[LFACE_VECTOR_SIZE];
-  struct face *base_face;
+  struct face *base_face = FACE_FROM_ID_OR_NULL (f, base_face_id);
 
-  base_face = FACE_FROM_ID_OR_NULL (f, base_face_id);
   if (!base_face)
     return base_face_id;
 
@@ -6338,17 +6397,19 @@ merge_faces (struct window *w, Lisp_Object face_name, int face_id,
 
   if (!NILP (face_name))
     {
-      if (!merge_named_face (w, f, face_name, attrs, 0))
+      if (!merge_named_face (w, f, face_name, attrs, NULL, 0))
 	return base_face_id;
     }
   else
     {
-      struct face *face;
       if (face_id < 0)
 	return base_face_id;
-      face = FACE_FROM_ID_OR_NULL (f, face_id);
+
+      struct face *face = FACE_FROM_ID_OR_NULL (f, face_id);
+
       if (!face)
 	return base_face_id;
+
       merge_face_vectors (w, f, face->lface, attrs, 0);
     }
 
@@ -6436,7 +6497,7 @@ dump_realized_face (struct face *face)
 #endif
   fprintf (stderr, "fontset: %d\n", face->fontset);
   fprintf (stderr, "underline: %d (%s)\n",
-	   face->underline_p,
+	   face->underline,
 	   SDATA (Fsymbol_name (face->lface[LFACE_UNDERLINE_INDEX])));
   fprintf (stderr, "hash: %" PRIuPTR "\n", face->hash);
 }
@@ -6561,6 +6622,7 @@ syms_of_xfaces (void)
   DEFSYM (QCstrike_through, ":strike-through");
   DEFSYM (QCbox, ":box");
   DEFSYM (QCinherit, ":inherit");
+  DEFSYM (QCextend, ":extend");
 
   /* Symbols used for Lisp face attribute values.  */
   DEFSYM (QCcolor, ":color");
@@ -6603,7 +6665,9 @@ syms_of_xfaces (void)
   /* Names of basic faces.  */
   DEFSYM (Qdefault, "default");
   DEFSYM (Qtool_bar, "tool-bar");
+  DEFSYM (Qtab_bar, "tab-bar");
   DEFSYM (Qfringe, "fringe");
+  DEFSYM (Qtab_line, "tab-line");
   DEFSYM (Qheader_line, "header-line");
   DEFSYM (Qscroll_bar, "scroll-bar");
   DEFSYM (Qmenu, "menu");

@@ -39,6 +39,7 @@
 (require 'svg)
 (require 'image)
 (require 'puny)
+(require 'url-cookie)
 (require 'text-property-search)
 
 (defgroup shr nil
@@ -111,11 +112,21 @@ Alternative suggestions are:
   :version "24.4"
   :type 'string)
 
+(defcustom shr-cookie-policy 'same-origin
+  "When to use cookies when fetching dependent data like images.
+If t, always use cookies.  If nil, never use cookies.  If
+`same-origin', use cookies if the dependent data comes from the
+same domain as the main data."
+  :type '(choice (const :tag "Always use cookies" t)
+                 (const :tag "Never use cookies" nil)
+                 (const :tag "Use cookies for same domain" same-origin))
+  :version "27.1")
+
 (define-obsolete-variable-alias 'shr-external-browser
   'browse-url-secondary-browser-function "27.1")
 
 (defcustom shr-image-animate t
-  "Non nil means that images that can be animated will be."
+  "Non-nil means that images that can be animated will be."
   :version "24.4"
   :type 'boolean)
 
@@ -190,6 +201,7 @@ and other things:
     (define-key map [?\M-\t] 'shr-previous-link)
     (define-key map [follow-link] 'mouse-face)
     (define-key map [mouse-2] 'shr-browse-url)
+    (define-key map [C-down-mouse-1] 'shr-mouse-browse-url-new-window)
     (define-key map "I" 'shr-insert-image)
     (define-key map "w" 'shr-maybe-probe-and-copy-url)
     (define-key map "u" 'shr-maybe-probe-and-copy-url)
@@ -333,7 +345,7 @@ called."
             ;; Remove common tracking junk from the URL.
             (funcall cont (replace-regexp-in-string
                            ".utm_.*" "" destination)))))
-   nil t))
+   nil t t))
 
 (defun shr-probe-and-copy-url (url)
   "Copy the URL under point to the kill ring.
@@ -427,7 +439,7 @@ the URL of the image to the kill buffer instead."
       (message "Inserting %s..." url)
       (url-retrieve url 'shr-image-fetched
 		    (list (current-buffer) (1- (point)) (point-marker))
-		    t t))))
+		    t))))
 
 (defun shr-zoom-image ()
   "Toggle the image size.
@@ -956,7 +968,13 @@ size, and full-buffer size."
   (mouse-set-point ev)
   (shr-browse-url))
 
-(defun shr-browse-url (&optional external mouse-event)
+(defun shr-mouse-browse-url-new-window (ev)
+  "Browse the URL under the mouse cursor in a new window."
+  (interactive "e")
+  (mouse-set-point ev)
+  (shr-browse-url nil nil t))
+
+(defun shr-browse-url (&optional external mouse-event new-window)
   "Browse the URL at point using `browse-url'.
 If EXTERNAL is non-nil (interactively, the prefix argument), browse
 the URL using `browse-url-secondary-browser-function'.
@@ -976,7 +994,9 @@ the mouse click event."
           (progn
 	    (funcall browse-url-secondary-browser-function url)
             (shr--blink-link))
-	(browse-url url))))))
+	(browse-url url (if new-window
+			    (not browse-url-new-window-flag)
+			  browse-url-new-window-flag)))))))
 
 (defun shr-save-contents (directory)
   "Save the contents from URL in a file."
@@ -985,8 +1005,7 @@ the mouse click event."
     (if (not url)
 	(message "No link under point")
       (url-retrieve (shr-encode-url url)
-		    'shr-store-contents (list url directory)
-		    nil t))))
+		    'shr-store-contents (list url directory)))))
 
 (defun shr-store-contents (status url directory)
   (unless (plist-get status :error)
@@ -1078,13 +1097,7 @@ element is the data blob and the second element is the content-type."
 	    (insert-image image (or alt "*")))
 	  (put-text-property start (point) 'image-size size)
 	  (when (and shr-image-animate
-                     (cond ((fboundp 'image-multi-frame-p)
-		       ;; Only animate multi-frame things that specify a
-		       ;; delay; eg animated gifs as opposed to
-		       ;; multi-page tiffs.  FIXME?
-                            (cdr (image-multi-frame-p image)))
-                           ((fboundp 'image-animated-p)
-                            (image-animated-p image))))
+                     (cdr (image-multi-frame-p image)))
             (image-animate image nil 60)))
 	image)
     (insert (or alt ""))))
@@ -1142,14 +1155,13 @@ width/height instead."
 
 ;; url-cache-extract autoloads url-cache.
 (declare-function url-cache-create-filename "url-cache" (url))
-(autoload 'mm-disable-multibyte "mm-util")
 (autoload 'browse-url-mail "browse-url")
 
 (defun shr-get-image-data (url)
   "Get image data for URL.
 Return a string with image data."
   (with-temp-buffer
-    (mm-disable-multibyte)
+    (set-buffer-multibyte nil)
     (when (ignore-errors
 	    (url-cache-extract (url-cache-create-filename (shr-encode-url url)))
 	    t)
@@ -1177,10 +1189,28 @@ Return a string with image data."
                (eq content-type 'image/svg+xml))
       (setq data
             ;; Note that libxml2 doesn't parse everything perfectly,
-            ;; so glitches may occur during this transformation.
+            ;; so glitches may occur during this transformation.  And
+            ;; encode as utf-8: There may be text (and other elements)
+            ;; that are non-ASCII.
 	    (shr-dom-to-xml
-	     (libxml-parse-xml-region (point) (point-max)))))
+	     (libxml-parse-xml-region (point) (point-max)) 'utf-8)))
+    ;; SVG images often do not have a specified foreground/background
+    ;; color, so wrap them in styles.
+    (when (eq content-type 'image/svg+xml)
+      (setq data (svg--wrap-svg data)))
     (list data content-type)))
+
+(defun svg--wrap-svg (data)
+  "Add a default foreground colour to SVG images."
+  (let ((size (image-size (create-image data nil t :scaling 1) t)))
+    (with-temp-buffer
+      (insert
+       (format
+        "<svg xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xi=\"http://www.w3.org/2001/XInclude\" style=\"color: %s;\" viewBox=\"0 0 %d %d\"> <xi:include href=\"data:image/svg+xml;base64,%s\"></xi:include></svg>"
+        (face-foreground 'default)
+        (car size) (cdr size)
+        (base64-encode-string data t)))
+      (buffer-string))))
 
 (defun shr-image-displayer (content-function)
   "Return a function to display an image.
@@ -1319,9 +1349,14 @@ ones, in case fg and bg are nil."
 (defun shr-tag-comment (_dom)
   )
 
-(defun shr-dom-to-xml (dom)
+(defun shr-dom-to-xml (dom &optional charset)
   (with-temp-buffer
     (shr-dom-print dom)
+    (when charset
+      (encode-coding-region (point-min) (point-max) charset)
+      (goto-char (point-min))
+      (insert (format "<?xml version=\"1.0\" encoding=\"%s\"?>\n"
+                      charset)))
     (buffer-string)))
 
 (defun shr-dom-print (dom)
@@ -1354,18 +1389,19 @@ ones, in case fg and bg are nil."
 	     (not shr-inhibit-images)
              (dom-attr dom 'width)
              (dom-attr dom 'height))
-    (funcall shr-put-image-function (list (shr-dom-to-xml dom) 'image/svg+xml)
+    (funcall shr-put-image-function (list (shr-dom-to-xml dom 'utf-8)
+                                          'image/svg+xml)
 	     "SVG Image")))
 
 (defun shr-tag-sup (dom)
   (let ((start (point)))
     (shr-generic dom)
-    (put-text-property start (point) 'display '(raise 0.5))))
+    (put-text-property start (point) 'display '(raise 0.2))))
 
 (defun shr-tag-sub (dom)
   (let ((start (point)))
     (shr-generic dom)
-    (put-text-property start (point) 'display '(raise -0.5))))
+    (put-text-property start (point) 'display '(raise -0.2))))
 
 (defun shr-tag-p (dom)
   (shr-ensure-paragraph)
@@ -1642,7 +1678,8 @@ The preference is a float determined from `shr-prefer-media-type'."
 	   (shr-encode-url url) 'shr-image-fetched
 	   (list (current-buffer) start (set-marker (make-marker) (point))
                  (list :width width :height height))
-	   t t)))
+	   t
+           (not (shr--use-cookies-p url shr-base)))))
 	(when (zerop shr-table-depth) ;; We are not in a table.
 	  (put-text-property start (point) 'keymap shr-image-map)
 	  (put-text-property start (point) 'shr-alt alt)
@@ -1652,6 +1689,30 @@ The preference is a float determined from `shr-prefer-media-type'."
 	  (put-text-property start (point) 'help-echo
 			     (shr-fill-text
 			      (or (dom-attr dom 'title) alt))))))))
+
+(defun shr--use-cookies-p (url base)
+  "Say whether to use cookies when fetching URL (typically an image).
+BASE is the URL of the HTML being rendered."
+  (cond
+   ((null base)
+    ;; Disallow cookies if we don't know what the base is.
+    nil)
+   ((eq shr-cookie-policy 'same-origin)
+    (let ((url-host (url-host (url-generic-parse-url url)))
+          (base-host (split-string
+                      (url-host (url-generic-parse-url (car base)))
+                      "\\.")))
+      ;; We allow cookies if it's for any of the sibling domains (that
+      ;; we're allowed to set cookies for).  Determine that by going
+      ;; "upwards" in the base domain name.
+      (cl-loop while base-host
+               when (url-cookie-host-can-set-p
+                     url-host (mapconcat #'identity base-host "."))
+               return t
+               do (pop base-host)
+               finally (return nil))))
+   (t
+    shr-cookie-policy)))
 
 (defun shr--preferred-image (dom)
   (let ((srcset (dom-attr dom 'srcset))
@@ -1948,19 +2009,83 @@ The preference is a float determined from `shr-prefer-media-type'."
       `(tbody nil ,@(cl-reduce 'append
                                (mapcar 'dom-non-text-children tbodies)))))))
 
+(defun shr--fix-tbody (tbody)
+  (nconc (list 'tbody (dom-attributes tbody))
+         (cl-loop for child in (dom-children tbody)
+                  collect (if (or (stringp child)
+                                  (not (eq (dom-tag child) 'tr)))
+                              (list 'tr nil (list 'td nil child))
+                            child))))
+
+(defun shr--fix-table (dom caption header footer)
+  (let* ((body (dom-non-text-children (shr--fix-tbody (shr-table-body dom))))
+         (nheader (if header (shr-max-columns header)))
+	 (nbody (if body (shr-max-columns body) 0))
+         (nfooter (if footer (shr-max-columns footer))))
+    (nconc
+     (list 'table nil)
+     (if caption `((tr nil (td nil ,@caption))))
+     (cond
+      (header
+       (if footer
+	   ;; header + body + footer
+	   (if (= nheader nbody)
+	       (if (= nbody nfooter)
+		   `((tr nil (td nil (table nil
+					    (tbody nil ,@header
+						   ,@body ,@footer)))))
+	         (nconc `((tr nil (td nil (table nil
+					         (tbody nil ,@header
+						        ,@body)))))
+		        (if (= nfooter 1)
+			    footer
+			  `((tr nil (td nil (table
+					     nil (tbody
+						  nil ,@footer))))))))
+	     (nconc `((tr nil (td nil (table nil (tbody
+						  nil ,@header)))))
+		    (if (= nbody nfooter)
+		        `((tr nil (td nil (table
+					   nil (tbody nil ,@body
+						      ,@footer)))))
+		      (nconc `((tr nil (td nil (table
+					        nil (tbody nil
+							   ,@body)))))
+			     (if (= nfooter 1)
+			         footer
+			       `((tr nil (td nil (table
+						  nil
+						  (tbody
+						   nil
+						   ,@footer))))))))))
+         ;; header + body
+         (if (= nheader nbody)
+	     `((tr nil (td nil (table nil (tbody nil ,@header
+					         ,@body)))))
+	   (if (= nheader 1)
+	       `(,@header (tr nil (td nil (table
+					   nil (tbody nil ,@body)))))
+	     `((tr nil (td nil (table nil (tbody nil ,@header))))
+	       (tr nil (td nil (table nil (tbody nil ,@body)))))))))
+      (footer
+       ;; body + footer
+       (if (= nbody nfooter)
+	   `((tr nil (td nil (table
+			      nil (tbody nil ,@body ,@footer)))))
+         (nconc `((tr nil (td nil (table nil (tbody nil ,@body)))))
+	        (if (= nfooter 1)
+		    footer
+		  `((tr nil (td nil (table
+				     nil (tbody nil ,@footer)))))))))
+      (caption
+       `((tr nil (td nil (table nil (tbody nil ,@body))))))
+      (body)))))
+
 (defun shr-tag-table (dom)
   (shr-ensure-paragraph)
   (let* ((caption (dom-children (dom-child-by-tag dom 'caption)))
 	 (header (dom-non-text-children (dom-child-by-tag dom 'thead)))
-	 (body (dom-non-text-children (shr-table-body dom)))
-	 (footer (dom-non-text-children (dom-child-by-tag dom 'tfoot)))
-         (bgcolor (dom-attr dom 'bgcolor))
-	 (start (point))
-	 (shr-stylesheet (nconc (list (cons 'background-color bgcolor))
-				shr-stylesheet))
-	 (nheader (if header (shr-max-columns header)))
-	 (nbody (if body (shr-max-columns body) 0))
-	 (nfooter (if footer (shr-max-columns footer))))
+	 (footer (dom-non-text-children (dom-child-by-tag dom 'tfoot))))
     (if (and (not caption)
 	     (not header)
 	     (not (dom-child-by-tag dom 'tbody))
@@ -1973,83 +2098,29 @@ The preference is a float determined from `shr-prefer-media-type'."
       (if (dom-attr dom 'shr-fixed-table)
 	  (shr-tag-table-1 dom)
 	;; Only fix up the table once.
-	(let ((table
-	       (nconc
-		(list 'table nil)
-		(if caption `((tr nil (td nil ,@caption))))
-		(cond
-		 (header
-		  (if footer
-		      ;; header + body + footer
-		      (if (= nheader nbody)
-			  (if (= nbody nfooter)
-			      `((tr nil (td nil (table nil
-						       (tbody nil ,@header
-							      ,@body ,@footer)))))
-			    (nconc `((tr nil (td nil (table nil
-							    (tbody nil ,@header
-								   ,@body)))))
-				   (if (= nfooter 1)
-				       footer
-				     `((tr nil (td nil (table
-							nil (tbody
-							     nil ,@footer))))))))
-			(nconc `((tr nil (td nil (table nil (tbody
-							     nil ,@header)))))
-			       (if (= nbody nfooter)
-				   `((tr nil (td nil (table
-						      nil (tbody nil ,@body
-								 ,@footer)))))
-				 (nconc `((tr nil (td nil (table
-							   nil (tbody nil
-								      ,@body)))))
-					(if (= nfooter 1)
-					    footer
-					  `((tr nil (td nil (table
-							     nil
-							     (tbody
-							      nil
-							      ,@footer))))))))))
-		    ;; header + body
-		    (if (= nheader nbody)
-			`((tr nil (td nil (table nil (tbody nil ,@header
-							    ,@body)))))
-		      (if (= nheader 1)
-			  `(,@header (tr nil (td nil (table
-						      nil (tbody nil ,@body)))))
-			`((tr nil (td nil (table nil (tbody nil ,@header))))
-			  (tr nil (td nil (table nil (tbody nil ,@body)))))))))
-		 (footer
-		  ;; body + footer
-		  (if (= nbody nfooter)
-		      `((tr nil (td nil (table
-					 nil (tbody nil ,@body ,@footer)))))
-		    (nconc `((tr nil (td nil (table nil (tbody nil ,@body)))))
-			   (if (= nfooter 1)
-			       footer
-			     `((tr nil (td nil (table
-						nil (tbody nil ,@footer)))))))))
-		 (caption
-		  `((tr nil (td nil (table nil (tbody nil ,@body))))))
-		 (body)))))
+	(let ((table (shr--fix-table dom caption header footer)))
 	  (dom-set-attribute table 'shr-fixed-table t)
 	  (setcdr dom (cdr table))
-	  (shr-tag-table-1 dom))))
-    (when bgcolor
-      (shr-colorize-region start (point) (cdr (assq 'color shr-stylesheet))
-			   bgcolor))
-    ;; Finally, insert all the images after the table.  The Emacs buffer
-    ;; model isn't strong enough to allow us to put the images actually
-    ;; into the tables.  It inserts also non-td/th objects.
-    (when (zerop shr-table-depth)
-      (save-excursion
-	(shr-expand-alignments start (point)))
-      (let ((strings (shr-collect-extra-strings-in-table dom)))
-	(when strings
-	  (save-restriction
-	    (narrow-to-region (point) (point))
-	    (insert (mapconcat #'identity strings "\n"))
-	    (shr-fill-lines (point-min) (point-max))))))))
+	  (shr-tag-table-1 dom)))
+      (let* ((bgcolor (dom-attr dom 'bgcolor))
+	     (start (point))
+	     (shr-stylesheet (nconc (list (cons 'background-color bgcolor))
+				    shr-stylesheet)))
+        (when bgcolor
+          (shr-colorize-region start (point) (cdr (assq 'color shr-stylesheet))
+			       bgcolor))
+        ;; Finally, insert all the images after the table.  The Emacs buffer
+        ;; model isn't strong enough to allow us to put the images actually
+        ;; into the tables.  It inserts also non-td/th objects.
+        (when (zerop shr-table-depth)
+          (save-excursion
+	    (shr-expand-alignments start (point)))
+          (let ((strings (shr-collect-extra-strings-in-table dom)))
+	    (when strings
+	      (save-restriction
+	        (narrow-to-region (point) (point))
+	        (insert (mapconcat #'identity strings "\n"))
+	        (shr-fill-lines (point-min) (point-max))))))))))
 
 (defun shr-collect-extra-strings-in-table (dom &optional flags)
   "Return extra strings in DOM of which the root is a table clause.

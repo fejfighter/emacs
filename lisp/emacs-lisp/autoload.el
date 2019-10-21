@@ -165,7 +165,7 @@ expression, in which case we want to handle forms differently."
                        define-globalized-minor-mode defun defmacro
 		       easy-mmode-define-minor-mode define-minor-mode
                        define-inline cl-defun cl-defmacro cl-defgeneric
-                       pcase-defmacro))
+                       cl-defstruct pcase-defmacro))
            (macrop car)
 	   (setq expand (let ((load-file-name file)) (macroexpand form)))
 	   (memq (car expand) '(progn prog1 defalias)))
@@ -398,9 +398,8 @@ FILE's name."
   ;; Probably pointless, but replaces the old AUTOGEN_VCS in lisp/Makefile,
   ;; which was designed to handle CVSREAD=1 and equivalent.
   (and autoload-ensure-writable
-       (file-exists-p file)
        (let ((modes (file-modes file)))
-         (if (zerop (logand modes #o0200))
+	 (if (and modes (zerop (logand modes #o0200)))
              ;; Ignore any errors here, and let subsequent attempts
              ;; to write the file raise any real error.
              (ignore-errors (set-file-modes file (logior modes #o0200))))))

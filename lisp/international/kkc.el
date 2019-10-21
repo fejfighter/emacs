@@ -59,7 +59,7 @@ This string is shown at mode line when users are in KKC mode.")
 (defconst kkc-lookup-cache-tag 'kkc-lookup-cache-2)
 
 (defun kkc-save-init-file ()
-  "Save initial setup code for KKC to a file specified by `kkc-init-file-name'"
+  "Save initial setup code for KKC to a file specified by `kkc-init-file-name'."
   (if (and kkc-init-file-flag
 	   (not (eq kkc-init-file-flag t)))
       (let ((coding-system-for-write 'iso-2022-7bit)
@@ -613,7 +613,7 @@ and change the current conversion to the last one in the group."
       (message "%s" msg))))
 
 ;; Update the conversion area with the latest conversion selected.
-;; ALL if non nil means to update the whole area, else update only
+;; ALL if non-nil means to update the whole area, else update only
 ;; inside quail-overlay-head.
 
 (defun kkc-update-conversion (&optional all)

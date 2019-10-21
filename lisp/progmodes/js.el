@@ -650,7 +650,8 @@ indentation looks like this (different):
       </element>
   )"
   :version "27.1"
-  :type 'integer
+  :type '(choice integer
+                 (const :tag "Not Set" nil))
   :safe (lambda (x) (or (null x) (integerp x)))
   :group 'js)
 ;; This is how indentation behaved out-of-the-box until Emacs 27.  JSX
@@ -2358,7 +2359,11 @@ testing for syntax only valid as JSX."
                               'syntax-table (string-to-syntax "\"/"))
            (js-syntax-propertize-regexp end)))))
     ("\\`\\(#\\)!" (1 "< b"))
-    ("<" (0 (ignore (if js-jsx-syntax (js-jsx--syntax-propertize-tag end))))))
+    ("<" (0 (ignore
+             (when js-jsx-syntax
+               ;; Not inside a comment or string.
+               (unless (nth 8 (save-excursion (syntax-ppss (match-beginning 0))))
+                 (js-jsx--syntax-propertize-tag end)))))))
    (point) end))
 
 (defconst js--prettify-symbols-alist
@@ -2698,7 +2703,7 @@ Whitespace and comments around the arrow are ignored.")
 
 (defun js--broken-arrow-terminates-line-p ()
   "Helper function for `js--proper-indentation'.
-Return t if the last non-comment, non-whitespace token of the
+Return non-nil if the last non-comment, non-whitespace token of the
 current line is the \"=>\" token (of an arrow function)."
   (let ((from (point)))
     (end-of-line)
@@ -4484,7 +4489,7 @@ their `mode-name' updates to show enabled syntax extensions."
 
 (defvar js-jsx-regexps
   (list "\\_<\\(?:var\\|let\\|const\\|import\\)\\_>.*?React")
-  "Regexps for detecting JSX in JavaScript buffers.
+  "Case-sensitive regexps for detecting JSX in JavaScript buffers.
 When `js-jsx-detect-syntax' is non-nil and any of these regexps
 match text near the beginning of a JavaScript buffer,
 `js-jsx-syntax' (which see) will be made buffer-local and set to
@@ -4504,7 +4509,9 @@ is non-nil.  Return t after enabling, nil otherwise."
                    (catch 'match
                      (mapc
                       (lambda (regexp)
-                        (if (re-search-forward regexp 4000 t) (throw 'match t)))
+                        (when (let (case-fold-search)
+                                (re-search-forward regexp 4000 t))
+                          (throw 'match t)))
                       js-jsx-regexps)
                      nil))))
     (js-jsx-enable)

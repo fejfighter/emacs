@@ -238,7 +238,7 @@ If nil, the table's buffer is no in Emacs.  If it has a value, then
 it is in Emacs.")
    (dirty :initform nil
 	  :documentation
-	  "Non nil if this table needs to be `Saved'.")
+	  "Non-nil if this table needs to be `Saved'.")
    (db-refs :initform nil
 	    :documentation
 	    "List of `semanticdb-table' objects referring to this one.
@@ -294,11 +294,6 @@ If the buffer is not in memory, load it with `find-file-noselect'."
   "Set the current buffer to be a buffer owned by OBJ.
 If OBJ's file is not loaded, read it in first."
   (set-buffer (semanticdb-get-buffer obj)))
-
-(cl-defmethod semanticdb-full-filename ((obj semanticdb-table))
-  "Fetch the full filename that OBJ refers to."
-  (expand-file-name (oref obj file)
-		    (oref (oref obj parent-db) reference-directory)))
 
 (cl-defmethod semanticdb-dirty-p ((obj semanticdb-table))
   "Return non-nil if OBJ is dirty."
@@ -356,6 +351,11 @@ Note: This index will not be saved in a persistent file.")
 	   :protection :protected
 	   :documentation "List of `semantic-db-table' objects."))
   "Database of file tables.")
+
+(cl-defmethod semanticdb-full-filename ((obj semanticdb-table))
+  "Fetch the full filename that OBJ refers to."
+  (expand-file-name (oref obj file)
+		    (oref (oref obj parent-db) reference-directory)))
 
 (cl-defmethod semanticdb-full-filename ((obj semanticdb-project-database))
   "Fetch the full filename that OBJ refers to.
@@ -833,7 +833,7 @@ value.")
 (make-variable-buffer-local 'semanticdb-project-system-databases)
 
 (defvar semanticdb-search-system-databases t
-  "Non nil if search routines are to include a system database.")
+  "Non-nil if search routines are to include a system database.")
 
 (defun semanticdb-current-database-list (&optional dir)
   "Return a list of databases associated with the current buffer.

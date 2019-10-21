@@ -555,7 +555,7 @@ current file, and the FILENAME of the file being checked."
 (defcustom speedbar-obj-do-check t
   "Non-nil check all files in speedbar to see if they have an object file.
 Any file checked out is marked with `speedbar-obj-indicator', and the
-marking is based on `speedbar-obj-alist'"
+marking is based on `speedbar-obj-alist'."
   :group 'speedbar-vc
   :type 'boolean)
 
@@ -1115,7 +1115,9 @@ in the selected file.
 	(setq dframe-track-mouse-function #'speedbar-track-mouse))
     (setq dframe-help-echo-function #'speedbar-item-info
 	  dframe-mouse-click-function #'speedbar-click
-	  dframe-mouse-position-function #'speedbar-position-cursor-on-line))
+	  dframe-mouse-position-function #'speedbar-position-cursor-on-line)
+    (setq-local tab-bar-mode nil)
+    (setq-local tab-line-format nil))
   speedbar-buffer)
 
 (define-obsolete-function-alias 'speedbar-message 'dframe-message "24.4")
@@ -2932,7 +2934,8 @@ the file being checked."
     (if (<= 2 speedbar-verbosity-level)
 	(dframe-message "Speedbar vc check...%s" fulln))
     (and (file-writable-p fulln)
-	 (speedbar-this-file-in-vc f fn))))
+	 (speedbar-this-file-in-vc f fn)
+         t)))
 
 (defun speedbar-vc-check-dir-p (directory)
   "Return t if we should bother checking DIRECTORY for version control files.
@@ -2946,14 +2949,15 @@ This can be overloaded to add new types of version control systems."
    ))
 
 (defun speedbar-this-file-in-vc (directory name)
-  "Check to see if the file in DIRECTORY with NAME is in a version control system.
+  "Return non-nil if the file NAME in DIRECTORY is under version control.
 Automatically recognizes all VCs supported by VC mode.  You can
 optimize this function by overriding it and only doing those checks
 that will occur on your system."
   (or
    (vc-backend (concat directory "/" name))
    ;; User extension
-   (run-hook-with-args 'speedbar-vc-in-control-hook directory name)
+   (run-hook-with-args-until-success 'speedbar-vc-in-control-hook
+                                     directory name)
    ))
 
 ;; Object File scanning

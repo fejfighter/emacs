@@ -143,11 +143,35 @@ of previous VARs.
       (push `(set-default ',(pop args) ,(pop args)) exps))
     `(progn . ,(nreverse exps))))
 
-(defmacro setq-local (var val)
-  "Set variable VAR to value VAL in current buffer."
-  ;; Can't use backquote here, it's too early in the bootstrap.
-  (declare (debug (symbolp form)))
-  (list 'set (list 'make-local-variable (list 'quote var)) val))
+(defmacro setq-local (&rest pairs)
+  "Make variables in PAIRS buffer-local and assign them the corresponding values.
+
+PAIRS is a list of variable/value pairs.  For each variable, make
+it buffer-local and assign it the corresponding value.  The
+variables are literal symbols and should not be quoted.
+
+The second VALUE is not computed until after the first VARIABLE
+is set, and so on; each VALUE can use the new value of variables
+set earlier in the ‘setq-local’.  The return value of the
+‘setq-local’ form is the value of the last VALUE.
+
+\(fn [VARIABLE VALUE]...)"
+  (declare (debug setq))
+  (unless (zerop (mod (length pairs) 2))
+    (error "PAIRS must have an even number of variable/value members"))
+  (let ((expr nil))
+    (while pairs
+      (unless (symbolp (car pairs))
+        (error "Attempting to set a non-symbol: %s" (car pairs)))
+      ;; Can't use backquote here, it's too early in the bootstrap.
+      (setq expr
+            (cons
+             (list 'set
+                   (list 'make-local-variable (list 'quote (car pairs)))
+                   (car (cdr pairs)))
+             expr))
+      (setq pairs (cdr (cdr pairs))))
+    (macroexp-progn (nreverse expr))))
 
 (defmacro defvar-local (var val &optional docstring)
   "Define VAR as a buffer-local variable with default value VAL.
@@ -332,9 +356,9 @@ PREFIX is a string, and defaults to \"g\"."
                (setq gensym-counter (1+ gensym-counter)))))
     (make-symbol (format "%s%d" (or prefix "g") num))))
 
-(defun ignore (&rest _ignore)
+(defun ignore (&rest _arguments)
   "Do nothing and return nil.
-This function accepts any number of arguments, but ignores them."
+This function accepts any number of ARGUMENTS, but ignores them."
   (interactive)
   nil)
 
@@ -1238,6 +1262,13 @@ The normal global definition of the character C-x indirects to this keymap.")
 (defalias 'ctl-x-5-prefix ctl-x-5-map)
 (define-key ctl-x-map "5" 'ctl-x-5-prefix)
 
+(defvar ctl-x-6-map (make-sparse-keymap)
+  "Keymap for tab commands.")
+(defalias 'ctl-x-6-prefix ctl-x-6-map)
+(define-key ctl-x-map "6" 'ctl-x-6-prefix)
+(defalias 'ctl-x-t-prefix ctl-x-6-map)
+(define-key ctl-x-map "t" 'ctl-x-t-prefix)
+
 
 ;;;; Event manipulation functions.
 
@@ -1734,7 +1765,9 @@ the hook's buffer-local value rather than its default value."
 The value of the last form in BODY is returned.
 Each element of BINDERS is a list (SYMBOL VALUEFORM) which binds
 SYMBOL to the value of VALUEFORM.
-All symbols are bound before the VALUEFORMs are evalled."
+
+The main difference between this macro and `let'/`let*' is that
+all symbols are bound before any of the VALUEFORMs are evalled."
   ;; Only useful in lexical-binding mode.
   ;; As a special-form, we could implement it more efficiently (and cleanly,
   ;; making the vars actually unbound during evaluation of the binders).
@@ -2045,7 +2078,7 @@ Uses the `derived-mode-parent' property of the symbol to trace backwards."
 (put 'major-mode--suspended 'permanent-local t)
 
 (defun major-mode-suspend ()
-  "Exit current major, remembering it."
+  "Exit current major mode, remembering it."
   (let* ((prev-major-mode (or major-mode--suspended
 			      (unless (eq major-mode 'fundamental-mode)
 			        major-mode))))
@@ -2395,8 +2428,12 @@ some sort of escape sequence, the ambiguity is resolved via `read-key-delay'."
         (progn
 	  (use-global-map
            (let ((map (make-sparse-keymap)))
-             ;; Don't hide the menu-bar and tool-bar entries.
+             ;; Don't hide the menu-bar, tab-bar and tool-bar entries.
              (define-key map [menu-bar] (lookup-key global-map [menu-bar]))
+             (define-key map [tab-bar]
+	       ;; This hack avoids evaluating the :filter (Bug#9922).
+	       (or (cdr (assq 'tab-bar global-map))
+		   (lookup-key global-map [tab-bar])))
              (define-key map [tool-bar]
 	       ;; This hack avoids evaluating the :filter (Bug#9922).
 	       (or (cdr (assq 'tool-bar global-map))
@@ -2426,6 +2463,12 @@ some sort of escape sequence, the ambiguity is resolved via `read-key-delay'."
     map)
   "Keymap used while reading passwords.")
 
+(defun read-password--hide-password ()
+  (let ((beg (minibuffer-prompt-end)))
+    (dotimes (i (1+ (- (buffer-size) beg)))
+      (put-text-property (+ i beg) (+ 1 i beg)
+                         'display (string (or read-hide-char ?*))))))
+
 (defun read-passwd (prompt &optional confirm default)
   "Read a password, prompting with PROMPT, and return it.
 If optional CONFIRM is non-nil, read the password twice to make sure.
@@ -2450,15 +2493,7 @@ by doing (clear-string STRING)."
               (message "Password not repeated accurately; please start over")
               (sit-for 1))))
         success)
-    (let ((hide-chars-fun
-           (lambda (beg end _len)
-             (clear-this-command-keys)
-             (setq beg (min end (max (minibuffer-prompt-end)
-                                     beg)))
-             (dotimes (i (- end beg))
-               (put-text-property (+ i beg) (+ 1 i beg)
-                                  'display (string (or read-hide-char ?*))))))
-          minibuf)
+    (let (minibuf)
       (minibuffer-with-setup-hook
           (lambda ()
             (setq minibuf (current-buffer))
@@ -2469,7 +2504,7 @@ by doing (clear-string STRING)."
             (use-local-map read-passwd-map)
             (setq-local inhibit-modification-hooks nil) ;bug#15501.
 	    (setq-local show-paren-mode nil)		;bug#16091.
-            (add-hook 'after-change-functions hide-chars-fun nil 'local))
+            (add-hook 'post-command-hook 'read-password--hide-password nil t))
         (unwind-protect
             (let ((enable-recursive-minibuffers t)
 		  (read-hide-char (or read-hide-char ?*)))
@@ -2479,7 +2514,8 @@ by doing (clear-string STRING)."
               ;; Not sure why but it seems that there might be cases where the
               ;; minibuffer is not always properly reset later on, so undo
               ;; whatever we've done here (bug#11392).
-              (remove-hook 'after-change-functions hide-chars-fun 'local)
+              (remove-hook 'after-change-functions 'read-password--hide-password
+                           'local)
               (kill-local-variable 'post-self-insert-hook)
               ;; And of course, don't keep the sensitive data around.
               (erase-buffer))))))))
@@ -3120,11 +3156,15 @@ Otherwise, return nil."
       raw-field)))
 
 (defun sha1 (object &optional start end binary)
-  "Return the SHA1 (Secure Hash Algorithm) of an OBJECT.
+  "Return the SHA-1 (Secure Hash Algorithm) of an OBJECT.
 OBJECT is either a string or a buffer.  Optional arguments START and
 END are character positions specifying which portion of OBJECT for
 computing the hash.  If BINARY is non-nil, return a string in binary
-form."
+form.
+
+Note that SHA-1 is not collision resistant and should not be used
+for anything security-related.  See `secure-hash' for
+alternatives."
   (secure-hash 'sha1 object start end binary))
 
 (defun function-get (f prop &optional autoload)
@@ -3407,6 +3447,11 @@ also `with-temp-buffer'."
   (when (window-live-p (nth 1 state))
     (select-window (nth 1 state) 'norecord)))
 
+(defun generate-new-buffer (name)
+  "Create and return a buffer with a name based on NAME.
+Choose the buffer's name using `generate-new-buffer-name'."
+  (get-buffer-create (generate-new-buffer-name name)))
+
 (defmacro with-selected-window (window &rest body)
   "Execute the forms in BODY with WINDOW as the selected window.
 The value returned is the value of the last form in BODY.
@@ -3572,8 +3617,7 @@ See also `with-temp-buffer'."
   (let ((temp-file (make-symbol "temp-file"))
 	(temp-buffer (make-symbol "temp-buffer")))
     `(let ((,temp-file ,file)
-	   (,temp-buffer
-	    (get-buffer-create (generate-new-buffer-name " *temp file*"))))
+	   (,temp-buffer (generate-new-buffer " *temp file*")))
        (unwind-protect
 	   (prog1
 	       (with-current-buffer ,temp-buffer
@@ -3612,7 +3656,7 @@ See also `with-temp-file' and `with-output-to-string'."
   (declare (indent 0) (debug t))
   (let ((temp-buffer (make-symbol "temp-buffer")))
     `(let ((,temp-buffer (generate-new-buffer " *temp*")))
-       ;; FIXME: kill-buffer can change current-buffer in some odd cases.
+       ;; `kill-buffer' can change current-buffer in some odd cases.
        (with-current-buffer ,temp-buffer
          (unwind-protect
 	     (progn ,@body)
@@ -3646,8 +3690,7 @@ of that nature."
 (defmacro with-output-to-string (&rest body)
   "Execute BODY, return the text it sent to `standard-output', as a string."
   (declare (indent 0) (debug t))
-  `(let ((standard-output
-	  (get-buffer-create (generate-new-buffer-name " *string-output*"))))
+  `(let ((standard-output (generate-new-buffer " *string-output*")))
      (unwind-protect
 	 (progn
 	   (let ((standard-output standard-output))
@@ -5281,6 +5324,8 @@ Usually the separator is \".\", but it can be any other string.")
     ("^[-._+]$"                                           . -4)
     ;; treat "1.2.3-CVS" as snapshot release
     ("^[-._+ ]?\\(cvs\\|git\\|bzr\\|svn\\|hg\\|darcs\\)$" . -4)
+    ;; treat "-unknown" the same as snapshots.
+    ("^[-._+ ]?unknown$"                                  . -4)
     ("^[-._+ ]?alpha$"                                    . -3)
     ("^[-._+ ]?beta$"                                     . -2)
     ("^[-._+ ]?\\(pre\\|rc\\)$"                           . -1))
@@ -5512,6 +5557,7 @@ NAME is the package name as a symbol, and VERSION is its version
 as a list.")
 
 (defun package--description-file (dir)
+  "Return package description file name for package DIR."
   (concat (let ((subdir (file-name-nondirectory
                          (directory-file-name dir))))
             (if (string-match "\\([^.].*?\\)-\\([0-9]+\\(?:[.][0-9]+\\|\\(?:pre\\|beta\\|alpha\\)[0-9]+\\)*\\)" subdir)

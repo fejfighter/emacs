@@ -21,10 +21,9 @@
 
 ;;; Commentary:
 
-;; Maildir format is documented at <URL:http://cr.yp.to/proto/maildir.html>
-;; and in the maildir(5) man page from qmail (available at
-;; <URL:http://www.qmail.org/man/man5/maildir.html>).  nnmaildir also stores
-;; extra information in the .nnmaildir/ directory within a maildir.
+;; Maildir format is documented at <URL:http://cr.yp.to/proto/maildir.html>.
+;; nnmaildir also stores extra information in the .nnmaildir/ directory
+;; within a maildir.
 ;;
 ;; Some goals of nnmaildir:
 ;; * Everything Just Works, and correctly.  E.g., NOV data is automatically
@@ -1755,7 +1754,7 @@ This variable is set by `nnmaildir-request-article'.")
 	    (delete-file file))))
       t)))
 
-(defun nnmaildir-close-server (&optional server)
+(defun nnmaildir-close-server (&optional server _defs)
   "Close SERVER, or the current maildir server."
   (when (nnmaildir--prepare server nil)
     (setq server nnmaildir--cur-server

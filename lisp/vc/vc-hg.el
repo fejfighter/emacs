@@ -237,6 +237,7 @@ highlighting the Log View buffer."
 			      process-environment)))
 			(process-file
 			 vc-hg-program nil t nil
+                         "--config" "ui.report_untrusted=0"
 			 "--config" "alias.status=status"
 			 "--config" "defaults.status="
 			 "status" "-A" (file-relative-name file)))
@@ -898,7 +899,7 @@ REPO must be the directory name of an hg repository."
      :file-sources (nreverse vc-hg--hgignore-filenames))))
 
 (defun vc-hg--ignore-patterns-valid-p (hgip)
-  "Return whether the cached ignore patterns in HGIP are still valid"
+  "Return whether the cached ignore patterns in HGIP are still valid."
   (let ((valid t)
         (file-sources (vc-hg--ignore-patterns-file-sources hgip)))
     (while (and file-sources valid)
@@ -1359,6 +1360,8 @@ commands, which only operated on marked files."
 		      (mapcar (lambda (arg) (list "-r" arg)) marked-list)))
       (let* ((root (vc-hg-root default-directory))
 	     (buffer (format "*vc-hg : %s*" (expand-file-name root)))
+	      ;; Disable pager.
+             (process-environment (cons "HGPLAIN=1" process-environment))
 	     (hg-program vc-hg-program)
 	     args)
 	;; If necessary, prompt for the exact command.
@@ -1431,8 +1434,10 @@ call \"hg push -r REVS\" to push the specified revisions REVS."
   "Merge incoming changes into the current working directory.
 This runs the command \"hg merge\"."
   (let* ((root (vc-hg-root default-directory))
-	 (buffer (format "*vc-hg : %s*" (expand-file-name root))))
-    (apply 'vc-do-async-command buffer root vc-hg-program '("merge"))
+	 (buffer (format "*vc-hg : %s*" (expand-file-name root)))
+         ;; Disable pager.
+         (process-environment (cons "HGPLAIN=1" process-environment)))
+    (apply 'vc-do-async-command buffer root vc-hg-program '("--config" "ui.report_untrusted=0" "merge"))
     (with-current-buffer buffer (vc-run-delayed (vc-compilation-mode 'hg)))
     (vc-set-async-update buffer)))
 
@@ -1442,11 +1447,14 @@ This runs the command \"hg merge\"."
   "A wrapper around `vc-do-command' for use in vc-hg.el.
 This function differs from vc-do-command in that it invokes
 `vc-hg-program', and passes `vc-hg-global-switches' to it before FLAGS."
-  (apply 'vc-do-command (or buffer "*vc*") okstatus vc-hg-program file-or-list
-         (if (stringp vc-hg-global-switches)
-             (cons vc-hg-global-switches flags)
-           (append vc-hg-global-switches
-                   flags))))
+  ;; Disable pager.
+  (let ((process-environment (cons "HGPLAIN=1" process-environment))
+        (flags (append '("--config" "ui.report_untrusted=0") flags)))
+    (apply 'vc-do-command (or buffer "*vc*") okstatus vc-hg-program file-or-list
+           (if (stringp vc-hg-global-switches)
+               (cons vc-hg-global-switches flags)
+             (append vc-hg-global-switches
+                     flags)))))
 
 (defun vc-hg-root (file)
   (vc-find-root file ".hg"))

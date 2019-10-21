@@ -26,7 +26,7 @@
   (should (equal (iso8601-parse-date "1985")
                  '(nil nil nil nil nil 1985 nil nil nil)))
   (should (equal (iso8601-parse-date "-0003")
-                 '(nil nil nil nil nil -4 nil nil nil)))
+                 '(nil nil nil nil nil -3 nil nil nil)))
   (should (equal (iso8601-parse-date "+1985")
                  '(nil nil nil nil nil 1985 nil nil nil))))
 
@@ -154,12 +154,24 @@
                  '(0 0 15 nil nil nil nil nil nil))))
 
 (ert-deftest standard-test-time-of-day-fractions ()
-  ;; decoded-time doesn't support sub-second times.
-  ;; (should (equal (iso8601-parse-time "152735,5")
-  ;;                '(46 27 15 nil nil nil nil nil nil)))
-  ;; (should (equal (iso8601-parse-time "15:27:35,5")
-  ;;                '(46 27 15 nil nil nil nil nil nil)))
-  )
+  (should (equal (iso8601-parse-time "152735,5" t)
+                 '((355 . 10) 27 15 nil nil nil nil nil nil)))
+  (should (equal (iso8601-parse-time "15:27:35,5" t)
+                 '((355 . 10) 27 15 nil nil nil nil nil nil)))
+
+  (should (equal (iso8601-parse-time "2320,5" t)
+                 '(30 20 23 nil nil nil nil nil nil)))
+  (should (equal (iso8601-parse-time "23:20,8" t)
+                 '(48 20 23 nil nil nil nil nil nil)))
+
+  (should (equal (iso8601-parse-time "23,3" t)
+                 '(0 18 23 nil nil nil nil nil nil))))
+
+(ert-deftest nonstandard-test-time-of-day-decimals ()
+  (should (equal (iso8601-parse-time "15:27:35.123" t)
+                 '((35123 . 1000) 27 15 nil nil nil nil nil nil)))
+  (should (equal (iso8601-parse-time "15:27:35.123456789" t)
+                 '((35123456789 . 1000000000) 27 15 nil nil nil nil nil nil))))
 
 (ert-deftest standard-test-time-of-day-beginning-of-day ()
   (should (equal (iso8601-parse-time "000000")

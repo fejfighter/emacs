@@ -326,6 +326,18 @@ the default EWW buffer."
                               #'url-hexify-string (split-string url) "+"))))))
   url)
 
+(defun eww--preprocess-html (start end)
+  "Translate all < characters that do not look like start of tags into &lt;."
+  (save-excursion
+    (save-restriction
+      (narrow-to-region start end)
+      (goto-char start)
+      (let ((case-fold-search t))
+        (while (re-search-forward "<[^0-9a-z!/]" nil t)
+          (goto-char (match-beginning 0))
+          (delete-region (point) (1+ (point)))
+          (insert "&lt;"))))))
+
 ;;;###autoload (defalias 'browse-web 'eww)
 
 ;;;###autoload
@@ -357,6 +369,9 @@ engine used."
   (interactive)
   (let ((url (eww-suggested-uris)))
     (if (null url) (user-error "No link at point")
+      (when tab-bar-mode
+        (let ((tab-bar-new-tab-choice t))
+          (tab-new)))
       ;; clone useful to keep history, but
       ;; should not clone from non-eww buffer
       (with-current-buffer
@@ -479,6 +494,7 @@ Currently this means either text/html or application/xhtml+xml."
 		  ;; Remove CRLF and replace NUL with &#0; before parsing.
 		  (while (re-search-forward "\\(\r$\\)\\|\0" nil t)
 		    (replace-match (if (match-beginning 1) "" "&#0;") t t)))
+                (eww--preprocess-html (point) (point-max))
 		(libxml-parse-html-region (point) (point-max))))))
 	(source (and (null document)
 		     (buffer-substring (point) (point-max)))))
@@ -716,6 +732,7 @@ the like."
 		(condition-case nil
 		    (decode-coding-region (point-min) (point-max) 'utf-8)
 		  (coding-system-error nil))
+                (eww--preprocess-html (point-min) (point-max))
 		(libxml-parse-html-region (point-min) (point-max))))
          (base (plist-get eww-data :url)))
     (eww-score-readability dom)
@@ -864,7 +881,22 @@ the like."
 
 ;;;###autoload
 (defun eww-browse-url (url &optional new-window)
+  "Ask the EWW browser to load URL.
+
+Interactively, if the variable `browse-url-new-window-flag' is non-nil,
+loads the document in a new buffer tab on the window tab-line.  A non-nil
+prefix argument reverses the effect of `browse-url-new-window-flag'.
+
+If `tab-bar-mode' is enabled, then whenever a document would
+otherwise be loaded in a new buffer, it is loaded in a new tab
+in the tab-bar on an existing frame.
+
+Non-interactively, this uses the optional second argument NEW-WINDOW
+instead of `browse-url-new-window-flag'."
   (when new-window
+    (when tab-bar-mode
+      (let ((tab-bar-new-tab-choice t))
+        (tab-new)))
     (pop-to-buffer-same-window
      (generate-new-buffer
       (format "*eww-%s*" (url-host (url-generic-parse-url
@@ -1433,15 +1465,15 @@ See URL `https://developer.mozilla.org/en-US/docs/Web/HTML/Element/Input'.")
 	      (push (cons name (plist-get input :value))
 		    values)))
 	   ((equal (plist-get input :type) "file")
-	    (push (cons "file"
-			(list (cons "filedata"
-				    (with-temp-buffer
-				      (insert-file-contents
-				       (plist-get input :filename))
-				      (buffer-string)))
-			      (cons "name" (plist-get input :name))
-			      (cons "filename" (plist-get input :filename))))
-		  values))
+            (when-let ((file (plist-get input :filename)))
+              (push (list "file"
+                          (cons "filedata"
+                                (with-temp-buffer
+                                  (insert-file-contents file)
+                                  (buffer-string)))
+                          (cons "name" name)
+                          (cons "filename" file))
+                    values)))
 	   ((equal (plist-get input :type) "submit")
 	    ;; We want the values from buttons if we hit a button if
 	    ;; we hit enter on it, or if it's the first button after
@@ -1887,8 +1919,8 @@ If CHARSET is nil then use UTF-8."
 (defvar eww-history-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "\r" 'eww-history-browse)
-;;    (define-key map "n" 'next-error-no-select)
-;;    (define-key map "p" 'previous-error-no-select)
+    (define-key map "n" 'next-line)
+    (define-key map "p" 'previous-line)
 
     (easy-menu-define nil map
       "Menu for `eww-history-mode-map'."

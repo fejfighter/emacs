@@ -630,7 +630,7 @@ dump_set_have_current_referrer (struct dump_context *ctx, bool have)
 #endif
 }
 
-/* Return true if if objects should be enqueued in CTX to refer to an
+/* Return true if objects should be enqueued in CTX to refer to an
    object that the caller should store into CTX->current_referrer.
 
    Until dump_clear_referrer is called, any objects enqueued are being
@@ -1093,7 +1093,7 @@ dump_calc_link_score (dump_off basis,
   return powf (link_score, (float) link_weight / 1000.0f);
 }
 
-/* Compute the score score for a queued object.
+/* Compute the score for a queued object.
 
    OBJECT is the object to query, which must currently be queued for
    dumping.  BASIS is the offset at which we would be
@@ -2769,7 +2769,7 @@ dump_hash_table (struct dump_context *ctx,
 static dump_off
 dump_buffer (struct dump_context *ctx, const struct buffer *in_buffer)
 {
-#if CHECK_STRUCTS && !defined HASH_buffer_E34A11C6B9
+#if CHECK_STRUCTS && !defined HASH_buffer_375A10F5E5
 # error "buffer changed. See CHECK_STRUCTS comment in config.h."
 #endif
   struct buffer munged_buffer = *in_buffer;
@@ -5303,7 +5303,7 @@ enum dump_section
 
    N.B. We run very early in initialization, so we can't use lisp,
    unwinding, xmalloc, and so on.  */
-enum pdumper_load_result
+int
 pdumper_load (const char *dump_filename)
 {
   intptr_t dump_size;
@@ -5328,10 +5328,15 @@ pdumper_load (const char *dump_filename)
   /* We can load only one dump.  */
   eassert (!dump_loaded_p ());
 
-  enum pdumper_load_result err = PDUMPER_LOAD_FILE_NOT_FOUND;
+  int err;
   int dump_fd = emacs_open (dump_filename, O_RDONLY, 0);
   if (dump_fd < 0)
-    goto out;
+    {
+      err = (errno == ENOENT || errno == ENOTDIR
+	     ? PDUMPER_LOAD_FILE_NOT_FOUND
+	     : PDUMPER_LOAD_ERROR + errno);
+      goto out;
+    }
 
   err = PDUMPER_LOAD_FILE_NOT_FOUND;
   if (fstat (dump_fd, &stat) < 0)

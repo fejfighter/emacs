@@ -1281,6 +1281,12 @@ point is on a directory entry, mark all files in that directory tree
 (@code{vc-dir-mark-all-files}).  With a prefix argument, mark all
 listed files and directories.
 
+@item G
+Add the file under point to the list of files that the VC should
+ignore (@code{vc-dir-ignore}).  For instance, if the VC is Git, it
+will append this file to the @file{.gitignore} file.  If given a
+prefix, do this with all the marked files.
+
 @item q
 Quit the VC Directory buffer, and bury it (@code{quit-window}).
 
@@ -2118,7 +2124,9 @@ the selected tags table, and displays a list of tags defined in that
 file.  Do not include a directory as part of the file name unless the
 file name recorded in the tags table includes a directory.  This
 command works only with the etags backend, and requires a tags table
-for the project to be available.  @xref{Tags Tables}.
+for the project to be available.  @xref{Tags Tables}.  If used
+interactively, the default tag is file name of the current buffer if
+used interactively.
 
 @c Sadly, the new-and-improved Xref feature doesn't provide anything
 @c close to the described below features of the now-obsoleted
@@ -2658,11 +2666,12 @@ etags --language=none \
 @subsection Selecting a Tags Table
 
 @findex visit-tags-table
-  Emacs has at any time at most one @dfn{selected} tags table.  All the
-commands for working with tags tables use the selected one.  To select
-a tags table, type @kbd{M-x visit-tags-table}, which reads the tags
-table file name as an argument, with @file{TAGS} in the default
-directory as the default.
+  Emacs has at any time at most one @dfn{selected} tags table.  All
+the commands for working with tags tables use the selected one.  To
+select a tags table, type @kbd{M-x visit-tags-table}, which reads the
+tags table file name as an argument, with @file{TAGS} defaulting to
+the first directory that contains a file named @file{TAGS} encountered
+when recursively searching upward from the default directory.
 
 @vindex tags-file-name
   Emacs does not actually read in the tags table contents until you

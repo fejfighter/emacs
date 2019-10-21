@@ -3404,9 +3404,9 @@ ns_draw_text_decoration (struct glyph_string *s, struct face *face,
     return;
 
   /* Do underline.  */
-  if (face->underline_p)
+  if (face->underline)
     {
-      if (s->face->underline_type == FACE_UNDER_WAVE)
+      if (s->face->underline == FACE_UNDER_WAVE)
         {
           if (face->underline_defaulted_p)
             [defaultCol set];
@@ -3415,15 +3415,15 @@ ns_draw_text_decoration (struct glyph_string *s, struct face *face,
 
           ns_draw_underwave (s, width, x);
         }
-      else if (s->face->underline_type == FACE_UNDER_LINE)
+      else if (s->face->underline == FACE_UNDER_LINE)
         {
 
           NSRect r;
           unsigned long thickness, position;
 
           /* If the prev was underlined, match its appearance.  */
-          if (s->prev && s->prev->face->underline_p
-	      && s->prev->face->underline_type == FACE_UNDER_LINE
+          if (s->prev
+	      && s->prev->face->underline == FACE_UNDER_LINE
               && s->prev->underline_thickness > 0)
             {
               thickness = s->prev->underline_thickness;
@@ -6859,7 +6859,7 @@ not_in_argv (NSString *arg)
       NSTRACE_MSG ("mouse_autoselect_window");
       static Lisp_Object last_mouse_window;
       Lisp_Object window
-	= window_from_coordinates (emacsframe, pt.x, pt.y, 0, 0);
+	= window_from_coordinates (emacsframe, pt.x, pt.y, 0, 0, 0);
 
       if (WINDOWP (window)
           && !EQ (window, last_mouse_window)

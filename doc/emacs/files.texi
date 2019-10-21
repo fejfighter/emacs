@@ -419,6 +419,9 @@ about other buffers.
 View the buffer that you are currently being asked about.  When you exit
 View mode, you get back to @code{save-some-buffers}, which asks the
 question again.
+@item C-f
+Exit @code{save-some-buffers} and visit the buffer that you are
+currently being asked about.
 @item d
 Diff the buffer against its corresponding file, so you can see what
 changes you would be saving.  This calls the command
@@ -2119,6 +2122,20 @@ displayed.  You can press @kbd{n} (@code{image-next-file}) and @kbd{p}
 (@code{image-previous-file}) to visit the next image file and the
 previous image file in the same directory, respectively.
 
+@findex image-mode-mark-file
+@findex image-mode-unmark-file
+@findex image-mode-copy-file-name-as-kill
+  When looking through images, it's sometimes convenient to be able to
+mark the files for later processing (for instance, if you want to
+select a group of images to copy somewhere else).  The @kbd{m}
+(@code{image-mode-mark-file}) command will mark the current file in
+any Dired buffer(s) that display the current file's directory.  If no
+such buffer is open, the directory is opened in a new buffer.  To
+unmark files, use the @kbd{u} (@code{image-mode-mark-file}) command.
+Finally, if you just want to copy the current buffers file name to the
+kill ring, you can use the @kbd{w}
+(@code{image-mode-copy-file-name-as-kill}) command.
+
 @findex image-toggle-animation
 @findex image-next-frame
 @findex image-previous-frame
@@ -2160,6 +2177,15 @@ never be rendered using ImageMagick, regardless of the value of
 @code{C} and @code{HTML}, which ImageMagick can render as an image
 but Emacs should not).  To disable ImageMagick entirely, change
 @code{imagemagick-types-inhibit} to @code{t}.
+
+@vindex image-use-external-converter
+  If Emacs doesn't have native support for the image format in
+question, and @code{image-use-external-converter} is non-@code{nil},
+Emacs will try to determine whether there are external utilities that
+can be used to transform the image in question to @acronym{PNG} before
+displaying.  GraphicsMagick, ImageMagick and @command{ffmpeg} are
+currently supported for image conversions.
+
 
 @findex thumbs-mode
 @cindex mode, Thumbs

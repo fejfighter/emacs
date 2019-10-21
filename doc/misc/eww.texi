@@ -105,7 +105,10 @@ web page hit @kbd{g} (@code{eww-reload}).  Pressing @kbd{w}
 @kindex M-RET
   The @kbd{M-@key{RET}} command (@code{eww-open-in-new-buffer}) opens the
 URL at point in a new EWW buffer, akin to opening a link in a new
-``tab'' in other browsers.
+``tab'' in other browsers.  When @code{global-tab-line-mode} is
+enabled, this buffer is displayed in the tab on the window tab line.
+When @code{tab-bar-mode} is enabled, a new tab is created on the frame
+tab bar.
 
 @findex eww-readable
 @kindex R
@@ -217,9 +220,22 @@ in an external browser by customizing
 @findex url-cookie-list
 @kindex C
 @cindex Cookies
-  EWW handles cookies through the @ref{Top, url package, ,url}.
-You can list existing cookies with @kbd{C} (@code{url-cookie-list}).
-For details about the Cookie handling @xref{Cookies,,,url}.
+  EWW handles cookies through the @ref{Top, url package, ,url}
+package.  You can list existing cookies with @kbd{C}
+(@code{url-cookie-list}).  For details about the Cookie handling
+@xref{Cookies,,,url}.
+
+@vindex shr-cookie-policy
+  Many @acronym{HTML} pages have images embedded in them, and EWW will
+download most of these by default.  When fetching images, cookies can
+be sent and received, and these can be used to track users.  To
+control when to send cookies when retrieving these images, the
+@code{shr-cookie-policy} variable can be used.  The default value,
+@code{same-origin}, means that EWW will only send cookies when
+fetching images that originate from the same source as the
+@acronym{HTML} page.  @code{nil} means ``never send cookies when
+retrieving these images'' and @code{t} means ``always send cookies
+when retrieving these images''.
 
 @vindex eww-header-line-format
 @cindex Header
@@ -319,7 +335,7 @@ Gnus.  He started writing an Emacs HTML rendering library,
 @code{shr.el}, to read blogs in Gnus.  He eventually added a web
 browser front end and HTML form support.  Which resulted in EWW, the
 Emacs Web Wowser.  EWW was announced on 16 June 2013:
-@url{http://lars.ingebrigtsen.no/2013/06/16/eww/}.
+@url{https://lars.ingebrigtsen.no/2013/06/16/eww/}.
 
 EWW was then moved from the Gnus repository to GNU Emacs and several
 developers started contributing to it as well.

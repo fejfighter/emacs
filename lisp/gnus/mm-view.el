@@ -65,8 +65,9 @@
   :group 'mime-display)
 
 (defcustom mm-inline-large-images-proportion 0.9
-  "Maximum proportion of large image resized when
-`mm-inline-large-images' is set to resize."
+  "Maximum proportion large images can occupy in the buffer.
+This is only used if `mm-inline-large-images' is set to
+`resize'."
   :type 'float
   :version "24.1"
   :group 'mime-display)
@@ -582,24 +583,23 @@ If MODE is not set, try to find mode automatically."
 
 (defun mm-view-pkcs7-verify (handle)
   (let ((verified nil))
-    (with-temp-buffer
-      (insert "MIME-Version: 1.0\n")
-      (mm-insert-headers "application/pkcs7-mime" "base64" "smime.p7m")
-      (insert-buffer-substring (mm-handle-buffer handle))
-      (setq verified (smime-verify-region (point-min) (point-max))))
-    (goto-char (point-min))
-    (mm-insert-part handle)
-    (if (search-forward "Content-Type: " nil t)
-	(delete-region (point-min) (match-beginning 0)))
-    (goto-char (point-max))
-    (if (re-search-backward "--\r?\n?" nil t)
-	(delete-region (match-end 0) (point-max)))
-    (unless verified
-      (insert-buffer-substring smime-details-buffer)))
-  (goto-char (point-min))
-  (while (search-forward "\r\n" nil t)
-    (replace-match "\n"))
-  t)
+    (if (eq mml-smime-use 'epg)
+	;; Use EPG/gpgsm
+	(insert
+	 (with-temp-buffer
+	   (insert-buffer-substring (mm-handle-buffer handle))
+	   (goto-char (point-min))
+	   (let ((part (base64-decode-string (buffer-string))))
+	     (epg-verify-string (epg-make-context 'CMS) part))))
+      (with-temp-buffer
+	(insert "MIME-Version: 1.0\n")
+	(mm-insert-headers "application/pkcs7-mime" "base64" "smime.p7m")
+	(insert-buffer-substring (mm-handle-buffer handle))
+	(setq verified (smime-verify-region (point-min) (point-max))))
+      (if verified
+	  (insert verified)
+	(insert-buffer-substring smime-details-buffer)))
+    t))
 
 (autoload 'epg-decrypt-string "epg")
 

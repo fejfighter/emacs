@@ -348,6 +348,10 @@ struct buffer
      of windows.  Nil means don't display that line.  */
   Lisp_Object header_line_format_;
 
+  /* Analogous to mode_line_format for the line displayed at the top
+     of windows.  Nil means don't display that line.  */
+  Lisp_Object tab_line_format_;
+
   /* Keys that are bound local to this buffer.  */
   Lisp_Object keymap_;
 
@@ -1139,6 +1143,12 @@ extern struct buffer buffer_local_flags;
    that don't have such names.  */
 
 extern struct buffer buffer_local_symbols;
+
+/* verify_interval_modification saves insertion hooks here
+   to be run later by report_interval_modification.  */
+extern Lisp_Object interval_insert_behind_hooks;
+extern Lisp_Object interval_insert_in_front_hooks;
+
 
 extern void delete_all_overlays (struct buffer *);
 extern void reset_buffer (struct buffer *);

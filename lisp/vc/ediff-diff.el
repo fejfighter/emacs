@@ -1231,8 +1231,7 @@ Used for splitting difference regions into individual words.")
 These characters are ignored when differing regions are split into words.")
 (make-variable-buffer-local 'ediff-whitespace)
 
-(defvar ediff-word-1
-  (if (featurep 'xemacs) "a-zA-Z---_" "-[:word:]_")
+(defvar ediff-word-1 "-[:word:]_"
   "Characters that constitute words of type 1.
 More precisely, [ediff-word-1] is a regexp that matches type 1 words.
 See `ediff-forward-word' for more details.")
@@ -1326,7 +1325,7 @@ arguments to `skip-chars-forward'."
 	(syntax-tbl ediff-syntax-table))
     (ediff-with-current-buffer buf
       (skip-chars-forward ediff-whitespace)
-      (ediff-with-syntax-table syntax-tbl
+      (with-syntax-table syntax-tbl
 	(while (> n 1)
 	  (funcall fwd-word-fun)
 	  (skip-chars-forward ediff-whitespace)

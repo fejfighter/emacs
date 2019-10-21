@@ -551,8 +551,9 @@ work correctly."
       ;; display a file buffer even if the URL does not exist and
       ;; 'url-retrieve-synchronously' returns 404 or whatever.
       (unless (or visit
-                  (and (>= url-http-response-status 200)
-                       (< url-http-response-status 300)))
+                  (or (and (>= url-http-response-status 200)
+                           (< url-http-response-status 300))
+                      (= url-http-response-status 304))) ; "Not modified"
         (let ((desc (nth 2 (assq url-http-response-status url-http-codes))))
           (kill-buffer buffer)
           ;; Signal file-error per bug#16733.
@@ -954,8 +955,8 @@ should be shown to the user."
 	(url-mark-buffer-as-dead buffer)
       ;; Narrow the buffer for url-handle-content-transfer-encoding to
       ;; find only the headers relevant to this transaction.
-      (and (not (buffer-narrowed-p)
-                (mail-narrow-to-head)))
+      (and (not (buffer-narrowed-p))
+                (mail-narrow-to-head))
       (url-handle-content-transfer-encoding))
     (url-http-debug "Finished parsing HTTP headers: %S" success)
     (widen)
@@ -1024,7 +1025,9 @@ should be shown to the user."
                    (setq url-using-proxy
                          (url-generic-parse-url url-using-proxy)))
                  (url-http url-current-object url-callback-function
-                           url-callback-arguments (current-buffer)))))
+                           url-callback-arguments (current-buffer)
+                           (and (string= "https" (url-type url-current-object))
+                                'tls)))))
 	    ((url-http-parse-headers)
 	     (url-http-activate-callback))))))
 

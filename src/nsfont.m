@@ -722,7 +722,7 @@ nsfont_open (struct frame *f, Lisp_Object font_entity, int pixel_size)
   if (fabs (ns_attribute_fvalue (fontDesc, NSFontSlantTrait) > 0.05F))
       traits |= NSItalicFontMask;
 
-  /* see http://cocoadev.com/forums/comments.php?DiscussionID=74 */
+  /* see https://web.archive.org/web/20100201175731/http://cocoadev.com/forums/comments.php?DiscussionID=74 */
   fixLeopardBug = traits & NSBoldFontMask ? 10 : 5;
   nsfont = [fontMgr fontWithFamily: family
                             traits: traits weight: fixLeopardBug
@@ -1010,7 +1010,7 @@ nsfont_draw (struct glyph_string *s, int from, int to, int x, int y,
   NSRect r;
   struct nsfont_info *font;
   NSColor *col, *bgCol;
-  unsigned short *t = s->char2b;
+  unsigned *t = s->char2b;
   int i, len, flags;
   char isComposite = s->first_glyph->type == COMPOSITE_GLYPH;
 

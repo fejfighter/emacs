@@ -377,7 +377,7 @@ control).  See \"cc-mode.el\" for more info."
     ;; to special combinations like C-c C-<delete>, so we have to hook
     ;; into the `normal-erase-is-backspace' system to bind it directly
     ;; as appropriate.
-    (add-hook 'normal-erase-is-backspace-hook 'c-bind-special-erase-keys)
+    (add-hook 'normal-erase-is-backspace-mode-hook 'c-bind-special-erase-keys)
     (c-bind-special-erase-keys))
 
   (when (fboundp 'delete-forward-p)
@@ -1966,7 +1966,7 @@ Note that this is a strict tail, so won't match, e.g. \"0x....\".")
   ;; these caches from inside them, and we must thus be sure that this
   ;; has already been executed.
   ;;
-  ;; This calls the language variable c-before-font-lock-functions, if non nil.
+  ;; This calls the language variable c-before-font-lock-functions, if non-nil.
   ;; This typically sets `syntax-table' properties.
 
   ;; We can sometimes get two consecutive calls to `after-change-functions'

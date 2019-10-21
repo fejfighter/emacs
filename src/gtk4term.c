@@ -215,7 +215,7 @@ x_free_frame_resources (struct frame *f)
 
 
   //gdk_surface_destroy(FRAME_GTK_OUTER_WIDGET(f));
-  gtk_widget_destroy(FRAME_GTK_OUTER_WIDGET(f));
+  //gtk_widget_destroy(FRAME_GTK_OUTER_WIDGET(f));
 
   if (FRAME_X_OUTPUT(f)->cr_surface_visible_bell != NULL) {
     cairo_surface_destroy(FRAME_X_OUTPUT(f)->cr_surface_visible_bell);
@@ -2314,9 +2314,9 @@ static void gtk4_draw_glyph_string(struct glyph_string *s)
   if (!s->for_overlaps)
     {
       /* Draw underline.  */
-      if (s->face->underline_p)
+      if (s->face->underline)
 	{
-	  if (s->face->underline_type == FACE_UNDER_WAVE)
+	  if (s->face->underline == FACE_UNDER_WAVE)
 	    {
 	      if (s->face->underline_defaulted_p)
 		x_draw_underwave (s, s->xgcv.foreground);
@@ -2325,13 +2325,13 @@ static void gtk4_draw_glyph_string(struct glyph_string *s)
 		  x_draw_underwave (s, s->face->underline_color);
 		}
 	    }
-	  else if (s->face->underline_type == FACE_UNDER_LINE)
+	  else if (s->face->underline == FACE_UNDER_LINE)
 	    {
 	      unsigned long thickness, position;
 	      int y;
 
-	      if (s->prev && s->prev->face->underline_p
-		  && s->prev->face->underline_type == FACE_UNDER_LINE)
+	      if (s->prev && s->prev->face->underline
+		  && s->prev->face->underline == FACE_UNDER_LINE)
 		{
 		  /* We use the same underline style as the previous one.  */
 		  thickness = s->prev->underline_thickness;
@@ -5715,7 +5715,7 @@ motion_notify_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
 	  gdouble y_win;
 	  gdk_event_get_coords(event, &x_win, &y_win);
 	  Lisp_Object window = window_from_coordinates
-	    (f, (int)x_win, (int)y_win, 0, false);
+	    (f, (int)x_win, (int)y_win, 0, false, false);
 
 	  /* A window will be autoselected only when it is not
 	     selected now and the last mouse movement event was

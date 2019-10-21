@@ -69,6 +69,9 @@ static struct frame *last_nonminibuf_frame;
 /* False means there are no visible garbaged frames.  */
 bool frame_garbaged;
 
+/* The default tab bar height for future frames.  */
+int frame_default_tab_bar_height;
+
 /* The default tool bar height for future frames.  */
 #ifdef HAVE_EXT_TOOL_BAR
 enum { frame_default_tool_bar_height = 0 };
@@ -230,6 +233,35 @@ set_menu_bar_lines (struct frame *f, Lisp_Object value, Lisp_Object oldval)
 			 0, 1, 0, 0);
     }
 }
+
+static void
+set_tab_bar_lines (struct frame *f, Lisp_Object value, Lisp_Object oldval)
+{
+  int nlines;
+  int olines = FRAME_TAB_BAR_LINES (f);
+
+  /* Right now, tab bars don't work properly in minibuf-only frames;
+     most of the commands try to apply themselves to the minibuffer
+     frame itself, and get an error because you can't switch buffers
+     in or split the minibuffer window.  */
+  if (FRAME_MINIBUF_ONLY_P (f))
+    return;
+
+  if (TYPE_RANGED_FIXNUMP (int, value))
+    nlines = XFIXNUM (value);
+  else
+    nlines = 0;
+
+  if (nlines != olines)
+    {
+      windows_or_buffers_changed = 14;
+      FRAME_TAB_BAR_LINES (f) = nlines;
+      FRAME_TAB_BAR_HEIGHT (f) = nlines * FRAME_LINE_HEIGHT (f);
+      change_frame_size (f, FRAME_COLS (f),
+			 FRAME_LINES (f) + olines - nlines,
+			 0, 1, 0, 0);
+    }
+}
 
 Lisp_Object Vframe_list;
 
@@ -381,6 +413,7 @@ frame_windows_min_size (Lisp_Object frame, Lisp_Object horizontal,
   if ((FRAME_TERMCAP_P (f) || FRAME_MSDOS_P (f)) && NILP (horizontal))
     {
       int min_height = (FRAME_MENU_BAR_LINES (f)
+			+ FRAME_TAB_BAR_LINES (f)
 			+ FRAME_WANTS_MODELINE_P (f)
 			+ 2);	/* one text line and one echo-area line */
       if (retval < min_height)
@@ -673,18 +706,17 @@ adjust_frame_size (struct frame *f, int new_width, int new_height, int inhibit,
 		inhibit_vertical ? Qt : Qnil));
 
       if (FRAME_TERMINAL (f)->set_window_size_hook)
-        FRAME_TERMINAL (f)->set_window_size_hook (f,
-                                                  0,
-                                                  new_text_width,
-                                                  new_text_height,
-                                                  1);
+        FRAME_TERMINAL (f)->set_window_size_hook
+	  (f, 0, new_text_width, new_text_height, 1);
       f->resized_p = true;
 
       return;
     }
 #endif
 
-  if (new_text_width == old_text_width
+  if ((XWINDOW (FRAME_ROOT_WINDOW (f))->pixel_top
+       == FRAME_TOP_MARGIN_HEIGHT (f))
+      && new_text_width == old_text_width
       && new_text_height == old_text_height
       && new_windows_width == old_windows_width
       && new_windows_height == old_windows_height
@@ -720,6 +752,15 @@ adjust_frame_size (struct frame *f, int new_width, int new_height, int inhibit,
 	 manipulating video hardware.  */
       if ((FRAME_TERMCAP_P (f) && !pretend) || FRAME_MSDOS_P (f))
 	FrameCols (FRAME_TTY (f)) = new_cols;
+
+#if defined (HAVE_WINDOW_SYSTEM)
+      if (WINDOWP (f->tab_bar_window))
+	{
+	  XWINDOW (f->tab_bar_window)->pixel_width = new_windows_width;
+	  XWINDOW (f->tab_bar_window)->total_cols
+	    = new_windows_width / unit_width;
+	}
+#endif
 
 #if defined (HAVE_WINDOW_SYSTEM) && ! defined (HAVE_EXT_TOOL_BAR)
       if (WINDOWP (f->tool_bar_window))
@@ -840,6 +881,8 @@ make_frame (bool mini_p)
   f->after_make_frame = false;
   f->inhibit_horizontal_resize = false;
   f->inhibit_vertical_resize = false;
+  f->tab_bar_redisplayed = false;
+  f->tab_bar_resized = false;
   f->tool_bar_redisplayed = false;
   f->tool_bar_resized = false;
   f->column_width = 1;  /* !FRAME_WINDOW_P value.  */
@@ -858,6 +901,7 @@ make_frame (bool mini_p)
   f->no_accept_focus = false;
   f->z_group = z_group_none;
   f->tooltip = false;
+  f->last_tab_bar_item = -1;
 #ifndef HAVE_EXT_TOOL_BAR
   f->last_tool_bar_item = -1;
 #endif
@@ -1086,6 +1130,9 @@ make_initial_frame (void)
   /* The default value of menu-bar-mode is t.  */
   set_menu_bar_lines (f, make_fixnum (1), Qnil);
 
+  /* The default value of tab-bar-mode is nil.  */
+  set_tab_bar_lines (f, make_fixnum (0), Qnil);
+
   /* Allocate glyph matrices.  */
   adjust_frame_glyphs (f);
 
@@ -1144,9 +1191,13 @@ make_terminal_frame (struct terminal *terminal)
 #endif
 
   FRAME_MENU_BAR_LINES (f) = NILP (Vmenu_bar_mode) ? 0 : 1;
-  FRAME_LINES (f) = FRAME_LINES (f) - FRAME_MENU_BAR_LINES (f);
+  FRAME_TAB_BAR_LINES (f) = NILP (Vtab_bar_mode) ? 0 : 1;
+  FRAME_LINES (f) = FRAME_LINES (f) - FRAME_MENU_BAR_LINES (f)
+    - FRAME_TAB_BAR_LINES (f);
   FRAME_MENU_BAR_HEIGHT (f) = FRAME_MENU_BAR_LINES (f) * FRAME_LINE_HEIGHT (f);
-  FRAME_TEXT_HEIGHT (f) = FRAME_TEXT_HEIGHT (f) - FRAME_MENU_BAR_HEIGHT (f);
+  FRAME_TAB_BAR_HEIGHT (f) = FRAME_TAB_BAR_LINES (f) * FRAME_LINE_HEIGHT (f);
+  FRAME_TEXT_HEIGHT (f) = FRAME_TEXT_HEIGHT (f) - FRAME_MENU_BAR_HEIGHT (f)
+    - FRAME_TAB_BAR_HEIGHT (f);
 
   /* Set the top frame to the newly created frame.  */
   if (FRAMEP (FRAME_TTY (f)->top_frame)
@@ -1268,7 +1319,8 @@ affects all frames on the same terminal device.  */)
   {
     int width, height;
     get_tty_size (fileno (FRAME_TTY (f)->input), &width, &height);
-    adjust_frame_size (f, width, height - FRAME_MENU_BAR_LINES (f),
+    adjust_frame_size (f, width, height - FRAME_MENU_BAR_LINES (f)
+		       - FRAME_TAB_BAR_LINES (f),
 		       5, 0, Qterminal_frame);
   }
 
@@ -3074,6 +3126,8 @@ store_frame_param (struct frame *f, Lisp_Object prop, Lisp_Object val)
     {
       if (EQ (prop, Qmenu_bar_lines))
 	set_menu_bar_lines (f, val, make_fixnum (FRAME_MENU_BAR_LINES (f)));
+      else if (EQ (prop, Qtab_bar_lines))
+	set_tab_bar_lines (f, val, make_fixnum (FRAME_TAB_BAR_LINES (f)));
       else if (EQ (prop, Qname))
 	set_term_frame_name (f, val);
     }
@@ -3169,6 +3223,8 @@ If FRAME is omitted or nil, return information on the currently selected frame. 
       Lisp_Object lines;
       XSETFASTINT (lines, FRAME_MENU_BAR_LINES (f));
       store_in_alist (&alist, Qmenu_bar_lines, lines);
+      XSETFASTINT (lines, FRAME_TAB_BAR_LINES (f));
+      store_in_alist (&alist, Qtab_bar_lines, lines);
     }
 
   return alist;
@@ -3698,6 +3754,7 @@ static const struct frame_parm_table frame_parms[] =
   {"vertical-scroll-bars",	SYMBOL_INDEX (Qvertical_scroll_bars)},
   {"horizontal-scroll-bars",	SYMBOL_INDEX (Qhorizontal_scroll_bars)},
   {"visibility",		SYMBOL_INDEX (Qvisibility)},
+  {"tab-bar-lines",		SYMBOL_INDEX (Qtab_bar_lines)},
   {"tool-bar-lines",		SYMBOL_INDEX (Qtool_bar_lines)},
   {"scroll-bar-foreground",	SYMBOL_INDEX (Qscroll_bar_foreground)},
   {"scroll-bar-background",	SYMBOL_INDEX (Qscroll_bar_background)},
@@ -4453,6 +4510,8 @@ gui_set_font (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
 #ifdef HAVE_X_WINDOWS
   store_frame_param (f, Qfont_parameter, font_param);
 #endif
+  /* Recalculate tabbar height.  */
+  f->n_tab_bar_rows = 0;
   /* Recalculate toolbar height.  */
   f->n_tool_bar_rows = 0;
 
@@ -5400,8 +5459,8 @@ On Nextstep, this just calls `ns-parse-geometry'.  */)
 #define DEFAULT_COLS 80
 
 long
-gui_figure_window_size (struct frame *f, Lisp_Object parms, bool toolbar_p,
-                        int *x_width, int *x_height)
+gui_figure_window_size (struct frame *f, Lisp_Object parms, bool tabbar_p,
+                        bool toolbar_p, int *x_width, int *x_height)
 {
   Lisp_Object height, width, user_size, top, left, user_position;
   long window_prompting = 0;
@@ -5420,6 +5479,36 @@ gui_figure_window_size (struct frame *f, Lisp_Object parms, bool toolbar_p,
      positions are not (0,0), they're intentional, not defaults.  */
   f->top_pos = 0;
   f->left_pos = 0;
+
+  /* Calculate a tab bar height so that the user gets a text display
+     area of the size he specified with -g or via .Xdefaults.  Later
+     changes of the tab bar height don't change the frame size.  This
+     is done so that users can create tall Emacs frames without having
+     to guess how tall the tab bar will get.  */
+  if (tabbar_p && FRAME_TAB_BAR_LINES (f))
+    {
+      if (frame_default_tab_bar_height)
+	FRAME_TAB_BAR_HEIGHT (f) = frame_default_tab_bar_height;
+      else
+	{
+	  int margin, relief;
+
+	  relief = (tab_bar_button_relief < 0
+		    ? DEFAULT_TAB_BAR_BUTTON_RELIEF
+		    : min (tab_bar_button_relief, 1000000));
+
+	  if (RANGED_FIXNUMP (1, Vtab_bar_button_margin, INT_MAX))
+	    margin = XFIXNAT (Vtab_bar_button_margin);
+	  else if (CONSP (Vtab_bar_button_margin)
+		   && RANGED_FIXNUMP (1, XCDR (Vtab_bar_button_margin), INT_MAX))
+	    margin = XFIXNAT (XCDR (Vtab_bar_button_margin));
+	  else
+	    margin = 0;
+
+	  FRAME_TAB_BAR_HEIGHT (f)
+	    = DEFAULT_TAB_BAR_IMAGE_HEIGHT + 2 * margin + 2 * relief;
+	}
+    }
 
   /* Calculate a tool bar height so that the user gets a text display
      area of the size he specified with -g or via .Xdefaults.  Later
@@ -5848,6 +5937,7 @@ syms_of_frame (void)
   DEFSYM (Qtitle_bar_size, "title-bar-size");
   DEFSYM (Qmenu_bar_external, "menu-bar-external");
   DEFSYM (Qmenu_bar_size, "menu-bar-size");
+  DEFSYM (Qtab_bar_size, "tab-bar-size");
   DEFSYM (Qtool_bar_external, "tool-bar-external");
   DEFSYM (Qtool_bar_size, "tool-bar-size");
   /* The following are used for frame_size_history.  */
@@ -5871,7 +5961,9 @@ syms_of_frame (void)
   DEFSYM (Qx_net_wm_state, "x-net-wm-state");
   DEFSYM (Qx_handle_net_wm_state, "x-handle-net-wm-state");
   DEFSYM (Qtb_size_cb, "tb-size-cb");
+  DEFSYM (Qupdate_frame_tab_bar, "update-frame-tab-bar");
   DEFSYM (Qupdate_frame_tool_bar, "update-frame-tool-bar");
+  DEFSYM (Qfree_frame_tab_bar, "free-frame-tab-bar");
   DEFSYM (Qfree_frame_tool_bar, "free-frame-tool-bar");
   DEFSYM (Qx_set_menu_bar_lines, "x-set-menu-bar-lines");
   DEFSYM (Qchange_frame_size, "change-frame-size");
@@ -5921,6 +6013,7 @@ syms_of_frame (void)
   DEFSYM (Qscroll_bar_width, "scroll-bar-width");
   DEFSYM (Qsticky, "sticky");
   DEFSYM (Qtitle, "title");
+  DEFSYM (Qtab_bar_lines, "tab-bar-lines");
   DEFSYM (Qtool_bar_lines, "tool-bar-lines");
   DEFSYM (Qtool_bar_position, "tool-bar-position");
   DEFSYM (Qunsplittable, "unsplittable");
@@ -6082,6 +6175,14 @@ either customize it (see the info node `Easy Customization')
 or call the function `menu-bar-mode'.  */);
   Vmenu_bar_mode = Qt;
 
+  DEFVAR_LISP ("tab-bar-mode", Vtab_bar_mode,
+               doc: /* Non-nil if Tab-Bar mode is enabled.
+See the command `tab-bar-mode' for a description of this minor mode.
+Setting this variable directly does not take effect;
+either customize it (see the info node `Easy Customization')
+or call the function `tab-bar-mode'.  */);
+  Vtab_bar_mode = Qnil;
+
   DEFVAR_LISP ("tool-bar-mode", Vtool_bar_mode,
                doc: /* Non-nil if Tool-Bar mode is enabled.
 See the command `tool-bar-mode' for a description of this minor mode.
@@ -6177,7 +6278,7 @@ a non-nil value in your init file.  */);
 
   DEFVAR_LISP ("frame-inhibit-implied-resize", frame_inhibit_implied_resize,
 	       doc: /* Whether frames should be resized implicitly.
-If this option is nil, setting font, menu bar, tool bar, internal
+If this option is nil, setting font, menu bar, tool bar, tab bar, internal
 borders, fringes or scroll bars of a specific frame may resize the frame
 in order to preserve the number of columns or lines it displays.  If
 this option is t, no such resizing is done.  Note that the size of
@@ -6187,8 +6288,8 @@ width of fullwidth frames never change implicitly.
 The value of this option can be also be a list of frame parameters.  In
 this case, resizing is inhibited when changing a parameter that appears
 in that list.  The parameters currently handled by this option include
-`font', `font-backend', `internal-border-width', `menu-bar-lines' and
-`tool-bar-lines'.
+`font', `font-backend', `internal-border-width', `menu-bar-lines',
+`tool-bar-lines' and `tab-bar-lines'.
 
 Changing any of the parameters `scroll-bar-width', `scroll-bar-height',
 `vertical-scroll-bars', `horizontal-scroll-bars', `left-fringe' and
@@ -6199,21 +6300,22 @@ width by the width of one scroll bar provided this option is nil and
 keep it unchanged if this option is either t or a list containing
 `vertical-scroll-bars'.
 
-The default value is \\='(tool-bar-lines) on Lucid, Motif and Windows
-\(which means that adding/removing a tool bar does not change the frame
-height), nil on all other window systems including GTK+ (which means
-that changing any of the parameters listed above may change the size of
-the frame), and t otherwise (which means the frame size never changes
-implicitly when there's no window system support).
+In GTK+ and NS that use the external tool bar, the default value is
+\\='(tab-bar-lines) which means that adding/removing a tab bar does
+not change the frame height.  On all other types of GUI frames, the
+default value is \\='(tab-bar-lines tool-bar-lines) which means that
+adding/removing a tool bar or tab bar does not change the frame
+height.  Otherwise it's t which means the frame size never changes
+implicitly when there's no window system support.
 
 Note that when a frame is not large enough to accommodate a change of
 any of the parameters listed above, Emacs may try to enlarge the frame
 even if this option is non-nil.  */);
 #if defined (HAVE_WINDOW_SYSTEM)
-#if defined (USE_LUCID) || defined (USE_MOTIF) || defined (HAVE_NTGUI)
-  frame_inhibit_implied_resize = list1 (Qtool_bar_lines);
+#if defined (USE_GTK) || defined (HAVE_NS)
+  frame_inhibit_implied_resize = list1 (Qtab_bar_lines);
 #else
-  frame_inhibit_implied_resize = Qnil;
+  frame_inhibit_implied_resize = list2 (Qtab_bar_lines, Qtool_bar_lines);
 #endif
 #else
   frame_inhibit_implied_resize = Qt;

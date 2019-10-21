@@ -23,7 +23,7 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 
-;; Marck 13 2001
+;; March 13 2001
 ;; Fixes for CJK support by Yong Lu <lyongu@yahoo.com>.
 
 ;; Dir/Hostname tracking and ANSI colorization by
@@ -102,9 +102,8 @@
 ;;
 ;;             ----------------------------------------
 ;;
-;;  With the term-buffer-maximum-size you can finally decide how many
-;; scrollback lines to keep: its default is 2048 but you can change it as
-;; usual.
+;;  With the variable term-buffer-maximum-size you can decide how many
+;; scrollback lines to keep: its default is 8192.
 ;;
 ;;             ----------------------------------------
 ;;
@@ -587,10 +586,9 @@ executed once, when the buffer is created."
     (define-key map "\en" 'term-next-input)
     (define-key map "\er" 'term-previous-matching-input)
     (define-key map "\es" 'term-next-matching-input)
-    (unless (featurep 'xemacs)
-      (define-key map [?\A-\M-r]
-	'term-previous-matching-input-from-input)
-      (define-key map [?\A-\M-s] 'term-next-matching-input-from-input))
+    (define-key map [?\A-\M-r]
+      'term-previous-matching-input-from-input)
+    (define-key map [?\A-\M-s] 'term-next-matching-input-from-input)
     (define-key map "\e\C-l" 'term-show-output)
     (define-key map "\C-m" 'term-send-input)
     (define-key map "\C-d" 'term-delchar-or-maybe-eof)
@@ -801,14 +799,15 @@ Buffer local variable.")
   "Face used to render white color code."
   :group 'term)
 
-;; Inspiration came from comint.el -mm
-(defcustom term-buffer-maximum-size 2048
+(defcustom term-buffer-maximum-size 8192
   "The maximum size in lines for term buffers.
 Term buffers are truncated from the top to be no greater than this number.
 Notice that a setting of 0 means \"don't truncate anything\".  This variable
 is buffer-local."
   :group 'term
-  :type 'integer)
+  :type 'integer
+  :version "27.1")
+
 
 ;; Set up term-raw-map, etc.
 
@@ -827,9 +826,7 @@ is buffer-local."
 
     ;; Added nearly all the 'gray keys' -mm
 
-    (if (featurep 'xemacs)
-        (define-key map [button2] 'term-mouse-paste)
-      (define-key map [mouse-2] 'term-mouse-paste))
+    (define-key map [mouse-2] 'term-mouse-paste)
     (define-key map [up] 'term-send-up)
     (define-key map [down] 'term-send-down)
     (define-key map [right] 'term-send-right)
@@ -1235,15 +1232,11 @@ without any interpretation."
 (defun term-mouse-paste (click)
   "Insert the primary selection at the position clicked on."
   (interactive "e")
-  (if (featurep 'xemacs)
-      (term-send-raw-string
-       (or (condition-case () (x-get-selection) (error ()))
-	   (error "No selection available")))
-    ;; Give temporary modes such as isearch a chance to turn off.
-    (run-hooks 'mouse-leave-buffer-hook)
-    (setq this-command 'yank)
-    (mouse-set-point click)
-    (term-send-raw-string (gui-get-primary-selection))))
+  ;; Give temporary modes such as isearch a chance to turn off.
+  (run-hooks 'mouse-leave-buffer-hook)
+  (setq this-command 'yank)
+  (mouse-set-point click)
+  (term-send-raw-string (gui-get-primary-selection)))
 
 (defun term-paste ()
   "Insert the last stretch of killed text at point."
@@ -4209,7 +4202,7 @@ the process.  Any more args are arguments to PROGRAM."
 (defun ansi-term (program &optional new-buffer-name)
   "Start a terminal-emulator in a new buffer.
 This is almost the same as `term' apart from always creating a new buffer,
-and `C-x' being marked as a `term-escape-char'. "
+and `C-x' being marked as a `term-escape-char'."
   (interactive (list (read-from-minibuffer "Run program: "
 					   (or explicit-shell-file-name
 					       (getenv "ESHELL")

@@ -658,15 +658,17 @@ Return nil if file NAME is not one of the ten more recent."
 
 (defun recentf-show-menu ()
   "Show the menu of recently opened files."
-  (easy-menu-add-item
-   (recentf-menu-bar) recentf-menu-path
-   (list recentf-menu-title :filter 'recentf-make-menu-items)
-   recentf-menu-before))
+  (when (keymapp (recentf-menu-bar))
+    (easy-menu-add-item
+     (recentf-menu-bar) recentf-menu-path
+     (list recentf-menu-title :filter 'recentf-make-menu-items)
+     recentf-menu-before)))
 
 (defun recentf-hide-menu ()
   "Hide the menu of recently opened files."
-  (easy-menu-remove-item (recentf-menu-bar) recentf-menu-path
-                         recentf-menu-title))
+  (when (keymapp (recentf-menu-bar))
+    (easy-menu-remove-item (recentf-menu-bar) recentf-menu-path
+                           recentf-menu-title)))
 
 ;;; Predefined menu filters
 ;;
@@ -1343,7 +1345,7 @@ That is, remove duplicates, non-kept, and excluded files."
 
 When Recentf mode is enabled, a \"Open Recent\" submenu is
 displayed in the \"File\" menu, containing a list of files that
-were operated on recently."
+were operated on recently, in the most-recently-used order."
   :global t
   :group 'recentf
   :keymap recentf-mode-map

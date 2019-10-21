@@ -510,8 +510,10 @@ See `imenu--index-alist' for the format of the index alist."
        "No items suitable for an index found in this buffer"))
   (or imenu--index-alist
       (setq imenu--index-alist (list nil)))
-  ;; Add a rescan option to the index.
-  (cons imenu--rescan-item imenu--index-alist))
+  (if imenu-auto-rescan
+      imenu--index-alist
+    ;; Add a rescan option to the index.
+    (cons imenu--rescan-item imenu--index-alist)))
 
 (defvar imenu--cleanup-seen nil)
 

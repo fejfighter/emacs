@@ -4062,7 +4062,11 @@ faccessat (int dirfd, const char * path, int mode, int flags)
 	  /* FALLTHROUGH */
 	  FALLTHROUGH;
 	case ERROR_FILE_NOT_FOUND:
+	case ERROR_PATH_NOT_FOUND:
+	case ERROR_INVALID_DRIVE:
+	case ERROR_NOT_READY:
 	case ERROR_BAD_NETPATH:
+	case ERROR_BAD_NET_NAME:
 	  errno = ENOENT;
 	  break;
 	default:
@@ -4151,13 +4155,36 @@ w32_accessible_directory_p (const char *dirname, ptrdiff_t dirlen)
       /* In case DIRNAME cannot be expressed in characters from the
 	 current ANSI codepage.  */
       if (_mbspbrk (pat_a, "?"))
-	dh = INVALID_HANDLE_VALUE;
-      else
-	dh = FindFirstFileA (pat_a, &dfd_a);
+	{
+	  errno = ENOENT;
+	  return 0;
+	}
+      dh = FindFirstFileA (pat_a, &dfd_a);
     }
 
   if (dh == INVALID_HANDLE_VALUE)
+    {
+      DWORD w32err = GetLastError ();
+
+      switch (w32err)
+	{
+	case ERROR_INVALID_NAME:
+	case ERROR_BAD_PATHNAME:
+	case ERROR_FILE_NOT_FOUND:
+	case ERROR_PATH_NOT_FOUND:
+	case ERROR_NO_MORE_FILES:
+	case ERROR_BAD_NETPATH:
+	  errno = ENOENT;
+	  break;
+	case ERROR_NOT_READY:
+	  errno = ENODEV;
+	  break;
+	default:
+	  errno = EACCES;
+	  break;
+	}
     return 0;
+    }
   FindClose (dh);
   return 1;
 }
@@ -6232,7 +6259,7 @@ acl_valid (acl_t acl)
   return is_valid_security_descriptor ((PSECURITY_DESCRIPTOR)acl) ? 0 : -1;
 }
 
-char *
+char * ATTRIBUTE_MALLOC
 acl_to_text (acl_t acl, ssize_t *size)
 {
   LPTSTR str_acl;

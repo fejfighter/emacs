@@ -62,9 +62,7 @@
   "Extract the window from EVENT."
   (car (car (cdr event))))
 
-(defalias 'semantic-make-local-hook
-  (if (featurep 'emacs)
-      #'identity  #'make-local-hook))
+(define-obsolete-function-alias 'semantic-make-local-hook #'identity "27.1")
 
 (defalias 'semantic-mode-line-update #'force-mode-line-update)
 
@@ -329,7 +327,7 @@ calling this one."
 (defun semantic-find-file-noselect (file &optional nowarn rawfile wildcards)
   "Call `find-file-noselect' with various features turned off.
 Use this when referencing a file that will be soon deleted.
-FILE, NOWARN, RAWFILE, and WILDCARDS are passed into `find-file-noselect'"
+FILE, NOWARN, RAWFILE, and WILDCARDS are passed into `find-file-noselect'."
   ;; Hack -
   ;; Check if we are in set-auto-mode, and if so, warn about this.
   (when (boundp 'keep-mode-if-same)

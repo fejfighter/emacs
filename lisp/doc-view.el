@@ -172,6 +172,11 @@
   :type 'file
   :version "24.4")
 
+(defcustom doc-view-pdftotext-program-args '("-raw")
+  "Parameters to give to the pdftotext command."
+  :version "27.1"
+  :type '(repeat string))
+
 (defcustom doc-view-pdf->png-converter-function
   (if (executable-find doc-view-pdfdraw-program)
       #'doc-view-pdf->png-converter-mupdf
@@ -214,7 +219,7 @@ scaling."
 (defcustom doc-view-image-width 850
   "Default image width.
 Has only an effect if `doc-view-scale-internally' is non-nil and support for
-scaling is compiled into emacs."
+scaling is compiled into Emacs."
   :version "24.1"
   :type 'number)
 
@@ -443,7 +448,12 @@ Typically \"page-%s.png\".")
       (setq-local undo-outer-limit (* 2 (buffer-size))))
   (cl-labels ((revert ()
                       (let ((revert-buffer-preserve-modes t))
-                        (apply orig-fun args))))
+                        (apply orig-fun args)
+                        ;; Update the cached version of the pdf file,
+                        ;; too.  This is the one that's used when
+                        ;; rendering.
+                        (doc-view-make-safe-dir doc-view-cache-directory)
+                        (write-region nil nil doc-view--buffer-file-name))))
     (if (and (eq 'pdf doc-view-doc-type)
              (executable-find "pdfinfo"))
         ;; We don't want to revert if the PDF file is corrupted which
@@ -1132,7 +1142,8 @@ Start by converting PAGES, and then the rest."
   (or (executable-find doc-view-pdftotext-program)
       (error "You need the `pdftotext' program to convert a PDF to text"))
   (doc-view-start-process "pdf->txt" doc-view-pdftotext-program
-                          (list "-raw" pdf txt)
+                          (append doc-view-pdftotext-program-args
+                                  (list pdf txt))
                           callback))
 
 (defun doc-view-current-cache-doc-pdf ()
@@ -1494,7 +1505,8 @@ For now these keys are useful:
   (interactive)
   (if doc-view--current-converter-processes
       (message "DocView: please wait till conversion finished.")
-    (let ((txt (expand-file-name "doc.txt" (doc-view--current-cache-dir))))
+    (let ((txt (expand-file-name "doc.txt" (doc-view--current-cache-dir)))
+          (page (doc-view-current-page)))
       (if (file-readable-p txt)
 	  (let ((inhibit-read-only t)
 		(buffer-undo-list t)
@@ -1510,6 +1522,10 @@ For now these keys are useful:
 	    (setq-local doc-view--buffer-file-name dv-bfn)
 	    (set-buffer-modified-p nil)
 	    (doc-view-minor-mode)
+            (goto-char (point-min))
+            ;; Put point at the start of the page the user was
+            ;; reading.  Pages are separated by Control-L characters.
+            (re-search-forward page-delimiter nil t (1- page))
 	    (add-hook 'write-file-functions
 		      (lambda ()
                         ;; FIXME: If the user changes major mode and then
@@ -1704,11 +1720,11 @@ If BACKWARD is non-nil, jump to the previous match."
 	 (substitute-command-keys
 	  (concat "Type \\[doc-view-toggle-display] to toggle between "
 		  "editing or viewing the document."))))
-    (message
-     "%s"
-     (concat "No PNG support is available, or some conversion utility for "
-	     (file-name-extension doc-view--buffer-file-name)
-	     " files is missing."))
+    (if (image-type-available-p 'png)
+        (message "Conversion utility \"%s\" not available for %s"
+                 doc-view-ghostscript-program
+	         (file-name-extension doc-view--buffer-file-name))
+      (message "PNG support not available; can't view document"))
     (if (and (executable-find doc-view-pdftotext-program)
 	     (y-or-n-p
 	      "Unable to render file.  View extracted text instead? "))
@@ -1778,7 +1794,7 @@ If BACKWARD is non-nil, jump to the previous match."
               (error "Cannot determine the document type"))))))
 
 (defun doc-view-set-up-single-converter ()
-  "Find the right single-page converter for the current document type"
+  "Find the right single-page converter for the current document type."
   (pcase-let ((`(,conv-function ,type ,extension)
                (pcase doc-view-doc-type
                  ('djvu (list #'doc-view-djvu->tiff-converter-ddjvu 'tiff "tif"))

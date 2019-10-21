@@ -723,7 +723,6 @@ Email Based Diary
 
 * The NNDiary Back End::        Basic setup and usage.
 * The Gnus Diary Library::      Utility toolkit on top of nndiary.
-* Sending or Not Sending::      A final note on sending diary messages.
 
 The NNDiary Back End
 
@@ -2629,6 +2628,9 @@ type.  @xref{Document Groups}.
 Create one of the groups mentioned in @code{gnus-useful-groups}
 (@code{gnus-group-make-useful-group}).
 
+@c FIXME: Gmane.org is no longer working; fix the Gmane referrences
+@c in this file accordingly.
+
 @item G w
 @kindex G w @r{(Group)}
 @findex gnus-group-make-web-group
@@ -3234,7 +3236,7 @@ group by reverse date to see the latest news at the top and an
 Debian daily news group @code{gmane.linux.debian.user.news} from
 news.gmane.org.  The @acronym{RSS} group corresponds to the Debian
 weekly news RSS feed
-@url{http://packages.debian.org/unstable/newpkg_main.en.rdf},
+@url{https://packages.debian.org/unstable/newpkg_main.en.rdf},
 @xref{RSS}.
 
 @lisp
@@ -5344,6 +5346,20 @@ Go to the next article (@code{gnus-summary-next-article}).
 @kindex G P @r{(Summary)}
 @findex gnus-summary-prev-article
 Go to the previous article (@code{gnus-summary-prev-article}).
+
+@item G u
+@itemx ]
+@kindex ] @r{(Summary)}
+@kindex G u @r{(Summary)}
+@findex gnus-summary-next-unseen-article
+Go to the next unseen article (@code{gnus-summary-next-unseen-article}).
+
+@item G U
+@itemx [
+@kindex [ @r{(Summary)}
+@kindex G U @r{(Summary)}
+@findex gnus-summary-prev-unseen-article
+Go to the previous unseen article (@code{gnus-summary-prev-unseen-article}).
 
 @item G C-n
 @kindex G C-n @r{(Summary)}
@@ -9003,18 +9019,18 @@ Treat overstrike (@code{gnus-article-treat-overstrike}).
 
 @item W d
 @kindex W d @r{(Summary)}
-@findex gnus-article-treat-dumbquotes
-@vindex gnus-article-dumbquotes-map
+@findex gnus-article-treat-smartquotes
+@vindex gnus-article-smartquotes-map
 @cindex Smartquotes
 @cindex M****s*** sm*rtq**t*s
 @cindex Latin 1
-Treat M****s*** sm*rtq**t*s according to
-@code{gnus-article-dumbquotes-map}
-(@code{gnus-article-treat-dumbquotes}).  Note that this function guesses
-whether a character is a sm*rtq**t* or not, so it should only be used
+Treat ``Microsoft smartquotes'' according to
+@code{gnus-article-smartquotes-map}
+(@code{gnus-article-treat-smartquotes}).  Note that this function guesses
+whether a character is a smartquote or not, so it should only be used
 interactively.
 
-Sm*rtq**t*s are M****s***'s unilateral extension to the character map in
+Smartquotes are Microsoft's unilateral extension to the character map in
 an attempt to provide more quoting characters.  If you see something
 like @code{\222} or @code{\264} where you're expecting some kind of
 apostrophe or quotation mark, then try this wash.
@@ -9034,9 +9050,9 @@ like.  For instance, @samp{»} is translated into @samp{>>}, and so on.
 @kindex W Y f @r{(Summary)}
 @findex gnus-article-outlook-deuglify-article
 @cindex Outlook Express
-Full deuglify of broken Outlook (Express) articles: Treat dumbquotes,
-unwrap lines, repair attribution and rearrange citation.
-(@code{gnus-article-outlook-deuglify-article}).
+Full deuglify of broken Outlook (Express) articles: Treat
+\"smartquotes\", unwrap lines, repair attribution and rearrange
+citation (@code{gnus-article-outlook-deuglify-article}).
 
 @item W Y u
 @kindex W Y u @r{(Summary)}
@@ -9164,10 +9180,10 @@ Use @uref{http://emacs-w3m.namazu.org/, emacs-w3m}.
 Use @uref{http://w3m.sourceforge.net/, w3m}.
 
 @item links
-Use @uref{http://links.sf.net/, Links}.
+Use @uref{https://almende.github.io/chap-links-library/, CHAP Links}.
 
 @item lynx
-Use @uref{http://lynx.isc.org/, Lynx}.
+Use @uref{https://lynx.browser.org/, Lynx}.
 
 @item html2text
 Use html2text---a simple @acronym{HTML} converter included with Gnus.
@@ -9591,7 +9607,7 @@ Picons, on the other hand, reside on your own system, and Gnus will
 try to match the headers to what you have (@pxref{Picons}).
 
 Gravatars reside on-line and are fetched from
-@uref{http://www.gravatar.com/} (@pxref{Gravatars}).
+@uref{https://en.gravatar.com/} (@pxref{Gravatars}).
 
 All these functions are toggles---if the elements already exist,
 they'll be removed.
@@ -12855,10 +12871,7 @@ The attribute value can be a string, a function with zero arguments
 (the return value will be used), a variable (its value will be used)
 or a list (it will be @code{eval}ed and the return value will be
 used).  The functions and sexps are called/@code{eval}ed in the
-message buffer that is being set up.  The headers of the current
-article are available through the @code{message-reply-headers}
-variable, which is a vector of the following headers: number subject
-from date id references chars lines xref extra.
+message buffer that is being set up.
 
 In the case of a string value, if the @code{match} is a regular
 expression, or if it takes the form @code{(header @var{match}
@@ -12867,8 +12880,6 @@ on the value to replace the positional parameters @samp{\@var{n}} by
 the corresponding parenthetical matches (@pxref{Replacing Match,,
 Replacing the Text that Matched, elisp, The Emacs Lisp Reference
 Manual}.)
-
-@vindex message-reply-headers
 
 If you wish to check whether the message you are about to compose is
 meant to be a news article or a mail message, you can check the values
@@ -13902,7 +13913,7 @@ installed.  You then define a server as follows:
 @findex nntp-open-ssl-stream
 @item nntp-open-ssl-stream
 Opens a connection to a server over a @dfn{secure} channel.  To use
-this you must have @uref{http://www.openssl.org, OpenSSL}
+this you must have @uref{https://www.openssl.org/, OpenSSL}
 @ignore
 @c Defunct URL, ancient package, so don't mention it.
 or @uref{ftp://ftp.psy.uq.oz.au/pub/Crypto/SSL, SSLeay}
@@ -14307,9 +14318,19 @@ specific login method to be used, you can set this variable to either
 @code{plain} or @code{cram-md5}.
 
 @item nnimap-expunge
-If non-@code{nil}, expunge articles after deleting them.  This is always done
-if the server supports UID EXPUNGE, but it's not done by default on
-servers that doesn't support that command.
+When to expunge deleted messages.  If @code{never}, deleted articles
+are marked with the IMAP @code{\\Delete} flag but not automatically
+expunged. If @code{immediately}, deleted articles are immediately expunged
+(this requires the server to support the UID EXPUNGE command). If
+@code{on-exit}, deleted articles are flagged, and all flagged articles are
+expunged when the group is closed.
+
+For backwards compatibility, this variable may also be set to t
+or nil. If the server supports UID EXPUNGE, both t and nil are
+equivalent to @code{immediately}. If the server does not support UID
+EXPUNGE nil is equivalent to @code{never}, while t will immediately
+expunge ALL articles that are currently flagged as deleted
+(i.e., potentially not only the article that was just deleted).
 
 @item nnimap-streaming
 Virtually all @acronym{IMAP} server support fast streaming of data.
@@ -16416,8 +16437,7 @@ have to set this variable to @code{t}.  The default is @code{nil}.
 
 @code{nnmaildir} stores mail in the maildir format, with each maildir
 corresponding to a group in Gnus.  This format is documented here:
-@uref{http://cr.yp.to/proto/maildir.html} and here:
-@uref{http://www.qmail.org/man/man5/maildir.html}.  @code{nnmaildir}
+@uref{https://cr.yp.to/proto/maildir.html}.  @code{nnmaildir}
 also stores extra information in the @file{.nnmaildir/} directory
 within a maildir.
 
@@ -17089,7 +17109,7 @@ Some web sites have an RDF Site Summary (@acronym{RSS}).
 @acronym{RSS} is a format for summarizing headlines from news related
 sites (such as BBC or CNN).  But basically anything list-like can be
 presented as an @acronym{RSS} feed: weblogs, changelogs or recent
-changes to a wiki (e.g., @url{http://cliki.net/site/recent-changes}).
+changes to a wiki (e.g., @url{https://cliki.net/site/recent-changes}).
 
 @acronym{RSS} has a quite regular and nice interface, and it's
 possible to get the information Gnus needs to keep groups updated.
@@ -17847,7 +17867,6 @@ explained in the sections below.
 @menu
 * The NNDiary Back End::        Basic setup and usage.
 * The Gnus Diary Library::      Utility toolkit on top of nndiary.
-* Sending or Not Sending::      A final note on sending diary messages.
 @end menu
 
 
@@ -18160,24 +18179,10 @@ to send a diary message, because if you use @kbd{C-u a} or @kbd{C-u m}
 on a diary group to prepare a message, these headers will be inserted
 automatically (although not filled with proper values yet).
 
-@node Sending or Not Sending
-@subsection Sending or Not Sending
-
-Well, assuming you've read all of the above, here are two final notes on
-mail sending with @code{nndiary}:
-
-@itemize @bullet
-@item
 @code{nndiary} is a @emph{real} mail back end.  You really send real diary
 messages for real.  This means for instance that you can give
 appointments to anybody (provided they use Gnus and @code{nndiary}) by
 sending the diary message to them as well.
-@item
-However, since @code{nndiary} also has a @code{request-post} method, you
-can also use @kbd{C-u a} instead of @kbd{C-u m} on a diary group and the
-message won't actually be sent; just stored locally in the group.  This
-comes in very handy for private appointments.
-@end itemize
 
 @node Gnus Unplugged
 @section Gnus Unplugged
@@ -20870,6 +20875,7 @@ The kill to score conversion package isn't included in Emacs by default.
 You can fetch it from the contrib directory of the Gnus distribution or
 from
 @uref{http://heim.ifi.uio.no/~larsi/ding-various/gnus-kill-to-score.el}.
+@c FIXME: The above URL no longer works.
 
 If your old kill files are very complex---if they contain more
 non-@code{gnus-kill} forms than not, you'll have to convert them by
@@ -21375,9 +21381,6 @@ to get a group name.  By default this is @code{$HOME/Mail}.
 @subsubsection The swish-e Engine
 
 FIXME: Say something more here.
-
-Documentation for swish-e may be found at the swish-e homepage
-@uref{http://swish-e.org}
 
 @table @code
 
@@ -22923,6 +22926,14 @@ window is displayed vertically next to another window, you may also want
 to fiddle with @code{gnus-tree-minimize-window} to avoid having the
 windows resized.
 
+Lastly, it's possible to make Gnus window layouts ``atomic''
+(@pxref{Atomic Windows, , Atomic Windows, elisp, The GNU Emacs Lisp
+Reference Manual}) by setting @code{gnus-use-atomic-windows} to
+@code{t}.  This will ensure that pop-up buffers (e.g. help or
+completion buffers), will appear below or to the side of the entire
+Gnus window layout and not, for example, squashed between the summary
+and article buffers.
+
 @subsection Window Configuration Names
 
 Here's a list of most of the currently known window configurations,
@@ -23555,7 +23566,7 @@ represent the author of the message.
 @cindex face
 @findex gnus-article-display-face
 The contents of a @code{Face} header must be a base64 encoded PNG image.
-See @uref{http://quimby.gnus.org/circus/face/} for the precise
+See @uref{https://quimby.gnus.org/circus/face/} for the precise
 specifications.
 
 The @code{gnus-face-properties-alist} variable affects the appearance of
@@ -23679,10 +23690,10 @@ in either monochrome @code{XBM} format or color @code{XPM} and
 @vindex gnus-picon-databases
 For instructions on obtaining and installing the picons databases,
 point your Web browser at
-@uref{http://www.cs.indiana.edu/picons/ftp/index.html}.
+@uref{https://cs.indiana.edu/ftp/faces/picons/}.
 
 If you are using Debian GNU/Linux, saying @samp{apt-get install
-picons.*} will install the picons where Gnus can find them.
+picon-.*} will install the picons where Gnus can find them.
 
 To enable displaying picons, simply make sure that
 @code{gnus-picon-databases} points to the directory containing the
@@ -23748,7 +23759,7 @@ interesting.
 
 A gravatar is an image registered to an e-mail address.
 
-You can submit yours on-line at @uref{http://www.gravatar.com}.
+You can submit yours on-line at @uref{https://en.gravatar.com/}.
 
 The following variables offer control over how things are displayed.
 
@@ -24145,8 +24156,7 @@ compute a hash collision up to a certain number of bits.  The
 resulting hashcash cookie is inserted in a @samp{X-Hashcash:} header.
 For more details, and for the external application @code{hashcash} you
 need to install to use this feature, see
-@uref{http://www.hashcash.org/}.  Even more information can be found
-at @uref{http://www.camram.org/}.
+@uref{http://www.hashcash.org/}.
 
 If you wish to generate hashcash for each message you send, you can
 customize @code{message-generate-hashcash} (@pxref{Mail Headers, ,Mail
@@ -24997,7 +25007,7 @@ added to a group's @code{spam-process} parameter, the spam-marked
 articles groups will be reported to the Gmane administrators via a
 HTTP request.
 
-Gmane can be found at @uref{http://gmane.org}.
+Gmane was formerly found at @uref{http://gmane.org}.
 
 @emph{WARNING}
 
@@ -26503,7 +26513,7 @@ but at the common table.@*
 
 If you want to investigate the person responsible for this outrage,
 you can point your (feh!) web browser to
-@uref{http://quimby.gnus.org/}.  This is also the primary
+@uref{https://quimby.gnus.org/}.  This is also the primary
 distribution point for the new and spiffy versions of Gnus, and is
 known as The Site That Destroys Newsrcs And Drives People Mad.
 
@@ -26565,9 +26575,7 @@ Gnus 5.10 on May 1st 2003 (24 releases).
 
 On the January 4th 2004, No Gnus was begun.
 
-On April 19, 2010 Gnus development was moved to Git.  See
-http://git.gnus.org for details (http://www.gnus.org will be updated
-with the information when possible).
+On April 19, 2010 Gnus development was moved to Git.
 
 On the January 31th 2012, Ma Gnus was begun.
 

@@ -145,8 +145,8 @@ If t, fetch all the available old headers."
 		 (sexp :menu-tag "other" t)))
 
 (defcustom gnus-refer-thread-use-nnir nil
-  "Use nnir to search an entire server when referring threads. A
-nil value will only search for thread-related articles in the
+  "Use nnir to search an entire server when referring threads.
+A nil value will only search for thread-related articles in the
 current group."
   :version "24.1"
   :group 'gnus-thread
@@ -154,7 +154,7 @@ current group."
 
 (defcustom gnus-refer-thread-limit-to-thread nil
   "If non-nil referring a thread will limit the summary buffer to
-articles in the thread. A nil value will add the thread articles
+articles in the thread.  A nil value will add the thread articles
 to the summary buffer."
   :version "25.1"
   :group 'gnus-thread
@@ -345,9 +345,15 @@ If threads are hidden, you have to run the command
   :type 'boolean)
 
 (defcustom gnus-thread-ignore-subject t
-  "If non-nil, which is the default, ignore subjects and do all threading based on the Reference header.
+  "If non-nil, ignore subjects when creating threads.
+
 If nil, articles that have different subjects from their parents will
-start separate threads."
+start separate threads.
+
+Threads that are split because the subject changes will still be
+sorted as if they were part of the same thread, and
+`gnus-thread-sort-functions' will not apply to these split
+threads."
   :group 'gnus-thread
   :type 'boolean)
 
@@ -1905,6 +1911,8 @@ increase the score of each group you read."
   "\M-p" gnus-summary-prev-unread-subject
   "." gnus-summary-first-unread-article
   "," gnus-summary-best-unread-article
+  "[" gnus-summary-prev-unseen-article
+  "]" gnus-summary-next-unseen-article
   "\M-s" gnus-summary-search-article-forward
   "\M-r" gnus-summary-search-article-backward
   "\M-S" gnus-summary-repeat-search-article-forward
@@ -2082,6 +2090,8 @@ increase the score of each group you read."
   "\M-p" gnus-summary-prev-unread-subject
   "f" gnus-summary-first-unread-article
   "b" gnus-summary-best-unread-article
+  "u" gnus-summary-next-unseen-article
+  "U" gnus-summary-prev-unseen-article
   "j" gnus-summary-goto-article
   "g" gnus-summary-goto-subject
   "l" gnus-summary-goto-last-article
@@ -2184,7 +2194,7 @@ increase the score of each group you read."
   "v" gnus-summary-verbose-headers
   "a" gnus-article-strip-headers-in-body ;; mnemonic: wash archive
   "p" gnus-article-verify-x-pgp-sig
-  "d" gnus-article-treat-dumbquotes
+  "d" gnus-article-treat-smartquotes
   "U" gnus-article-treat-non-ascii
   "i" gnus-summary-idna-message)
 
@@ -2509,7 +2519,7 @@ gnus-summary-show-article-from-menu-as-charset-%s" cs))))
 	       ["Leading space in headers"
 		gnus-article-remove-leading-whitespace t])
 	      ["Overstrike" gnus-article-treat-overstrike t]
-	      ["Dumb quotes" gnus-article-treat-dumbquotes t]
+	      ["Smartquotes" gnus-article-treat-smartquotes t]
 	      ["Non-ASCII" gnus-article-treat-non-ascii t]
 	      ["Emphasis" gnus-article-emphasize t]
 	      ["Word wrap" gnus-article-fill-cited-article t]
@@ -2790,6 +2800,8 @@ gnus-summary-show-article-from-menu-as-charset-%s" cs))))
 	 ["Previous article same subject" gnus-summary-prev-same-subject t]
 	 ["First unread article" gnus-summary-first-unread-article t]
 	 ["Best unread article" gnus-summary-best-unread-article t]
+	 ["Next unseen article" gnus-summary-next-unseen-article t]
+	 ["Prev unseen article" gnus-summary-prev-unseen-article t]
 	 ["Go to subject number..." gnus-summary-goto-subject t]
 	 ["Go to article number..." gnus-summary-goto-article t]
 	 ["Go to the last article" gnus-summary-goto-last-article t]
@@ -3168,6 +3180,9 @@ The following commands are available:
                ;; number, because we use `assq' on a list of gnus-data.
                (:type list))
   number mark pos header level)
+
+(defun gnus-data-unseen-p (data)
+  (memq (gnus-data-number data) gnus-newsgroup-unseen))
 
 (define-inline gnus-data-unread-p (data)
   (inline-quote (= (gnus-data-mark ,data) gnus-unread-mark)))
@@ -7284,7 +7299,6 @@ If FORCE (the prefix), also save the .newsrc file(s)."
 	(gnus-score-adaptive))
       (when gnus-use-scoring
 	(gnus-score-save)))
-    (gnus-run-hooks 'gnus-summary-prepare-exit-hook)
     (when gnus-use-cache
       (gnus-cache-possibly-remove-articles)
       (gnus-cache-save-buffers))
@@ -7301,6 +7315,7 @@ If FORCE (the prefix), also save the .newsrc file(s)."
     (unless quit-config
       (gnus-run-hooks 'gnus-exit-group-hook)
       (gnus-summary-update-info))
+    (gnus-run-hooks 'gnus-summary-prepare-exit-hook)
     (gnus-close-group group)
     ;; Make sure where we were, and go to next newsgroup.
     (when (gnus-buffer-live-p gnus-group-buffer)
@@ -8113,6 +8128,32 @@ Return nil if there are no unread articles."
 	(gnus-summary-first-subject t))
     (gnus-summary-position-point)))
 
+(defun gnus-summary-next-unseen-article (&optional backward)
+  "Select the next unseen article."
+  (interactive)
+  (let* ((article (gnus-summary-article-number))
+	 (articles (gnus-data-find-list article (gnus-data-list backward))))
+    (when (or (not gnus-summary-check-current)
+	      (not (gnus-data-unseen-p (car articles)))
+	      (not (gnus-data-unread-p (car articles))))
+      (setq articles (cdr articles)))
+    (while (and articles
+		(or (not (gnus-data-unseen-p (car articles)))
+		    (not (gnus-data-unread-p (car articles)))))
+      (setq articles (cdr articles)))
+    (if (not articles)
+	(if backward
+	    (message "No previous unseen article")
+	  (message "No next unseen article"))
+      (goto-char (gnus-data-pos (car articles)))
+      (gnus-summary-select-article)
+      (gnus-data-number (car articles)))))
+
+(defun gnus-summary-prev-unseen-article ()
+  "Select the previous unseen article."
+  (interactive)
+  (gnus-summary-next-unseen-article t))
+
 (defun gnus-summary-first-unseen-subject ()
   "Place the point on the subject line of the first unseen article.
 Return nil if there are no unseen articles."
@@ -8655,7 +8696,7 @@ SCORE."
 (defun gnus-summary-limit-include-thread (id &optional thread-only)
   "Display all hidden articles belonging to thread ID.
 When called interactively, ID is the Message-ID of the current
-article. If thread-only is non-nil limit the summary buffer to
+article.  If thread-only is non-nil limit the summary buffer to
 these articles."
   (interactive (list (mail-header-id (gnus-summary-article-header))))
   (let ((articles (gnus-articles-in-thread
@@ -9080,14 +9121,14 @@ Return the number of articles fetched."
     result))
 
 (defun gnus-summary-refer-thread (&optional limit)
-  "Fetch all articles in the current thread. For backends that
-know how to search for threads (currently only 'nnimap) a
-non-numeric prefix arg will use nnir to search the entire
+  "Fetch all articles in the current thread.  For backends
+that know how to search for threads (currently only 'nnimap)
+a non-numeric prefix arg will use nnir to search the entire
 server; without a prefix arg only the current group is
-searched. If the variable `gnus-refer-thread-use-nnir' is
-non-nil the prefix arg has the reverse meaning. If no
+searched.  If the variable `gnus-refer-thread-use-nnir' is
+non-nil the prefix arg has the reverse meaning.  If no
 backend-specific 'request-thread function is available fetch
-LIMIT (the numerical prefix) old headers. If LIMIT is
+LIMIT (the numerical prefix) old headers.  If LIMIT is
 non-numeric or nil fetch the number specified by the
 `gnus-refer-thread-limit' variable."
   (interactive "P")
@@ -9647,8 +9688,8 @@ The search stars on the current article and goes forwards unless
 BACKWARD is non-nil.  If BACKWARD is `all', do all articles.
 If UNREAD is non-nil, only unread articles will
 be taken into consideration.  If NOT-CASE-FOLD, case won't be folded
-in the comparisons. If NOT-MATCHING, return a list of all articles that
-not match REGEXP on HEADER."
+in the comparisons.  If NOT-MATCHING, return a list of all articles
+that not match REGEXP on HEADER."
   (let ((case-fold-search (not not-case-fold))
 	articles func)
     (if (consp header)

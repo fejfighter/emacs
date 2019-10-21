@@ -1437,8 +1437,12 @@ A %-sequence can contain optional flags, field width, and a modifier
 `^' Use upper case characters if possible.
 `#' Use opposite case characters if possible.
 
-A field width N is an unsigned decimal integer with a leading digit nonzero.
-%NX is like %X, but takes up at least N positions.
+A field width N is an unsigned decimal integer with a leading digit
+nonzero.  %NX is like %X, but takes up at least N positions.  The
+field width is (on GNU/Linux and some other systems) in measured in
+bytes, not characters.  It depends on the locale what the width (in
+characters) %NX will end up being, especially when there are non-ASCII
+characters in %X.
 
 The modifiers are:
 
@@ -1472,9 +1476,9 @@ the TZ environment variable.  It can also be a list (as from
 without consideration for daylight saving time.
 
 The optional FORM specifies the form of the SEC member.  If `integer',
-SEC is an integer; if t, SEC uses the same resolution as TIME.  An
-omitted or nil FORM is currently treated like `integer', but this may
-change in future Emacs versions.
+SEC is an integer; if t, SEC is an integer or (TICKS . HZ) timestamp
+with the same precision as TIME.  An omitted or nil FORM is currently
+treated like `integer', but this may change in future Emacs versions.
 
 To access (or alter) the elements in the time value, the
 `decoded-time-second', `decoded-time-minute', `decoded-time-hour',
@@ -1487,8 +1491,8 @@ Lisp timestamp representing a nonnegative value less than 60
 \(or less than 61 if the operating system supports leap seconds).
 MINUTE is an integer between 0 and 59.  HOUR is an integer
 between 0 and 23.  DAY is an integer between 1 and 31.  MONTH is an
-integer between 1 and 12.  YEAR is an integer indicating the
-four-digit year.  DOW is the day of week, an integer between 0 and 6,
+integer between 1 and 12.  YEAR is the year number, an integer; 0
+represents 1 BC.  DOW is the day of week, an integer between 0 and 6,
 where 0 is Sunday.  DST is t if daylight saving time is in effect,
 nil if it is not in effect, and -1 if daylight saving information is
 not available.  UTCOFF is an integer indicating the UTC offset in
@@ -1715,7 +1719,7 @@ DEFUN ("time-convert", Ftime_convert, Stime_convert, 1, 2, 0,
 With optional FORM, convert to that timestamp form.
 Truncate the returned value toward minus infinity.
 
-If FORM is nil (the default), return the the same form as `current-time'.
+If FORM is nil (the default), return the same form as `current-time'.
 If FORM is a positive integer, return a pair of integers (TICKS . FORM),
 where TICKS is the number of clock ticks and FORM is the clock frequency
 in ticks per second.  (Currently the positive integer should be at least

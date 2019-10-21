@@ -353,21 +353,25 @@ to the SVN command."
 
 (defun vc-svn-ignore (file &optional directory remove)
   "Ignore FILE under Subversion.
-FILE is a file wildcard, relative to the root directory of DIRECTORY."
-  (let* ((ignores (vc-svn-ignore-completion-table directory))
-         (file (file-relative-name file directory))
+FILE is a wildcard specification, either relative to
+DIRECTORY or absolute."
+  (let* ((path (directory-file-name (expand-file-name file directory)))
+         (directory (file-name-directory path))
+         (file (file-name-nondirectory path))
+         (ignores (vc-svn-ignore-completion-table directory))
          (ignores (if remove
                       (delete file ignores)
                     (push file ignores))))
     (vc-svn-command nil 0 nil nil "propset" "svn:ignore"
                     (mapconcat #'identity ignores "\n")
-                    (expand-file-name directory))))
+                    directory)))
 
 (defun vc-svn-ignore-completion-table (directory)
   "Return the list of ignored files in DIRECTORY."
   (with-temp-buffer
-    (vc-svn-command t t nil "propget" "svn:ignore" (expand-file-name directory))
-    (split-string (buffer-string))))
+    (when (zerop (vc-svn-command
+                  t t nil "propget" "svn:ignore" (expand-file-name directory)))
+      (split-string (buffer-string) "\n"))))
 
 (defun vc-svn-find-admin-dir (file)
   "Return the administrative directory of FILE."

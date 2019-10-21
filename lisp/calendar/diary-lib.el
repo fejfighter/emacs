@@ -97,7 +97,7 @@ is pre-pended to REGEXP for file-wide specifiers.  ATTRIBUTE
 specifies which face attribute (e.g. `:foreground') to modify, or
 that this is a face (`:face') to apply.  TYPE is the type of
 attribute being applied.  Available TYPES (see `diary-attrtype-convert')
-are: `string', `symbol', `int', `tnil', `stringtnil.'"
+are: `string', `symbol', `int', `tnil', `stringtnil'."
   :type '(repeat (list (string :tag "Regular expression")
                        (integer :tag "Sub-expression")
                        (symbol :tag "Attribute (e.g. :foreground)")
@@ -214,7 +214,10 @@ you will probably also want to add `diary-include-other-diary-files' to
 This hook runs after `diary-nongregorian-marking-hook'.  These two hooks
 differ only if you are using included diary files.  In that case,
 `diary-nongregorian-marking-hook' runs for each file, whereas
-`diary-mark-entries-hook' only runs once, for the main diary file."
+`diary-mark-entries-hook' only runs once, for the main diary file.
+
+`displayed-year' and `displayed-month' are dynamically bound when
+this hook is called."
   :type 'hook
   :options '(diary-mark-included-diary-files)
   :group 'diary)
@@ -1257,7 +1260,7 @@ the regexp with parentheses."
 MARKFUNC is a function that marks entries of the appropriate type
 matching a given date pattern.  MONTHS is an array of month names.
 SYMBOL marks diary entries of the type in question.  ABSFUNC is a
-function that converts absolute dates to dates of the appropriate type.  "
+function that converts absolute dates to dates of the appropriate type."
   (calendar-dlet*
       ((dayname (diary-name-pattern calendar-day-name-array
                                     calendar-day-abbrev-array))
@@ -1950,7 +1953,7 @@ highlighting the day in the calendar."
              (cons mark entry)))))
 
 (defun diary-ordinal-suffix (n)
-  "Ordinal suffix for N. (That is, `st', `nd', `rd', or `th', as appropriate.)"
+  "Ordinal suffix for N.  (That is, `st', `nd', `rd', or `th', as appropriate.)"
   (if (or (memq (% n 100) '(11 12 13))
           (< 3 (% n 10)))
       "th"

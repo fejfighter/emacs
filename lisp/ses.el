@@ -506,7 +506,7 @@ This can alter PLIST."
       (setplist name (ses-plist-delq (symbol-plist name) 'ses-cell))) ))
 
 (defmacro ses--letref (vars place &rest body)
-  (declare (indent 2) (debug (sexp form &rest body)))
+  (declare (indent 2) (debug (sexp form body)))
   (gv-letplace (getter setter) place
     `(cl-macrolet ((,(nth 0 vars) () ',getter)
                    (,(nth 1 vars) (v) (funcall ',setter v)))
@@ -1435,7 +1435,7 @@ ses--default-printer, ses--numrows, or ses--numcols."
   "Extend the global parameters list when file format is updated
 from 2 to 3. This happens when local printer function are added
 to a sheet that was created with SES version 2. This is not
-undoable. Return nil when there was no change, and non nil otherwise."
+undoable. Return nil when there was no change, and non-nil otherwise."
   (save-excursion
     (cond
      ((and (= ses--file-format 2) (= 3 new-file-format))

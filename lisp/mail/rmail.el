@@ -285,7 +285,7 @@ Otherwise, look for `movemail' in the directories in
 		  (throw 'scan x))))))))))
 
 (defvar rmail-movemail-variant-in-use nil
-  "The movemail variant currently in use. Known variants are:
+  "The movemail variant currently in use.  Known variants are:
 
   `emacs'     Means any implementation, compatible with the native Emacs one.
               This is the default;
@@ -2308,7 +2308,7 @@ If nil, that means the current message."
 (defun rmail-get-attr-value (attr state)
   "Return the character value for ATTR.
 ATTR is a (numeric) index, an offset into the mbox attribute
-header value. STATE is one of nil, t, or a character value."
+header value.  STATE is one of nil, t, or a character value."
   (cond
    ((numberp state) state)
    ((not state) ?-)
@@ -2738,7 +2738,7 @@ N defaults to the current message."
       ;; (a default of "text/plain; charset=US-ASCII" is assumed) or
       ;; the base content type is either text or message.
       (or (not content-type-header)
-	  (string-match text-regexp content-type-header)))))
+	  (and (string-match text-regexp content-type-header) t)))))
 
 (defcustom rmail-show-message-verbose-min 200000
   "Message size at which to show progress messages for displaying it."
@@ -3547,8 +3547,10 @@ If `rmail-confirm-expunge' is non-nil, ask user to confirm."
   (and (stringp rmail-deleted-vector)
        (string-match "D" rmail-deleted-vector)
        (if rmail-confirm-expunge
-	   (funcall rmail-confirm-expunge
-		    "Erase deleted messages from Rmail file? ")
+	   (and (funcall rmail-confirm-expunge
+			 "Erase deleted messages from Rmail file? ")
+		;; In case r-c-e's function returns non-nil, non-t
+		t)
 	 t)))
 
 (defun rmail-only-expunge (&optional dont-show)

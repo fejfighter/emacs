@@ -363,6 +363,47 @@ there (in decreasing order of priority)."
     ;; If the initial frame is still around, apply initial-frame-alist
     ;; and default-frame-alist to it.
     (when (frame-live-p frame-initial-frame)
+      ;; When tab-bar has been switched off, correct the frame size
+      ;; by the lines added in x-create-frame for the tab-bar and
+      ;; switch `tab-bar-mode' off.
+      (when (display-graphic-p)
+	(let* ((init-lines
+		(assq 'tab-bar-lines initial-frame-alist))
+	       (other-lines
+		(or (assq 'tab-bar-lines window-system-frame-alist)
+		    (assq 'tab-bar-lines default-frame-alist)))
+	       (lines (or init-lines other-lines))
+	       (height (tab-bar-height frame-initial-frame t)))
+	  ;; Adjust frame top if either zero (nil) tab bar lines have
+	  ;; been requested in the most relevant of the frame's alists
+	  ;; or tab bar mode has been explicitly turned off in the
+	  ;; user's init file.
+	  (when (and (> height 0)
+		     (or (and lines
+			      (or (null (cdr lines))
+				  (eq 0 (cdr lines))))
+			 (not tab-bar-mode)))
+	    (let* ((initial-top
+		    (cdr (assq 'top frame-initial-geometry-arguments)))
+		   (top (frame-parameter frame-initial-frame 'top)))
+	      (when (and (consp initial-top) (eq '- (car initial-top)))
+		(let ((adjusted-top
+		       (cond
+			((and (consp top) (eq '+ (car top)))
+			 (list '+ (+ (cadr top) height)))
+			((and (consp top) (eq '- (car top)))
+			 (list '- (- (cadr top) height)))
+			(t (+ top height)))))
+		  (modify-frame-parameters
+		   frame-initial-frame `((top . ,adjusted-top))))))
+	    ;; Reset `tab-bar-mode' when zero tab bar lines have been
+	    ;; requested for the window-system or default frame alists.
+	    (when (and tab-bar-mode
+		       (and other-lines
+			    (or (null (cdr other-lines))
+				(eq 0 (cdr other-lines)))))
+	      (tab-bar-mode -1)))))
+
       ;; When tool-bar has been switched off, correct the frame size
       ;; by the lines added in x-create-frame for the tool-bar and
       ;; switch `tool-bar-mode' off.
@@ -1596,6 +1637,7 @@ and width values are in pixels.
        '(tool-bar-external . nil)
        '(tool-bar-position . nil)
        '(tool-bar-size 0 . 0)
+       '(tab-bar-size 0 . 0)
        (cons 'internal-border-width
 	     (frame-parameter frame 'internal-border-width)))))))
 
@@ -1833,7 +1875,7 @@ below (above if ABOVE is true) that of FRAME2.  Hence the
 position of FRAME2 in its display's Z (stacking) order relative
 to all other frames excluding FRAME1 remains unaltered.
 
-Some window managers may refuse to restack windows. "
+Some window managers may refuse to restack windows."
   (if (and (frame-live-p frame1)
            (frame-live-p frame2)
            (equal (frame-parameter frame1 'display)
@@ -2704,6 +2746,9 @@ See also `toggle-frame-maximized'."
         display-line-numbers-width
         display-line-numbers-current-absolute
         display-line-numbers-widen
+        display-line-numbers-major-tick
+        display-line-numbers-minor-tick
+        display-line-numbers-offset
         display-fill-column-indicator
         display-fill-column-indicator-column
         display-fill-column-indicator-character

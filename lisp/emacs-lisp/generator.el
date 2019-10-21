@@ -123,7 +123,7 @@ to the current stack of such wrappers.  WRAPPER is a function that
 takes a form and returns a wrapped form.
 
 Whenever we generate an atomic form (i.e., a form that can't
-iter-yield), we first (before actually inserting that form in our
+`iter-yield'), we first (before actually inserting that form in our
 generated code) pass that form through all the transformer
 functions.  We use this facility to wrap forms that can transfer
 control flow non-locally in goo that diverts this control flow to
@@ -170,7 +170,7 @@ DYNAMIC-VAR bound to STATIC-VAR."
     (and (fboundp handler) handler)))
 
 (defvar cps-inhibit-atomic-optimization nil
-  "When t, always rewrite forms into cps even when they
+  "When non-nil, always rewrite forms into cps even when they
 don't yield.")
 
 (defvar cps--yield-seen)
@@ -541,7 +541,7 @@ don't yield.")
 
 (defun cps--replace-variable-references (var new-var form)
   "Replace all non-shadowed references to VAR with NEW-VAR in FORM.
-This routine does not modify FORM. Instead, it returns a
+This routine does not modify FORM.  Instead, it returns a
 modified copy."
   (macroexpand-all
    `(cl-symbol-macrolet ((,var ,new-var)) ,form)
@@ -715,7 +715,7 @@ iterator cannot supply more values."
 
 (defun iter-close (iterator)
   "Terminate an iterator early.
-Run any unwind-protect handlers in scope at the point  ITERATOR
+Run any unwind-protect handlers in scope at the point ITERATOR
 is blocked."
   (funcall iterator :close nil))
 
@@ -760,7 +760,7 @@ Return the value with which ITERATOR finished iteration."
        (cps--advance-for ,cs))))
 
 (defun cps--handle-loop-for (var)
-  "Support `iter-by' in `loop'.  "
+  "Support `iter-by' in `loop'."
   ;; N.B. While the cl-loop-for-handler is a documented interface,
   ;; there's no documented way for cl-loop-for-handler callbacks to do
   ;; anything useful!  Additionally, cl-loop currently lexbinds useful

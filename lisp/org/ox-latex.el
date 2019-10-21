@@ -1236,7 +1236,7 @@ calling `org-latex-compile'."
 ;;; Internal Functions
 
 (defun org-latex--caption-above-p (element info)
-  "Non nil when caption is expected to be located above ELEMENT.
+  "Non-nil when caption is expected to be located above ELEMENT.
 INFO is a plist holding contextual information."
   (let ((above (plist-get info :latex-caption-above)))
     (if (symbolp above) above
@@ -3319,7 +3319,7 @@ property."
     (let ((attr (org-export-read-attribute :attr_latex table)))
       (when (plist-get attr :rmlines)
 	;; When the "rmlines" attribute is provided, remove all hlines
-	;; but the the one separating heading from the table body.
+	;; but the one separating heading from the table body.
 	(let ((n 0) (pos 0))
 	  (while (and (< (length output) pos)
 		      (setq pos (string-match "^\\\\hline\n?" output pos)))

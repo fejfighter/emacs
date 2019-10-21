@@ -1773,6 +1773,94 @@ w32_set_menu_bar_lines (struct frame *f, Lisp_Object value, Lisp_Object oldval)
 }
 
 
+/* Set the number of lines used for the tab bar of frame F to VALUE.
+   VALUE not an integer, or < 0 means set the lines to zero.  OLDVAL
+   is the old number of tab bar lines.  This function changes the
+   height of all windows on frame F to match the new tab bar height.
+   The frame's height doesn't change.  */
+
+static void
+w32_set_tab_bar_lines (struct frame *f, Lisp_Object value, Lisp_Object oldval)
+{
+  int nlines;
+
+  /* Treat tab bars like menu bars.  */
+  if (FRAME_MINIBUF_ONLY_P (f))
+    return;
+
+  /* Use VALUE only if an int >= 0.  */
+  if (RANGED_FIXNUMP (0, value, INT_MAX))
+    nlines = XFIXNAT (value);
+  else
+    nlines = 0;
+
+  w32_change_tab_bar_height (f, nlines * FRAME_LINE_HEIGHT (f));
+}
+
+
+/* Set the pixel height of the tab bar of frame F to HEIGHT.  */
+void
+w32_change_tab_bar_height (struct frame *f, int height)
+{
+  int unit = FRAME_LINE_HEIGHT (f);
+  int old_height = FRAME_TAB_BAR_HEIGHT (f);
+  int lines = (height + unit - 1) / unit;
+  Lisp_Object fullscreen;
+
+  /* Make sure we redisplay all windows in this frame.  */
+  fset_redisplay (f);
+
+  /* Recalculate tab bar and frame text sizes.  */
+  FRAME_TAB_BAR_HEIGHT (f) = height;
+  FRAME_TAB_BAR_LINES (f) = lines;
+  /* Store the `tab-bar-lines' and `height' frame parameters.  */
+  store_frame_param (f, Qtab_bar_lines, make_fixnum (lines));
+  store_frame_param (f, Qheight, make_fixnum (FRAME_LINES (f)));
+
+  /* We also have to make sure that the internal border at the top of
+     the frame, below the menu bar or tab bar, is redrawn when the
+     tab bar disappears.  This is so because the internal border is
+     below the tab bar if one is displayed, but is below the menu bar
+     if there isn't a tab bar.  The tab bar draws into the area
+     below the menu bar.  */
+  if (FRAME_W32_WINDOW (f) && FRAME_TAB_BAR_HEIGHT (f) == 0)
+    {
+      clear_frame (f);
+      clear_current_matrices (f);
+    }
+
+  if ((height < old_height) && WINDOWP (f->tab_bar_window))
+    clear_glyph_matrix (XWINDOW (f->tab_bar_window)->current_matrix);
+
+  /* Recalculate tabbar height.  */
+  f->n_tab_bar_rows = 0;
+  if (old_height == 0
+      && (!f->after_make_frame
+	  || NILP (frame_inhibit_implied_resize)
+	  || (CONSP (frame_inhibit_implied_resize)
+	      && NILP (Fmemq (Qtab_bar_lines, frame_inhibit_implied_resize)))))
+    f->tab_bar_redisplayed = f->tab_bar_resized = false;
+
+  adjust_frame_size (f, -1, -1,
+		     ((!f->tab_bar_resized
+		       && (NILP (fullscreen =
+				 get_frame_param (f, Qfullscreen))
+			   || EQ (fullscreen, Qfullwidth))) ? 1
+		      : (old_height == 0 || height == 0) ? 2
+		      : 4),
+		     false, Qtab_bar_lines);
+
+  f->tab_bar_resized = f->tab_bar_redisplayed;
+
+  /* adjust_frame_size might not have done anything, garbage frame
+     here.  */
+  adjust_frame_glyphs (f);
+  SET_FRAME_GARBAGED (f);
+  if (FRAME_W32_WINDOW (f))
+    w32_clear_under_internal_border (f);
+}
+
+
 /* Set the number of lines used for the tool bar of frame F to VALUE.
    VALUE not an integer, or < 0 means set the lines to zero.  OLDVAL is
    the old number of tool bar lines (and is unused).  This function may
@@ -5413,6 +5501,11 @@ w32_wnd_proc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
   return 0;
 }
 
+/* This function is called from the main (a.k.a. "Lisp") thread, and
+   prepares the coordinates to be used by w32_createwindow (which runs
+   in the input thread), when necessary.  The calls to
+   gui_display_get_arg must be done here, because they can cons Lisp
+   objects, and that can only be done in the Lisp thread.  */
 static void
 my_create_window (struct frame * f)
 {
@@ -5421,20 +5514,33 @@ my_create_window (struct frame * f)
   Lisp_Object left, top;
   struct w32_display_info *dpyinfo = &one_w32_display_info;
 
-  /* When called with RES_TYPE_NUMBER, gui_display_get_arg will return
-     zero for anything that is not a number and is not Qunbound.  */
-  left = gui_display_get_arg (dpyinfo, Qnil, Qleft, "left", "Left",
-                              RES_TYPE_NUMBER);
-  top = gui_display_get_arg (dpyinfo, Qnil, Qtop, "top", "Top",
-                             RES_TYPE_NUMBER);
-  if (EQ (left, Qunbound))
-    coords[0] = CW_USEDEFAULT;
-  else
-    coords[0] = XFIXNUM (left);
-  if (EQ (top, Qunbound))
-    coords[1] = CW_USEDEFAULT;
-  else
-    coords[1] = XFIXNUM (top);
+  /* If f->size_hint_flags is set, it means gui_figure_window_size
+     already processed the 'top' and 'left' frame parameters and set
+     f->top_pos and f->left_pos accordingly.  w32_createwindow will
+     then use those value disregarding coords[].  So we don't need to
+     compute coords[] in that case.  */
+  if (!(f->size_hint_flags & USPosition || f->size_hint_flags & PPosition))
+    {
+      /* When called with RES_TYPE_NUMBER, and there's no 'top' or
+	 'left' parameters in the frame's parameter alist,
+	 gui_display_get_arg will return zero for anything that is
+	 neither a number nor Qunbound.  If frame parameter alist does
+	 have 'left' or 'top', they are interpreted by
+	 gui_figure_window_size, which was already called, and which
+	 sets f->size_hint_flags.  */
+      left = gui_display_get_arg (dpyinfo, Qnil, Qleft, "left", "Left",
+				  RES_TYPE_NUMBER);
+      top = gui_display_get_arg (dpyinfo, Qnil, Qtop, "top", "Top",
+				 RES_TYPE_NUMBER);
+      if (EQ (left, Qunbound))
+	coords[0] = CW_USEDEFAULT;
+      else
+	coords[0] = XFIXNUM (left);
+      if (EQ (top, Qunbound))
+	coords[1] = CW_USEDEFAULT;
+      else
+	coords[1] = XFIXNUM (top);
+    }
 
   if (!PostThreadMessage (dwWindowsThreadId, WM_EMACS_CREATEWINDOW,
 			  (WPARAM)f, (LPARAM)coords))
@@ -5971,6 +6077,11 @@ DEFUN ("x-create-frame", Fx_create_frame, Sx_create_frame,
     /* No menu bar for child frames.  */
     store_frame_param (f, Qmenu_bar_lines, make_fixnum (0));
 
+  gui_default_parameter (f, parameters, Qtab_bar_lines,
+                         NILP (Vtab_bar_mode)
+                         ? make_fixnum (0) : make_fixnum (1),
+                         NULL, NULL, RES_TYPE_NUMBER);
+
   gui_default_parameter (f, parameters, Qtool_bar_lines,
                          NILP (Vtool_bar_mode)
                          ? make_fixnum (0) : make_fixnum (1),
@@ -6000,7 +6111,7 @@ DEFUN ("x-create-frame", Fx_create_frame, Sx_create_frame,
 
   f->output_data.w32->current_cursor = f->output_data.w32->nontext_cursor;
 
-  window_prompting = gui_figure_window_size (f, parameters, true,
+  window_prompting = gui_figure_window_size (f, parameters, true, true,
                                              &x_width, &x_height);
 
   tem = gui_display_get_arg (dpyinfo, parameters, Qunsplittable, 0, 0,
@@ -6968,7 +7079,7 @@ w32_create_tip_frame (struct w32_display_info *dpyinfo, Lisp_Object parms)
   f->output_data.w32->parent_desc = FRAME_DISPLAY_INFO (f)->root_window;
   f->output_data.w32->explicit_parent = false;
 
-  gui_figure_window_size (f, parms, true, &x_width, &x_height);
+  gui_figure_window_size (f, parms, true, true, &x_width, &x_height);
 
   /* No fringes on tip frame.  */
   f->fringe_cols = 0;
@@ -8517,7 +8628,8 @@ On Windows 98 and ME, KEY must be a one element key definition in
 vector form that would be acceptable to `define-key' (e.g. [A-tab] for
 Alt-Tab).  The meta modifier is interpreted as Alt if
 `w32-alt-is-meta' is t, and hyper is always interpreted as the Windows
-modifier keys.  The return value is the hotkey-id if registered, otherwise nil.
+modifier keys.  The return value is the hotkey-id if registered,
+otherwise nil.
 
 On Windows versions since NT, KEY can also be specified as [M-], [s-] or
 [h-] to indicate that all combinations of that key should be processed
@@ -8525,7 +8637,7 @@ by Emacs instead of the operating system.  The super and hyper
 modifiers are interpreted according to the current values of
 `w32-lwindow-modifier' and `w32-rwindow-modifier'.  For instance,
 setting `w32-lwindow-modifier' to `super' and then calling
-`(register-hot-key [s-])' grabs all combinations of the left Windows
+`(w32-register-hot-key [s-])' grabs all combinations of the left Windows
 key to Emacs, but leaves the right Windows key free for the operating
 system keyboard shortcuts.  The return value is t if the call affected
 any key combinations, otherwise nil.  */)
@@ -8720,6 +8832,9 @@ and width values are in pixels.
 `menu-bar-size' is a cons of the width and height of the menu bar of
   FRAME.
 
+`tab-bar-size' is a cons of the width and height of the tab bar of
+  FRAME.
+
 `tool-bar-external', if non-nil, means the tool bar is external (never
   included in the inner edges of FRAME).
 
@@ -8742,6 +8857,7 @@ and width values are in pixels.
   unsigned int external_border_width, external_border_height;
   int title_bar_width = 0, title_bar_height = 0;
   int single_menu_bar_height, wrapped_menu_bar_height, menu_bar_height;
+  int tab_bar_height = FRAME_TAB_BAR_HEIGHT (f);
   int tool_bar_height = FRAME_TOOL_BAR_HEIGHT (f);
   int internal_border_width = FRAME_INTERNAL_BORDER_WIDTH (f);
 
@@ -8815,6 +8931,13 @@ and width values are in pixels.
 		       Fcons (make_fixnum
 			      (menu_bar.rcBar.right - menu_bar.rcBar.left),
 			      make_fixnum (menu_bar_height))),
+		Fcons (Qtab_bar_size,
+		       Fcons (make_fixnum
+			      (tab_bar_height
+			       ? (right - left - 2 * external_border_width
+				  - 2 * internal_border_width)
+			       : 0),
+			      make_fixnum (tab_bar_height))),
 		Fcons (Qtool_bar_external, Qnil),
 		Fcons (Qtool_bar_position, tool_bar_height ? Qtop : Qnil),
 		Fcons (Qtool_bar_size,
@@ -8906,6 +9029,7 @@ menu bar or tool bar of FRAME.  */)
 
 	  return list4 (make_fixnum (left + internal_border_width),
 			make_fixnum (top
+				     + FRAME_TAB_BAR_HEIGHT (f)
 				     + FRAME_TOOL_BAR_HEIGHT (f)
 				     + internal_border_width),
 			make_fixnum (right - internal_border_width),
@@ -10109,8 +10233,8 @@ KEY can use either forward- or back-slashes.
 To access the default value of KEY (if it is defined), use NAME
 that is an empty string.
 
-If the the named KEY or its subkey called NAME don't exist, or cannot
-be accessed by the current user, the function returns nil.  Otherwise,
+If the named KEY or its subkey called NAME don't exist, or cannot be
+accessed by the current user, the function returns nil.  Otherwise,
 the return value depends on the type of the data stored in Registry:
 
   If the data type is REG_NONE, the function returns t.
@@ -10193,6 +10317,7 @@ frame_parm_handler w32_frame_parm_handlers[] =
   gui_set_vertical_scroll_bars,
   gui_set_horizontal_scroll_bars,
   gui_set_visibility,
+  w32_set_tab_bar_lines,
   w32_set_tool_bar_lines,
   0, /* x_set_scroll_bar_foreground, */
   0, /* x_set_scroll_bar_background, */

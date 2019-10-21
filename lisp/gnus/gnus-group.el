@@ -2297,6 +2297,7 @@ Return the name of the group if selection was successful."
 	   (message "Quit reading the ephemeral group"))
 	 nil)))))
 
+;; FIXME: This URL no longer works.
 (defcustom gnus-gmane-group-download-format
   "http://download.gmane.org/%s/%s/%s"
   "URL for downloading mbox files.
@@ -4464,12 +4465,14 @@ and the second element is the address."
 	      (setcar entry (length
 			     (gnus-list-of-unread-articles (car info)))))
 	    ;; The above `setcar' will only affect the hashtable, not
-	    ;; the alist: update the alist separately.
-	    (push info (cdr (setq gnus-newsrc-alist
-				   (remove (assoc-string
-					    (gnus-info-group info)
-					    gnus-newsrc-alist)
-					   gnus-newsrc-alist)))))
+	    ;; the alist: update the alist separately, but only if
+	    ;; it's been initialized.
+	    (when gnus-newsrc-alist
+	      (push info (cdr (setq gnus-newsrc-alist
+				    (remove (assoc-string
+					     (gnus-info-group info)
+					     gnus-newsrc-alist)
+					    gnus-newsrc-alist))))))
 	(error "No such group: %s" (gnus-info-group info))))))
 
 ;; Ad-hoc function for inserting data from a different newsrc.eld

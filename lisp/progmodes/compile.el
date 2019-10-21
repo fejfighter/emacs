@@ -58,6 +58,15 @@ If nil, use Emacs default."
   :type '(choice (const :tag "Default" nil)
 		 integer))
 
+(defcustom compilation-transform-file-match-alist
+  '(("/bin/[a-z]*sh\\'" nil))
+  "Alist of regexp/replacements to alter file names in compilation errors.
+If the replacement is nil, the file will not be considered an
+error after all.  If not nil, it should be a regexp replacement
+string."
+  :type '(repeat (list regexp string))
+  :version "27.1")
+
 (defvar compilation-filter-hook nil
   "Hook run after `compilation-filter' has inserted a string into the buffer.
 It is called with the variable `compilation-filter-start' bound
@@ -274,6 +283,12 @@ of[ \t]+\"?\\([a-zA-Z]?:?[^\":\n]+\\)\"?:" 3 2 nil (1))
     (ruby-Test::Unit
      "^[\t ]*\\[\\([^(].*\\):\\([1-9][0-9]*\\)\\(\\]\\)?:in " 1 2)
 
+    (gmake
+     ;; Set GNU make error messages as INFO level.
+     ;; It starts with the name of the make program which is variable,
+     ;; so don't try to match it.
+     ": \\*\\*\\* \\[\\(\\(.+?\\):\\([0-9]+\\): .+\\)\\]" 2 3 nil 0 1)
+
     (gnu
      ;; The first line matches the program name for
 
@@ -327,7 +342,7 @@ of[ \t]+\"?\\([a-zA-Z]?:?[^\":\n]+\\)\"?:" 3 2 nil (1))
           (: (* " ")
              (group-n 7 (| (regexp "[Ii]nfo\\(?:\\>\\|rmationa?l?\\)")
                            "I:"
-                           (: "[ skipping " (+ ".") " ]")
+                           (: "[ skipping " (+ nonl) " ]")
                            "instantiated from"
                            "required from"
                            (regexp "[Nn]ote"))))
@@ -602,7 +617,12 @@ SUBMATCH is the number of a submatch and FACE is an expression
 which evaluates to a face name (a symbol or string).
 Alternatively, FACE can evaluate to a property list of the
 form (face FACE PROP1 VAL1 PROP2 VAL2 ...), in which case all the
-listed text properties PROP# are given values VAL# as well."
+listed text properties PROP# are given values VAL# as well.
+
+After identifying errors and warnings determined by this
+variable, the `compilation-transform-file-match-alist' variable
+is then consulted.  It allows further transformations of the
+matched file names, and weeding out false positives."
   :type '(repeat (choice (symbol :tag "Predefined symbol")
 			 (sexp :tag "Error specification")))
   :link `(file-link :tag "example file"
@@ -1105,7 +1125,7 @@ POS and RES.")
                (setq file (if (functionp file) (funcall file)
                             (match-string-no-properties file))))
 	  (let ((dir
-	    (unless (file-name-absolute-p file)
+	         (unless (file-name-absolute-p file)
                    (let ((pos (compilation--previous-directory
                                (match-beginning 0))))
                      (when pos
@@ -1155,19 +1175,37 @@ POS and RES.")
                      (setq end-col (match-string-no-properties end-col))
                      (- (string-to-number end-col) -1)))
               (and end-line -1)))
-    (if (consp type)			; not a static type, check what it is.
+    (if (consp type)            ; not a static type, check what it is.
 	(setq type (or (and (car type) (match-end (car type)) 1)
 		       (and (cdr type) (match-end (cdr type)) 0)
 		       2)))
+    ;; Remove matches like /bin/sh and do other file name transforms.
+    (save-match-data
+      (let ((file-name
+             (and (consp file)
+                  (not (bufferp (car file)))
+                  (if (cdr file)
+                      (expand-file-name (car file) (cdr file))
+                    (car file)))))
+        (cl-loop for (regexp replacement)
+                 in compilation-transform-file-match-alist
+                 when (string-match regexp file-name)
+                 return (if replacement
+                            (setq file (list (replace-match replacement nil nil
+                                                            file-name)))
+                          (setq file nil)))))
+    (if (not file)
+        ;; If we ignored all the files with errors on this line, then
+        ;; return nil.
+        nil
+      (when (and compilation-auto-jump-to-next
+                 (>= type compilation-skip-threshold))
+        (kill-local-variable 'compilation-auto-jump-to-next)
+        (run-with-timer 0 nil 'compilation-auto-jump
+                        (current-buffer) (match-beginning 0)))
 
-    (when (and compilation-auto-jump-to-next
-               (>= type compilation-skip-threshold))
-      (kill-local-variable 'compilation-auto-jump-to-next)
-      (run-with-timer 0 nil 'compilation-auto-jump
-                      (current-buffer) (match-beginning 0)))
-
-    (compilation-internal-error-properties
-     file line end-line col end-col type fmt)))
+      (compilation-internal-error-properties
+       file line end-line col end-col type fmt))))
 
 (defun compilation-beginning-of-line (&optional n)
   "Like `beginning-of-line', but accounts for lines hidden by `selective-display'."
@@ -2471,6 +2509,8 @@ This is the value of `next-error-function' in Compilation buffers."
 	 (loc (compilation--message->loc msg))
 	 (end-loc (compilation--message->end-loc msg))
 	 (marker (point-marker)))
+    (unless loc
+      (user-error "No next error"))
     (setq compilation-current-error (point-marker)
 	  overlay-arrow-position
 	    (if (bolp)
@@ -2609,16 +2649,13 @@ column zero points to the current message."
 When non-nil, this overlay causes redisplay to display `overlay-arrow-string'
 at the overlay's start position.")
 
-(defvar compilation-margin-string "=>"
-  "The string which will appear in the margin in compilation mode.
-This must be two characters long; there should be no need to
-change the default.")
-(put-text-property 0 2 'face 'default compilation-margin-string)
+(defconst compilation--margin-string (propertize "=>" 'face 'default)
+  "The string which will appear in the margin in compilation mode.")
 
 (defconst compilation--dummy-string
   (propertize ">" 'display
-              `((margin left-margin) ,compilation-margin-string))
-  "A string which is only a placeholder for compilation-margin-string.
+              `((margin left-margin) ,compilation--margin-string))
+  "A string which is only a placeholder for `compilation--margin-string'.
 Actual value is never used, only the text property.")
 
 (defun compilation-set-up-arrow-spec-in-margin ()
@@ -2628,14 +2665,18 @@ Actual value is never used, only the text property.")
 	(make-overlay overlay-arrow-position overlay-arrow-position))
   (overlay-put compilation-arrow-overlay
                'before-string compilation--dummy-string)
-  (set-window-margins (selected-window) (+ (or (car (window-margins)) 0) 2)))
+  (set-window-margins (selected-window) (+ (or (car (window-margins)) 0) 2))
+  ;; Take precautions against `compilation-mode' getting reinitialized.
+  (add-hook 'change-major-mode-hook
+            'compilation-tear-down-arrow-spec-in-margin nil t))
 
 (defun compilation-tear-down-arrow-spec-in-margin ()
   "Restore compilation-arrow-overlay to not using the margin, which is removed."
-  (overlay-put compilation-arrow-overlay 'before-string nil)
-  (delete-overlay compilation-arrow-overlay)
-  (setq compilation-arrow-overlay nil)
-  (set-window-margins (selected-window) (- (car (window-margins)) 2)))
+  (when (overlayp compilation-arrow-overlay)
+    (overlay-put compilation-arrow-overlay 'before-string nil)
+    (delete-overlay compilation-arrow-overlay)
+    (setq compilation-arrow-overlay nil)
+    (set-window-margins (selected-window) (- (car (window-margins)) 2))))
 
 (defun compilation-set-overlay-arrow (w)
   "Set up, or switch off, the overlay-arrow for window W."
@@ -2783,7 +2824,8 @@ attempts to find a file whose name is produced by (format FMT FILENAME)."
                       (expand-file-name directory)
                     default-directory))
         buffer thisdir fmts name)
-    (if (file-name-absolute-p filename)
+    (if (and filename
+             (file-name-absolute-p filename))
         ;; The file name is absolute.  Use its explicit directory as
         ;; the first in the search path, and strip it from FILENAME.
         (setq filename (abbreviate-file-name (expand-file-name filename))
@@ -2811,8 +2853,11 @@ attempts to find a file whose name is produced by (format FMT FILENAME)."
 	    (and w (progn (compilation-set-window w marker)
                           (compilation-set-overlay-arrow w))))
           (let* ((name (read-file-name
-                        (format "Find this %s in (default %s): "
-                                compilation-error filename)
+                        (format "Find this %s in%s: "
+                                compilation-error
+                                (if filename
+                                    (format " (default %s)" filename)
+                                  ""))
                         spec-dir filename t nil
                         ;; The predicate below is fine when called from
                         ;; minibuffer-complete-and-exit, but it's too

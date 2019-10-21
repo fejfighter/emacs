@@ -577,38 +577,17 @@ TYPE is either 'pro' or 'rinfo', and `idlwave-shell-temp-pro-file' or
    ((eq type 'rinfo)
     (or idlwave-shell-temp-rinfo-save-file
 	(setq idlwave-shell-temp-rinfo-save-file
-	      (idlwave-shell-make-temp-file idlwave-shell-temp-pro-prefix))))
+	      (make-temp-file idlwave-shell-temp-pro-prefix))))
    ((eq type 'pro)
     (or idlwave-shell-temp-pro-file
 	(setq idlwave-shell-temp-pro-file
-	      (idlwave-shell-make-temp-file idlwave-shell-temp-pro-prefix))))
+	      (make-temp-file idlwave-shell-temp-pro-prefix))))
    (t (error "Wrong argument (idlwave-shell-temp-file): %s"
 	     (symbol-name type)))))
 
 
-(defun idlwave-shell-make-temp-file (prefix)
-  "Create a temporary file."
-  (if (featurep 'emacs)
-      (make-temp-file prefix)
-    (if (fboundp 'make-temp-file)
-	(make-temp-file prefix)
-      (let (file
-	    (temp-file-dir (if (boundp 'temporary-file-directory)
-			       temporary-file-directory
-			     "/tmp")))
-	(while (condition-case ()
-		   (progn
-		     (setq file
-			   (make-temp-name
-			    (expand-file-name prefix temp-file-dir)))
-		     (write-region "" nil file nil 'silent nil 'excl)
-		     nil)
-		 (file-already-exists t))
-	  ;; the file was somehow created by someone else between
-	  ;; `make-temp-name' and `write-region', let's try again.
-	  nil)
-	file))))
-
+(define-obsolete-function-alias 'idlwave-shell-make-temp-file
+  #'make-temp-file "27.1")
 
 (defvar idlwave-shell-dirstack-query "cd,current=___cur & print,___cur"
   "Command used by `idlwave-shell-resync-dirs' to query IDL for
@@ -2176,7 +2155,7 @@ args of an executive .run, .rnew or .compile."
       ;; Skip backwards over file name chars
       (skip-chars-backward idlwave-shell-file-name-chars limit)
       ;; Check of the next char is a string delimiter
-      (memq (preceding-char) '(?\' ?\")))))
+      (and (memq (preceding-char) '(?\' ?\")) t))))
 
 (defun idlwave-shell-batch-command ()
   "Return t if we're in a batch command statement like @foo"

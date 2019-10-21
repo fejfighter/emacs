@@ -241,7 +241,7 @@ to writing a completion function."
 (defun eshell-complete-lisp-symbol ()
   "Try to complete the text around point as a Lisp symbol."
   (interactive)
-  (let ((completion-at-point-functions '(lisp-completion-at-point)))
+  (let ((completion-at-point-functions '(elisp-completion-at-point)))
     (completion-at-point)))
 
 (defvar eshell-cmpl-mode-map
@@ -409,7 +409,7 @@ to writing a completion function."
   (let ((filename (pcomplete-arg)) glob-name)
     (if (file-name-directory filename)
         (if eshell-force-execution
-            (pcomplete-dirs-or-entries nil 'file-readable-p)
+            (pcomplete-dirs-or-entries nil #'file-readable-p)
           (pcomplete-executables))
       (if (and (> (length filename) 0)
 	       (eq (aref filename 0) eshell-explicit-command-char))
