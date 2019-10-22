@@ -280,13 +280,12 @@ For information on some of the files in the @file{etc} directory,
 @pxref{Informational files for Emacs}.
 
 @node Common acronyms
-@section What are FSF, GNU, RMS, FTP, and GPL?
+@section What are FSF, GNU, RMS, and GPL?
 @cindex FSF, definition of
 @cindex GNU, definition of
 @cindex RMS, definition of
 @cindex Stallman, Richard, acronym for
 @cindex Richard Stallman, acronym for
-@cindex FTP, definition of
 @cindex GPL, definition of
 @cindex Acronyms, definitions for
 @cindex Common acronyms, definitions for
@@ -301,9 +300,6 @@ GNU's Not Unix
 
 @item RMS
 Richard Matthew Stallman
-
-@item FTP
-File Transfer Protocol
 
 @item GPL
 GNU General Public License
@@ -1272,7 +1268,7 @@ Directory-local variables can now be defined, in a similar manner to
 file-local variables.
 
 @item
-Transient Mark mode (@pxref{Highlighting a region}) is on by default.
+Transient Mark mode is on by default.
 
 @end itemize
 
@@ -1432,7 +1428,6 @@ of files from Macintosh, Microsoft, and Unix platforms.
 * Displaying the current file name in the titlebar::
 * Turning on abbrevs by default::
 * Associating modes with files::
-* Highlighting a region::
 * Replacing highlighted text::
 * Controlling case sensitivity::
 * Working with unprintable characters::
@@ -1764,23 +1759,6 @@ when loading an interpreted script (e.g., shell, python, etc.).  Emacs
 determines which interpreter you're using by examining the first line of
 the script.  Use @kbd{C-h v} (or @kbd{M-x describe-variable}) on
 @code{interpreter-mode-alist} to learn more.
-
-@node Highlighting a region
-@section How can I highlight a region of text in Emacs?
-@cindex Highlighting text
-@cindex Text, highlighting
-@cindex @code{transient-mark-mode}
-@cindex Region, highlighting a
-
-You can cause the region to be highlighted when the mark is active by
-including
-
-@lisp
-(transient-mark-mode 1)
-@end lisp
-
-@noindent
-in your @file{.emacs} file.  Since Emacs 23.1, this feature is on by default.
 
 @node Replacing highlighted text
 @section How can I replace highlighted text with what I type?
@@ -3593,15 +3571,18 @@ A list of sites mirroring @samp{ftp.gnu.org} can be found at
 @cindex Lucid Emacs
 @cindex Epoch
 
-XEmacs is a branch version of Emacs.  It was first called Lucid Emacs,
-and was initially derived from a prerelease version of Emacs 19.  In
-this FAQ, we use the name ``Emacs'' only for the official version.
+XEmacs was a branch version of Emacs that is no longer actively
+developed.  XEmacs was first called Lucid Emacs, and was initially
+derived from a prerelease version of Emacs 19.  In this FAQ, we use
+the name ``Emacs'' only for the official version.
 
-Emacs and XEmacs each come with Lisp packages that are lacking in the
-other.  The two versions have some significant differences at the Lisp
-programming level.  Their current features are roughly comparable,
-though the support for some operating systems, character sets and
-specific packages might be quite different.
+XEmacs last released a new version on January 30, 2009, and it lacks
+many important features that exists in Emacs.  In the past, it was not
+uncommon for Emacs packages to include code for compatibility with
+XEmacs.  Nowadays, although some packages still maintain such
+compatibility code, several of the more popular built-in and third
+party packages have either stopped supporting XEmacs or were developed
+exclusively for Emacs.
 
 Some XEmacs code has been contributed to Emacs, and we would like to
 use other parts, but the earlier XEmacs maintainers did not always

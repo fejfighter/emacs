@@ -126,8 +126,6 @@ Each entry is:
       (get name 'rx-definition)))
 
 ;; TODO: Additions to consider:
-;; - A better name for `anything', like `any-char' or `anychar'.
-;; - A name for (or), maybe `unmatchable'.
 ;; - A construct like `or' but without the match order guarantee,
 ;;   maybe `unordered-or'.  Useful for composition or generation of
 ;;   alternatives; permits more effective use of regexp-opt.
@@ -138,7 +136,8 @@ Each entry is:
     ;; Use `list' instead of a quoted list to wrap the strings here,
     ;; since the return value may be mutated.
     ((or 'nonl 'not-newline 'any) (cons (list ".") t))
-    ('anything                    (rx--translate-form '(or nonl "\n")))
+    ((or 'anychar 'anything)      (cons (list "[^z-a]") t))
+    ('unmatchable                 (rx--empty))
     ((or 'bol 'line-start)        (cons (list "^") 'lseq))
     ((or 'eol 'line-end)          (cons (list "$") 'rseq))
     ((or 'bos 'string-start 'bot 'buffer-start) (cons (list "\\`") t))
@@ -259,7 +258,7 @@ Return (REGEXP . PRECEDENCE)."
   ;;        -> (any "@" "%" digit "A-Z" space word)
   ;;        -> "[A-Z@%[:digit:][:space:][:word:]]"
   ;;
-  ;; Problem: If a subpattern is carefully written to to be
+  ;; Problem: If a subpattern is carefully written to be
   ;; optimisable by regexp-opt, how do we prevent the transforms
   ;; above from destroying that property?
   ;; Example: (or "a" (or "abc" "abd" "abe"))
@@ -913,7 +912,7 @@ can expand to any number of values."
   "List of built-in rx function-like symbols.")
 
 (defconst rx--builtin-symbols
-  (append '(nonl not-newline any anything
+  (append '(nonl not-newline any anychar anything unmatchable
             bol eol line-start line-end
             bos eos string-start string-end
             bow eow word-start word-end
@@ -1016,7 +1015,8 @@ CHAR           Match a literal character.
                 can be (any ...), (syntax ...), (category ...),
                 or a character class.
 not-newline     Match any character except a newline.  Alias: nonl.
-anything        Match any character.
+anychar         Match any character.  Alias: anything.
+unmatchable     Never match anything at all.
 
 CHARCLASS       Match a character from a character class.  One of:
  alpha, alphabetic, letter   Alphabetic characters (defined by Unicode).
@@ -1064,8 +1064,8 @@ Zero-width assertions: these all match the empty string in specific places.
  string-end         At the end of the string or buffer.
                      Alias: buffer-end, eos, eot.
  point              At point.
- word-start         At the beginning of a word.
- word-end           At the end of a word.
+ word-start         At the beginning of a word.  Alias: bow.
+ word-end           At the end of a word.  Alias: eow.
  word-boundary      At the beginning or end of a word.
  not-word-boundary  Not at the beginning or end of a word.
  symbol-start       At the beginning of a symbol.

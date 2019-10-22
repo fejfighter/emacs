@@ -63,6 +63,17 @@
   "A source-level debugger for Emacs Lisp."
   :group 'lisp)
 
+(defface edebug-enabled-breakpoint '((t :inherit highlight))
+  "Face used to mark enabled breakpoints."
+  :version "27.1")
+
+(defface edebug-disabled-breakpoint
+  '((((class color) (min-colors 88) (background light))
+     :background "#ddffdd" :extend t)
+    (((class color) (min-colors 88) (background dark))
+     :background "#335533" :extend t))
+  "Face used to mark disabled breakpoints."
+  :version "27.1")
 
 (defcustom edebug-setup-hook nil
   "Functions to call before edebug is used.
@@ -1403,14 +1414,33 @@ contains a circular object."
       (put edebug-def-name 'edebug
 	   ;; A struct or vector would be better here!!
 	   (list edebug-form-begin-marker
-		 nil			; clear breakpoints
+		 (edebug--restore-breakpoints edebug-old-def-name)
 		 edebug-offset-list
-		 edebug-top-window-data
-		 ))
+		 edebug-top-window-data))
 
       (funcall edebug-new-definition-function edebug-def-name)
       result
       )))
+
+(defun edebug--restore-breakpoints (name)
+  (let ((data (get name 'edebug)))
+    (when (listp data)
+      (let ((offsets (nth 2 data))
+            (breakpoints (nth 1 data))
+            (start (nth 0 data))
+            index)
+        ;; Breakpoints refer to offsets from the start of the function.
+        ;; The start position is a marker, so it'll move around in a
+        ;; similar fashion as the breakpoint markers.  If we find a
+        ;; breakpoint marker that refers to an offset (which is a place
+        ;; where breakpoints can be made), then we restore it.
+        (cl-loop for breakpoint in breakpoints
+                 for marker = (nth 3 breakpoint)
+                 when (and (marker-position marker)
+                           (setq index (seq-position
+                                        offsets
+                                        (- (marker-position marker) start))))
+                 collect (cons index (cdr breakpoint)))))))
 
 (defun edebug-new-definition (def-name)
   "Set up DEF-NAME to use Edebug's instrumentation functions."
@@ -2514,6 +2544,7 @@ See `edebug-behavior-alist' for implementations.")
 	   (edebug-breakpoints (car (cdr edebug-data)))	; list of breakpoints
 	   (edebug-break-data (assq offset-index edebug-breakpoints))
 	   (edebug-break-condition (car (cdr edebug-break-data)))
+           (breakpoint-disabled (nth 4 edebug-break-data))
 	   (edebug-global-break
 	    (if edebug-global-break-condition
 		(condition-case nil
@@ -2527,6 +2558,7 @@ See `edebug-behavior-alist' for implementations.")
       (setq edebug-break
 	    (or edebug-global-break
 		(and edebug-break-data
+                     (not breakpoint-disabled)
 		     (or (not edebug-break-condition)
 			 (setq edebug-break-result
 			       (edebug-eval edebug-break-condition))))))
@@ -2723,6 +2755,7 @@ See `edebug-behavior-alist' for implementations.")
 	      (edebug-stop))
 
 	    (edebug-overlay-arrow)
+            (edebug--overlay-breakpoints edebug-function)
 
             (unwind-protect
                 (if (or edebug-stop
@@ -2812,6 +2845,7 @@ See `edebug-behavior-alist' for implementations.")
 	    (goto-char edebug-buffer-outside-point))
 	  ;; ... nothing more.
 	  )
+      (edebug--overlay-breakpoints-remove (point-min) (point-max))
       ;; Could be an option to keep eval display up.
       (if edebug-eval-buffer (kill-buffer edebug-eval-buffer))
       (with-timeout-unsuspend edebug-with-timeout-suspend)
@@ -2832,6 +2866,8 @@ See `edebug-behavior-alist' for implementations.")
 (defvar edebug-backtrace-buffer) ; each recursive edit gets its own
 (defvar edebug-inside-windows)
 (defvar edebug-interactive-p)
+
+(defvar edebug-mode-map)		; will be defined fully later.
 
 (defun edebug--recursive-edit (arg-mode)
   ;; Start up a recursive edit inside of edebug.
@@ -2879,6 +2915,10 @@ See `edebug-behavior-alist' for implementations.")
               ;; Don't get confused by the user's keymap changes.
               (overriding-local-map nil)
               (overriding-terminal-local-map nil)
+              ;; Override other minor modes that may bind the keys
+              ;; edebug uses.
+              (minor-mode-overriding-map-alist
+               (list (cons 'edebug-mode edebug-mode-map)))
 
               ;; Bind again to outside values.
 	      (debug-on-error edebug-outside-debug-on-error)
@@ -3164,6 +3204,7 @@ the breakpoint."
 	       (edebug-def-mark (car edebug-data))
 	       (edebug-breakpoints (car (cdr edebug-data)))
 	       (offset-vector (nth 2 edebug-data))
+               (position (+ edebug-def-mark (aref offset-vector index)))
 	       present)
 	  ;; delete it either way
 	  (setq present (assq index edebug-breakpoints))
@@ -3174,8 +3215,11 @@ the breakpoint."
 		(setq edebug-breakpoints
 		      (edebug-sort-alist
 		       (cons
-			(list index condition temporary)
-			edebug-breakpoints) '<))
+			(list index condition temporary
+                              (set-marker (make-marker) position)
+                              nil)
+			edebug-breakpoints)
+                       '<))
 		(if condition
 		    (message "Breakpoint set in %s with condition: %s"
 			     edebug-def-name condition)
@@ -3185,13 +3229,56 @@ the breakpoint."
 	      (message "No breakpoint here")))
 
 	  (setcar (cdr edebug-data) edebug-breakpoints)
-	  (goto-char (+ edebug-def-mark (aref offset-vector index)))
-	  ))))
+	  (goto-char position)
+          (edebug--overlay-breakpoints edebug-def-name)))))
+
+(define-fringe-bitmap 'edebug-breakpoint
+  "\x3c\x7e\xff\xff\xff\xff\x7e\x3c")
+
+(defun edebug--overlay-breakpoints (function)
+  (let* ((data (get function 'edebug))
+         (start (nth 0 data))
+         (breakpoints (nth 1 data))
+         (offsets (nth 2 data)))
+    ;; First remove all old breakpoint overlays.
+    (edebug--overlay-breakpoints-remove
+     start (+ start (aref offsets (1- (length offsets)))))
+    ;; Then make overlays for the breakpoints (but only when we are in
+    ;; edebug mode).
+    (when edebug-active
+      (dolist (breakpoint breakpoints)
+        (let* ((pos (+ start (aref offsets (car breakpoint))))
+               (overlay (make-overlay pos (1+ pos)))
+               (face (if (nth 4 breakpoint)
+                         (progn
+                           (overlay-put overlay
+                                        'help-echo "Disabled breakpoint")
+                           (overlay-put overlay
+                                        'face 'edebug-disabled-breakpoint))
+                       (overlay-put overlay 'help-echo "Breakpoint")
+                       (overlay-put overlay 'face 'edebug-enabled-breakpoint))))
+          (overlay-put overlay 'edebug t)
+          (let ((fringe (make-overlay pos pos)))
+            (overlay-put fringe 'edebug t)
+            (overlay-put fringe 'before-string
+                         (propertize
+                          "x" 'display
+                          `(left-fringe edebug-breakpoint ,face)))))))))
+
+(defun edebug--overlay-breakpoints-remove (start end)
+  (dolist (overlay (overlays-in start end))
+    (when (overlay-get overlay 'edebug)
+      (delete-overlay overlay))))
 
 (defun edebug-set-breakpoint (arg)
   "Set the breakpoint of nearest sexp.
 With prefix argument, make it a temporary breakpoint."
   (interactive "P")
+  ;; If the form hasn't been instrumented yet, do it now.
+  (when (and (not edebug-active)
+	     (let ((data (get (edebug-form-data-symbol) 'edebug)))
+	       (or (null data) (markerp data))))
+    (edebug-defun))
   (edebug-modify-breakpoint t nil arg))
 
 (defun edebug-unset-breakpoint ()
@@ -3199,6 +3286,33 @@ With prefix argument, make it a temporary breakpoint."
   (interactive)
   (edebug-modify-breakpoint nil))
 
+(defun edebug-unset-breakpoints ()
+  "Unset all the breakpoints in the current form."
+  (interactive)
+  (let* ((name (edebug-form-data-symbol))
+         (breakpoints (nth 1 (get name 'edebug))))
+    (unless breakpoints
+      (user-error "There are no breakpoints in %s" name))
+    (save-excursion
+      (dolist (breakpoint breakpoints)
+        (goto-char (nth 3 breakpoint))
+        (edebug-modify-breakpoint nil)))))
+
+(defun edebug-toggle-disable-breakpoint ()
+  "Toggle whether the breakpoint near point is disabled."
+  (interactive)
+  (let ((stop-point (edebug-find-stop-point)))
+    (unless stop-point
+      (user-error "No stop point near point"))
+    (let* ((name (car stop-point))
+           (index (cdr stop-point))
+           (data (get name 'edebug))
+           (breakpoint (assq index (nth 1 data))))
+      (unless breakpoint
+        (user-error "No breakpoint near point"))
+      (setf (nth 4 breakpoint)
+            (not (nth 4 breakpoint)))
+      (edebug--overlay-breakpoints name))))
 
 (defun edebug-set-global-break-condition (expression)
   "Set `edebug-global-break-condition' to EXPRESSION."
@@ -3419,16 +3533,48 @@ instrumented.  Then it does `edebug-on-entry' and switches to `go' mode."
 
 (defun edebug-on-entry (function &optional flag)
   "Cause Edebug to stop when FUNCTION is called.
+
+FUNCTION needs to be edebug-instrumented for this to work; if
+FUNCTION isn't, this function has no effect.
+
 With prefix argument, make this temporary so it is automatically
 canceled the first time the function is entered."
   (interactive "aEdebug on entry to: \nP")
   ;; Could store this in the edebug data instead.
   (put function 'edebug-on-entry (if flag 'temp t)))
 
-(defun cancel-edebug-on-entry (function)
-  (interactive "aEdebug on entry to: ")
-  (put function 'edebug-on-entry nil))
+(defalias 'edebug-cancel-edebug-on-entry #'cancel-edebug-on-entry)
 
+(defun edebug--edebug-on-entry-functions ()
+  (let ((functions nil))
+    (mapatoms
+     (lambda (symbol)
+       (when (and (fboundp symbol)
+                  (get symbol 'edebug-on-entry))
+         (push symbol functions)))
+     obarray)
+    functions))
+
+(defun cancel-edebug-on-entry (function)
+  "Cause Edebug to not stop when FUNCTION is called.
+The removes the effect of `edebug-on-entry'.  If FUNCTION is is
+nil, remove `edebug-on-entry' on all functions."
+  (interactive
+   (list (let ((name (completing-read
+                      "Cancel edebug on entry to (default all functions): "
+                      (let ((functions (edebug--edebug-on-entry-functions)))
+                        (unless functions
+                          (user-error "No functions have `edebug-on-entry'"))
+                        functions))))
+           (when (and name
+                      (not (equal name "")))
+             (intern name)))))
+  (unless function
+    (message "Removing `edebug-on-entry' from all functions."))
+  (dolist (function (if function
+                        (list function)
+                      (edebug--edebug-on-entry-functions)))
+    (put function 'edebug-on-entry nil)))
 
 '(advice-add 'debug-on-entry :around 'edebug--debug-on-entry)  ;; Should we do this?
 ;; Also need edebug-cancel-debug-on-entry
@@ -3463,8 +3609,6 @@ This is useful for exiting even if `unwind-protect' code may be executed."
     (edebug-Continue-fast-mode . Continue-fast)
     (edebug-Go-nonstop-mode . Go-nonstop))
   "Association list between commands and the modes they set.")
-
-(defvar edebug-mode-map)		; will be defined fully later.
 
 (defun edebug-set-initial-mode ()
   "Set the initial execution mode of Edebug.
@@ -3674,9 +3818,11 @@ be installed in `emacs-lisp-mode-map'.")
     ;; breakpoints
     (define-key map "b" 'edebug-set-breakpoint)
     (define-key map "u" 'edebug-unset-breakpoint)
+    (define-key map "U" 'edebug-unset-breakpoints)
     (define-key map "B" 'edebug-next-breakpoint)
     (define-key map "x" 'edebug-set-conditional-breakpoint)
     (define-key map "X" 'edebug-set-global-break-condition)
+    (define-key map "D" 'edebug-toggle-disable-breakpoint)
 
     ;; evaluation
     (define-key map "r" 'edebug-previous-result)
@@ -3732,8 +3878,10 @@ be installed in `emacs-lisp-mode-map'.")
     ;; breakpoints
     (define-key map "b" 'edebug-set-breakpoint)
     (define-key map "u" 'edebug-unset-breakpoint)
+    (define-key map "U" 'edebug-unset-breakpoints)
     (define-key map "x" 'edebug-set-conditional-breakpoint)
     (define-key map "X" 'edebug-set-global-break-condition)
+    (define-key map "D" 'edebug-toggle-disable-breakpoint)
 
     ;; views
     (define-key map "w" 'edebug-where)
@@ -4279,6 +4427,8 @@ It is removed when you hit any char."
     ("Breaks"
      ["Set Breakpoint" edebug-set-breakpoint t]
      ["Unset Breakpoint" edebug-unset-breakpoint t]
+     ["Unset Breakpoints In Form" edebug-unset-breakpoints t]
+     ["Toggle Disable Breakpoint" edebug-toggle-disable-breakpoint t]
      ["Set Conditional Breakpoint" edebug-set-conditional-breakpoint t]
      ["Set Global Break Condition" edebug-set-global-break-condition t]
      ["Show Next Breakpoint" edebug-next-breakpoint t])
@@ -4399,6 +4549,24 @@ With prefix argument, make it a temporary breakpoint."
   (edebug-uninstall-read-eval-functions)
   ;; Continue standard unloading.
   nil)
+
+(defun edebug-remove-instrumentation ()
+  "Remove Edebug instrumentation from all functions."
+  (interactive)
+  (let ((functions nil))
+    (mapatoms
+     (lambda (symbol)
+       (when (and (functionp symbol)
+                  (get symbol 'edebug))
+         (let ((unwrapped (edebug-unwrap* (symbol-function symbol))))
+           (unless (equal unwrapped (symbol-function symbol))
+             (push symbol functions)
+             (setf (symbol-function symbol) unwrapped)))))
+     obarray)
+    (if (not functions)
+        (message "Found no functions to remove instrumentation from")
+      (message "Remove edebug instrumentation from %s"
+               (mapconcat #'symbol-name functions ", ")))))
 
 (provide 'edebug)
 ;;; edebug.el ends here

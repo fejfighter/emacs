@@ -13419,26 +13419,22 @@ static Lisp_Object
 tty_get_tab_bar_item (struct frame *f, int x, int *idx, ptrdiff_t *end)
 {
   ptrdiff_t clen = 0;
-  Lisp_Object caption;
 
-  int i, j;
-  for (i = 0, j = 0; i < f->n_tab_bar_items; i++, j += TAB_BAR_ITEM_NSLOTS)
+  for (int i = 0; i < f->n_tab_bar_items; i++)
     {
-      caption = AREF (f->tab_bar_items, j + TAB_BAR_ITEM_CAPTION);
+      Lisp_Object caption = AREF (f->tab_bar_items, (i * TAB_BAR_ITEM_NSLOTS
+						     + TAB_BAR_ITEM_CAPTION));
       if (NILP (caption))
 	return Qnil;
       clen += SCHARS (caption);
       if (x < clen)
-	break;
+	{
+	  *idx = i;
+	  *end = clen;
+	  return caption;
+	}
     }
-  if (i < f->n_tab_bar_items)
-    {
-      *idx = i;
-      *end = clen;
-      return caption;
-    }
-  else
-    return Qnil;
+  return Qnil;
 }
 
 /* Handle a mouse click at X/Y on the tab bar of TTY frame F.  If the
@@ -15992,6 +15988,8 @@ mark_window_display_accurate_1 (struct window *w, bool accurate_p)
       w->current_matrix->buffer = b;
       w->current_matrix->begv = BUF_BEGV (b);
       w->current_matrix->zv = BUF_ZV (b);
+      w->current_matrix->header_line_p = window_wants_header_line (w);
+      w->current_matrix->tab_line_p = window_wants_tab_line (w);
 
       w->last_cursor_vpos = w->cursor.vpos;
       w->last_cursor_off_p = w->cursor_off_p;
@@ -21699,7 +21697,7 @@ extend_face_to_end_of_line (struct it *it)
 	      memset (&it->position, 0, sizeof it->position);
 
 	      /* Only generate a stretch glyph if there is distance
-		 between current_x and and the indicator position.  */
+		 between current_x and the indicator position.  */
 	      if (stretch_width > 0)
 		{
 		  int stretch_ascent = (((it->ascent + it->descent)
@@ -24956,7 +24954,12 @@ display_mode_line (struct window *w, enum face_id face_id, Lisp_Object format)
 
   it.glyph_row->mode_line_p = true;
   if (face_id == TAB_LINE_FACE_ID)
-    it.glyph_row->tab_line_p = true;
+    {
+      it.glyph_row->tab_line_p = true;
+      w->desired_matrix->tab_line_p = true;
+    }
+  else if (face_id == HEADER_LINE_FACE_ID)
+    w->desired_matrix->header_line_p = true;
 
   /* FIXME: This should be controlled by a user option.  But
      supporting such an option is not trivial, since the mode line is

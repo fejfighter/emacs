@@ -171,11 +171,16 @@ make some customization fail to work.
 
 +++
 ** Installed packages are now activated *before* loading the init file.
-This is part of a change intended to eliminate the behavior of
-package.el inserting a call to 'package-initialize' into the init
-file, which was previously done when Emacs was started.  As a result
-of this change, it is no longer necessary to call 'package-initialize'
-in your init file.
+As a result of this change, it is no longer necessary to call
+'package-initialize' in your init file.
+
+Previously, a call to 'package-initialize' was automatically inserted
+into the init file when Emacs was started.  This call can now safely
+be removed.  Alternatively, if you want to ensure that your init file
+is still compatible with earlier versions of Emacs, change it to:
+
+(when (version< emacs-version "27.1")
+  (package-initialize))
 
 However, if your init file changes the values of 'package-load-list'
 or 'package-user-dir', or sets 'package-enable-at-startup' to nil then
@@ -391,9 +396,9 @@ to 'completion-styles' or 'completion-category-overrides' to use it.
 ** New face attribute ':extend' to control face extension at EOL.
 The new face attribute ':extend' controls whether to use the face for
 displaying the empty space beyond end of line (EOL) till the edge of
-the window.  By default, this attribute is non-nil only for 'region'
-and 'hl-line' faces; any other face that crosses end of line will not
-affect the display of the empty space at EOL.
+the window.  By default, this attribute is non-nil only for 'region',
+'secondary-selection', 'hl-line' and diff faces; any other face that
+crosses end of line will not affect the display of the empty space at EOL.
 
 ** Connection-local variables
 
@@ -460,6 +465,11 @@ RGB triplets with a single hexadecimal digit per component.
 ** 'scroll-lock-mode' is now bound to the 'Scroll_Lock' key globally.
 Note that this key binding will not work on MS-Windows systems if
 'w32-scroll-lock-modifier' is non-nil.
+
+---
+** 'global-set-key', called interactively, now no longer downcases a
+key binding with an upper case letter - if you can type it, you can
+bind it.
 
 
 * Editing Changes in Emacs 27.1
@@ -809,6 +819,11 @@ The default value is 'find-dired-sort-by-filename'.
 +++
 *** New command 'log-edit-generate-changelog-from-diff', bound to 'C-c C-w'.
 This generates ChangeLog entries from the VC fileset diff.
+
+*** 'vc-dir' now shows a button allowing you to hide the stash list.
+Controlled by user option 'vc-git-show-stash'.  Default t means show
+the entire list as before.  An integer value limits the list length
+(but still allows you to show the entire list via the button).
 
 *** Recording ChangeLog entries doesn't require an actual file.
 If a ChangeLog file doesn't exist, and if the new user option
@@ -1458,6 +1473,33 @@ the Elisp manual for documentation of the new mode and its commands.
 ** Edebug
 
 +++
+*** New faces 'edebug-enabled-breakpoint' and 'edebug-disabled-breakpoint'
+When setting breakpoints in Edebug, an overlay with these faces are
+placed over the point in question, depending on whether they are
+enabled or not.
+
++++
+*** New command 'edebug-toggle-disable-breakpoint'
+This command allows you to disable a breakpoint temporarily.  This is
+mainly useful with breakpoints that are conditional and would take
+some time to recreate.
+
++++
+*** New command 'edebug-unset-breakpoints'
+To clear all breakpoints in the current form, the 'U' command in
+'edebug-mode', or 'M-x edebug-unset-breakpoints' can be used.
+
+---
+*** Re-instrumenting a function with Edebug will now try to preserve
+previously-set breakpoints.  If the code has changed substantially,
+this may not be possible.
+
++++
+*** New command 'edebug-remove-instrumentation.
+This command removes Edebug instrumentation from all functions that
+have been instrumented.
+
++++
 *** The runtime behavior of Edebug's instrumentation can be changed
 using the new variables 'edebug-behavior-alist',
 'edebug-after-instrumentation-function' and
@@ -1844,6 +1886,7 @@ the 128...255 range, as expected.
 matches the empty string, each being an identity for the operation.
 This also works for their aliases: '|' for 'or'; ':', 'and' and
 'sequence' for 'seq'.
+The symbol 'unmatchable' can be used as an alternative to (or).
 
 ---
 *** 'regexp' and new 'literal' accept arbitrary lisp as arguments.
@@ -1853,6 +1896,10 @@ at run time, instead of a constant string.
 ---
 *** New rx extension mechanism: 'rx-define', 'rx-let', 'rx-let-eval'.
 These macros add new forms to the rx notation.
+
++++
+*** 'anychar' is now an alias for 'anything'
+Both match any single character; 'anychar' is more descriptive.
 
 ** Frames
 
@@ -2121,9 +2168,9 @@ The new command 'tab-bar-mode' enables the tab bar at the top of each
 frame, where you can use tabs to switch between named persistent
 window configurations.
 
-The 'C-x 6' sequence is the new prefix key for tab-related commands:
-'C-x 6 2' creates a new tab; 'C-x 6 0' deletes the current tab;
-'C-x 6 b' switches to buffer in another tab; 'C-x 6 f' and 'C-x 6 C-f'
+The 'C-x t' sequence is the new prefix key for tab-related commands:
+'C-x t 2' creates a new tab; 'C-x t 0' deletes the current tab;
+'C-x t b' switches to buffer in another tab; 'C-x t f' and 'C-x t C-f'
 edit file in another tab; and 'C-TAB' and 'S-C-TAB' switch to the next
 or previous tab.  You can also switch between tabs and create/delete
 tabs with a mouse.
@@ -2147,7 +2194,7 @@ the previous window-local tab is the same as typing 'C-x <LEFT>'
 ('next-buffer').  Both commands support a numeric prefix argument as
 a repeat count.  Clicking on the plus icon adds a new buffer to the
 window-local tab line of buffers.  Using the mouse wheel on the tab
-line scrolls tabs that display the window buffers.
+line scrolls tabs.
 
 ** fileloop.el lets one setup multifile operations like search&replace.
 
@@ -2184,11 +2231,6 @@ immediately.  Type 'M-x so-long-commentary' for full documentation.
 
 
 * Incompatible Lisp Changes in Emacs 27.1
-
----
-** Two-column mode provides its 'C-x 6' prefix map only after loading
-two-column.el.  Its prefix key 'F2' is still available globally
-along with 'C-x 6' used by the tab commands globally.
 
 ---
 ** Incomplete destructive splicing support has been removed.
@@ -3003,6 +3045,11 @@ in other packages are now obsolete aliases of 'xor'.
 
 +++
 ** 'define-globalized-minor-mode' now takes BODY forms.
+
++++
+** New text property 'help-echo-inhibit-substitution'.
+Setting this on the first character of a help string disables
+conversions via 'substitute-command-keys'.
 
 
 * Changes in Emacs 27.1 on Non-Free Operating Systems

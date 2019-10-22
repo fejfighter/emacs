@@ -639,7 +639,7 @@ copy."
     (nbutlast (copy-sequence list) n)))
 
 (defun nbutlast (list &optional n)
-  "Modifies LIST to remove the last N elements.
+  "Modify LIST to remove the last N elements.
 If N is omitted or nil, remove the last element."
   (let ((m (length list)))
     (or n (setq n 1))
@@ -1120,7 +1120,7 @@ that local binding will continue to shadow any global binding
 that you make with this function."
   (interactive
    (let* ((menu-prompting nil)
-          (key (read-key-sequence "Set key globally: ")))
+          (key (read-key-sequence "Set key globally: " nil t)))
      (list key
            (read-command (format "Set key %s to command: "
                                  (key-description key))))))
@@ -1262,12 +1262,9 @@ The normal global definition of the character C-x indirects to this keymap.")
 (defalias 'ctl-x-5-prefix ctl-x-5-map)
 (define-key ctl-x-map "5" 'ctl-x-5-prefix)
 
-(defvar ctl-x-6-map (make-sparse-keymap)
-  "Keymap for tab commands.")
-(defalias 'ctl-x-6-prefix ctl-x-6-map)
-(define-key ctl-x-map "6" 'ctl-x-6-prefix)
-(defalias 'ctl-x-t-prefix ctl-x-6-map)
-(define-key ctl-x-map "t" 'ctl-x-t-prefix)
+(defvar tab-prefix-map (make-sparse-keymap)
+  "Keymap for tab-bar related commands.")
+(define-key ctl-x-map "t" tab-prefix-map)
 
 
 ;;;; Event manipulation functions.
@@ -2344,7 +2341,7 @@ Signal an error if the program returns with a non-zero exit status."
 	(nreverse lines)))))
 
 (defun process-live-p (process)
-  "Returns non-nil if PROCESS is alive.
+  "Return non-nil if PROCESS is alive.
 A process is considered alive if its status is `run', `open',
 `listen', `connect' or `stop'.  Value is nil if PROCESS is not a
 process."

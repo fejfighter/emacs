@@ -636,6 +636,17 @@ The regexp should match at end of buffer.
 The answer will be provided by `tramp-action-terminal', which see."
   :type 'regexp)
 
+;; Plink 0.71 has added an additional anti-spoofing prompt after
+;; authentication.  This could be discarded with the argument
+;; "-no-antispoof".  However, since we don't know which PuTTY
+;; version is installed, we must react interactively.
+(defcustom tramp-antispoof-regexp
+  (regexp-quote "Access granted. Press Return to begin session. ")
+  "Regular expression matching plink's anti-spoofing message.
+The regexp should match at end of buffer."
+  :version "27.1"
+  :type 'regexp)
+
 (defcustom tramp-operation-not-permitted-regexp
   (concat "\\(" "preserving times.*" "\\|" "set mode" "\\)" ":\\s-*"
 	  (regexp-opt '("Operation not permitted") t))
@@ -1922,7 +1933,7 @@ If VAR is nil, then we bind `v' to the structure and `method', `user',
       (tramp-compat-progress-reporter-update reporter value suffix))))
 
 (defmacro with-tramp-progress-reporter (vec level message &rest body)
-  "Executes BODY, spinning a progress reporter with MESSAGE.
+  "Execute BODY, spinning a progress reporter with MESSAGE.
 If LEVEL does not fit for visible messages, there are only traces
 without a visible progress reporter."
   (declare (indent 3) (debug t))
@@ -1998,7 +2009,7 @@ letter into the file name.  This function removes it."
 ;;; Config Manipulation Functions:
 
 (defun tramp-set-completion-function (method function-list)
-  "Sets the list of completion functions for METHOD.
+  "Set the list of completion functions for METHOD.
 FUNCTION-LIST is a list of entries of the form (FUNCTION FILE).
 The FUNCTION is intended to parse FILE according its syntax.
 It might be a predefined FUNCTION, or a user defined FUNCTION.
@@ -2042,7 +2053,7 @@ Example:
 		   (cons method r)))))
 
 (defun tramp-get-completion-function (method)
-  "Returns a list of completion functions for METHOD.
+  "Return a list of completion functions for METHOD.
 For definition of that list see `tramp-set-completion-function'."
   (append
    `(;; Default settings are taken into account.
@@ -2251,7 +2262,7 @@ preventing reentrant calls of Tramp.")
 ;; Main function.
 (defun tramp-file-name-handler (operation &rest args)
   "Invoke Tramp file name handler.
-Falls back to normal file name handler if no Tramp file name handler exists."
+Fall back to normal file name handler if no Tramp file name handler exists."
   (let ((filename (apply #'tramp-file-name-for-operation operation args))
 	;; `file-remote-p' is called for everything, even for symbolic
 	;; links which look remote.  We don't want to get an error.
@@ -2619,7 +2630,7 @@ not in completion mode."
 ;; "/x:y@""/[x/y@"      "/x:y@z" "/[x/y@z"   "/x:y@z:" "/[x/y@z]"
 ;;["x" "y" nil nil]     ["x" "y" "z" nil]    ["x" "y" "z" ""]
 (defun tramp-completion-dissect-file-name (name)
-  "Returns a list of `tramp-file-name' structures.
+  "Return a list of `tramp-file-name' structures.
 They are collected by `tramp-completion-dissect-file-name1'."
   (let* ((x-nil "\\|\\(\\)")
 	 (tramp-completion-ipv6-regexp
@@ -2692,7 +2703,7 @@ They are collected by `tramp-completion-dissect-file-name1'."
        tramp-completion-file-name-structure6)))))
 
 (defun tramp-completion-dissect-file-name1 (structure name)
-  "Returns a `tramp-file-name' structure matching STRUCTURE.
+  "Return a `tramp-file-name' structure matching STRUCTURE.
 The structure consists of remote method, remote user,
 remote host and localname (filename on remote host)."
   (save-match-data
@@ -2708,7 +2719,7 @@ remote host and localname (filename on remote host)."
 ;; This function returns all possible method completions, adding the
 ;; trailing method delimiter.
 (defun tramp-get-completion-methods (partial-method)
-  "Returns all method completions for PARTIAL-METHOD."
+  "Return all method completions for PARTIAL-METHOD."
   (mapcar
    (lambda (method)
      (and method
@@ -2719,7 +2730,7 @@ remote host and localname (filename on remote host)."
 ;; Compares partial user and host names with possible completions.
 (defun tramp-get-completion-user-host
   (method partial-user partial-host user host)
-  "Returns the most expanded string for user and host name completion.
+  "Return the most expanded string for user and host name completion.
 PARTIAL-USER must match USER, PARTIAL-HOST must match HOST."
   (cond
 
@@ -3935,6 +3946,13 @@ The terminal type can be configured with `tramp-terminal-type'."
   (tramp-send-string vec (concat tramp-terminal-type tramp-local-end-of-line))
   t)
 
+(defun tramp-action-confirm-message (_proc vec)
+  "Return RET in order to confirm the message."
+  (with-current-buffer (tramp-get-connection-buffer vec)
+    (tramp-message vec 6 "\n%s" (buffer-string)))
+  (tramp-send-string vec tramp-local-end-of-line)
+  t)
+
 (defun tramp-action-process-alive (proc _vec)
   "Check, whether a process has finished."
   (unless (process-live-p proc)
@@ -4211,13 +4229,13 @@ the remote host use line-endings as defined in the variable
 	  (delete-region (point) (point-max)))))))
 
 (defun tramp-get-inode (vec)
-  "Returns the virtual inode number.
+  "Return the virtual inode number.
 If it doesn't exist, generate a new one."
   (with-tramp-file-property vec (tramp-file-name-localname vec) "inode"
     (setq tramp-inodes (1+ tramp-inodes))))
 
 (defun tramp-get-device (vec)
-  "Returns the virtual device number.
+  "Return the virtual device number.
 If it doesn't exist, generate a new one."
   (with-tramp-connection-property (tramp-get-connection-process vec) "device"
     (cons -1 (setq tramp-devices (1+ tramp-devices)))))
@@ -4244,7 +4262,7 @@ If both files are local, the function returns t."
 	   (string-equal (file-remote-p file1) (file-remote-p file2)))))
 
 (defun tramp-mode-string-to-int (mode-string)
-  "Converts a ten-letter `drwxrwxrwx'-style mode string into mode bits."
+  "Convert a ten-letter `drwxrwxrwx'-style mode string into mode bits."
   (let* (case-fold-search
 	 (mode-chars (string-to-vector mode-string))
          (owner-read (aref mode-chars 1))
@@ -4614,7 +4632,7 @@ ALIST is of the form ((FROM . TO) ...)."
 
 (defun tramp-call-process
   (vec program &optional infile destination display &rest args)
-  "Calls `call-process' on the local host.
+  "Call `call-process' on the local host.
 It always returns a return code.  The Lisp error raised when
 PROGRAM is nil is trapped also, returning 1.  Furthermore, traces
 are written with verbosity of 6."
@@ -4648,7 +4666,7 @@ are written with verbosity of 6."
 
 (defun tramp-call-process-region
   (vec start end program &optional delete buffer display &rest args)
-  "Calls `call-process-region' on the local host.
+  "Call `call-process-region' on the local host.
 It always returns a return code.  The Lisp error raised when
 PROGRAM is nil is trapped also, returning 1.  Furthermore, traces
 are written with verbosity of 6."
@@ -4679,7 +4697,7 @@ are written with verbosity of 6."
 
 (defun tramp-process-lines
   (vec program &rest args)
-  "Calls `process-lines' on the local host.
+  "Call `process-lines' on the local host.
 If an error occurs, it returns nil.  Traces are written with
 verbosity of 6."
   (let ((default-directory (tramp-compat-temporary-file-directory))
@@ -4835,7 +4853,9 @@ Only works for Bourne-like shells."
 ;;; the process property `remote-pid'.
 
 (defun tramp-interrupt-process (&optional process _current-group)
-  "Interrupt remote process PROC."
+  "Interrupt remote PROCESS.
+PROCESS can be a process, a buffer with an associated process, the
+name of a process or buffer, or nil to default to the current buffer."
   ;; CURRENT-GROUP is not implemented yet.
   (let ((proc (cond
 	       ((processp process) process)
