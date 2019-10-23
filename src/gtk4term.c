@@ -249,7 +249,7 @@ x_destroy_window (struct frame *f)
   dpyinfo->reference_count--;
 }
 
-/* Calculate the absolute position in frame F
+/* Calculate the absolute position in frame
    from its current recorded position values and gravity.  */
 
 static void
@@ -3095,7 +3095,7 @@ gtk4_mouse_position (struct frame **fp, int insist, Lisp_Object *bar_window,
     device = gdk_seat_get_pointer(seat);
     gdk_surface_get_device_position(gtk_native_get_surface(GTK_NATIVE(win)), device, &win_x, &win_y, &mask);
     if (win != NULL)
-      f1 = gtk4_any_window_to_frame(win);
+      f1 = gtk4_any_window_to_frame(GTK_WIDGET(win));
     else {
       // crossing display server?
       f1 = SELECTED_FRAME();
@@ -4723,7 +4723,7 @@ gtk4_window_is_of_frame_recursive(GtkWidget *widget, gpointer data)
 static bool
 gtk4_window_is_of_frame(struct frame *f, GtkWidget *window)
 {
-  return (FRAME_GTK_OUTER_WINDOW(f) == gtk_widget_get_native(window));
+  return (gtk_widget_get_native(GTK_WIDGET(FRAME_GTK_OUTER_WINDOW(f))) == gtk_widget_get_native(window));
 }
 
 /* Like x_window_to_frame but also compares the window with the widget's
@@ -4831,7 +4831,7 @@ gtk4_handle_event(GtkWidget *widget, GdkEvent *event, gpointer *data)
   case GDK_PAD_RING:              GTK4_TRACE("GDK_PAD_RING"); break;
   case GDK_PAD_STRIP:             GTK4_TRACE("GDK_PAD_STRIP"); break;
   case GDK_PAD_GROUP_MODE:        GTK4_TRACE("GDK_PAD_GROUP_MODE"); break;
-  default:                        GTK4_TRACE("GDK_EVENT %d", gdk_event_get_event_type(event));
+  default:                        GTK4_TRACE("GDK_EVENT %u", gdk_event_get_event_type(event));
   }
   GTK4_TRACE(" Widget is %s", type_name);
 
@@ -4924,45 +4924,45 @@ static void print_widget_tree(GtkWidget *w)
   print_widget_tree_recursive(w, indent);
 }
 
-static gboolean
-gtk4_handle_draw(GtkWidget *widget, cairo_t *cr, gpointer *data)
-{
-  struct frame *f;
+/* static gboolean */
+/* gtk4_handle_draw(GtkWidget *widget, cairo_t *cr, gpointer *data) */
+/* { */
+/*   struct frame *f; */
 
-  GTK4_TRACE("gtk4_handle_draw");
+/*   GTK4_TRACE("gtk4_handle_draw"); */
 
-  print_widget_tree(widget);
+/*   print_widget_tree(widget); */
 
-  GtkWindow *win = GTK_WINDOW(widget);
+/*   GtkWindow *win = GTK_WINDOW(widget); */
 
-  GTK4_TRACE("  win=%p", win);
-  if (win != NULL) {
-    cairo_surface_t *src = NULL;
-    f = gtk4_any_window_to_frame(win);
-    GTK4_TRACE("  f=%p", f);
-    if (f != NULL) {
-      src = FRAME_X_OUTPUT(f)->cr_surface_visible_bell;
-      if (src == NULL)
-	src = FRAME_CR_SURFACE(f);
-    }
-    //GTK4_TRACE("  surface=%p", src);
-    if (src != NULL) {
-      /* GTK4_TRACE("  resized_p=%d", f->resized_p); */
-      /* GTK4_TRACE("  garbaged=%d", f->garbaged); */
-      /* GTK4_TRACE("  scroll_bar_width=%f", (double) GTK4_SCROLL_BAR_WIDTH(f)); */
-      /* //GTK4_TRACE("  scroll_bar_adjust=%d", GTK4_SCROLL_BAR_ADJUST(f)); */
-      /* GTK4_TRACE("  scroll_bar_cols=%d", FRAME_SCROLL_BAR_COLS(f)); */
-      /* GTK4_TRACE("  column_width=%d", FRAME_COLUMN_WIDTH(f)); */
-      /* GTK4_TRACE(" %d %d %d ", NILP(f->parent_frame), f->top_pos, f->left_pos); */
-      cairo_set_source_surface(cr, src, 0, 0);
-      cairo_paint(cr);
-    }
-  }
-  return FALSE;
-}
+/*   GTK4_TRACE("  win=%p", win); */
+/*   if (win != NULL) { */
+/*     cairo_surface_t *src = NULL; */
+/*     f = gtk4_any_window_to_frame(win); */
+/*     GTK4_TRACE("  f=%p", f); */
+/*     if (f != NULL) { */
+/*       src = FRAME_X_OUTPUT(f)->cr_surface_visible_bell; */
+/*       if (src == NULL) */
+/*	src = FRAME_CR_SURFACE(f); */
+/*     } */
+/*     //GTK4_TRACE("  surface=%p", src); */
+/*     if (src != NULL) { */
+/*       /\* GTK4_TRACE("  resized_p=%d", f->resized_p); *\/ */
+/*       /\* GTK4_TRACE("  garbaged=%d", f->garbaged); *\/ */
+/*       /\* GTK4_TRACE("  scroll_bar_width=%f", (double) GTK4_SCROLL_BAR_WIDTH(f)); *\/ */
+/*       /\* //GTK4_TRACE("  scroll_bar_adjust=%d", GTK4_SCROLL_BAR_ADJUST(f)); *\/ */
+/*       /\* GTK4_TRACE("  scroll_bar_cols=%d", FRAME_SCROLL_BAR_COLS(f)); *\/ */
+/*       /\* GTK4_TRACE("  column_width=%d", FRAME_COLUMN_WIDTH(f)); *\/ */
+/*       /\* GTK4_TRACE(" %d %d %d ", NILP(f->parent_frame), f->top_pos, f->left_pos); *\/ */
+/*       cairo_set_source_surface(cr, src, 0, 0); */
+/*       cairo_paint(cr); */
+/*     } */
+/*   } */
+/*   return FALSE; */
+/* } */
 
 static void size_allocate(GtkWidget *widget, int width, int  height,
-                        int baseline, gpointer *user_data)
+			int baseline, gpointer *user_data)
 {
   GTK4_TRACE("___size-alloc: %dx%d + %d.", width, height, baseline);
 
@@ -5074,7 +5074,11 @@ gtk4_emacs_to_gtk_modifiers (struct gtk4_display_info *dpyinfo, int state)
 #define IsKeypadKey(keysym)       (0xff80 <= (keysym) && (keysym) < 0xffbe)
 #define IsFunctionKey(keysym)     (0xffbe <= (keysym) && (keysym) < 0xffe1)
 
-static gboolean key_press_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
+static gboolean key_press_event(GtkEventControllerKey *controller,
+	       guint                  keysym,
+	       guint                  keycode,
+	       GdkModifierType        state,
+	       gpointer               user_data)
 {
   struct coding_system coding;
   union buffered_input_event inev;
@@ -5089,7 +5093,7 @@ static gboolean key_press_event(GtkWidget *widget, GdkEvent *event, gpointer *us
   inev.ie.kind = NO_EVENT;
   inev.ie.arg = Qnil;
 
-  struct frame *f = gtk4_any_window_to_frame(widget);
+  struct frame *f = gtk4_any_window_to_frame(gtk_event_controller_get_widget((GtkEventController*)controller));
   hlinfo = MOUSE_HL_INFO(f);
 
   /* If mouse-highlight is an integer, input clears out
@@ -5102,7 +5106,7 @@ static gboolean key_press_event(GtkWidget *widget, GdkEvent *event, gpointer *us
 
   if (f != 0)
     {
-      guint keysym, orig_keysym;
+      guint /* keysym, */ orig_keysym;
       /* al%imercury@uunet.uu.net says that making this 81
 	 instead of 80 fixed a bug whereby meta chars made
 	 his Emacs hang.
@@ -5120,10 +5124,9 @@ static gboolean key_press_event(GtkWidget *widget, GdkEvent *event, gpointer *us
       int modifiers;
       Lisp_Object coding_system = Qlatin_1;
       Lisp_Object c;
-      guint state;
+      //guint state;
       gboolean key_is_modifier;
-
-      gdk_event_get_state(event, &state);
+      //gdk_event_get_state(event, &state);
 
 
       state |= gtk4_emacs_to_gtk_modifiers (FRAME_DISPLAY_INFO (f), extra_keyboard_modifiers);
@@ -5142,16 +5145,16 @@ static gboolean key_press_event(GtkWidget *widget, GdkEvent *event, gpointer *us
       nbytes = 1;//event->key.length;
       if (nbytes > copy_bufsiz)
 	nbytes = copy_bufsiz;
-      memcpy(copy_bufptr, "a"/* event->key.string */, nbytes);
+      memcpy(copy_bufptr, ""/* event->key.string */, nbytes);
 
-      gdk_event_get_keycode(event, (guint16*)&keysym);
-      orig_keysym = keysym;
+      orig_keysym = keycode;
 
       /* Common for all keysym input events.  */
       XSETFRAME (inev.ie.frame_or_window, f);
       inev.ie.modifiers = gtk4_gtk_to_emacs_modifiers (FRAME_DISPLAY_INFO (f), modifiers);
-      inev.ie.timestamp = gdk_event_get_time(event);
-      gdk_event_get_key_is_modifier(event, &key_is_modifier);
+      //inev.ie.timestamp = gdk_event_get_time(event);
+      //gdk_event_get_key_is_modifier(event, &key_is_modifier);
+      key_is_modifier = state > 0;
 
       /* First deal with keysyms which have defined
 	 translations to characters.  */
@@ -5320,7 +5323,7 @@ static gboolean key_press_event(GtkWidget *widget, GdkEvent *event, gpointer *us
 	    evq_enqueue (&inev);
 	  }
 
-	// count += nchars;
+	//count += nchars;
 
 	inev.ie.kind = NO_EVENT;  /* Already stored above.  */
 
@@ -5334,7 +5337,7 @@ static gboolean key_press_event(GtkWidget *widget, GdkEvent *event, gpointer *us
     {
       XSETFRAME (inev.ie.frame_or_window, f);
       evq_enqueue (&inev);
-      // count++;
+      //count++;
     }
 
   SAFE_FREE();
@@ -5355,15 +5358,15 @@ static gboolean configure_event(GtkWidget *widget,
   struct frame *f = gtk4_any_window_to_frame (widget);
 
   if (f && widget == FRAME_GTK_OUTER_WIDGET (f)) {
-    GTK4_TRACE("%dx%d", width, height);
-    xg_frame_resized(f, width, height-80);
+    GTK4_TRACE("%ux%u", width, height);
+    xg_frame_resized(f, width, height);
   }
   return TRUE;
 }
 
 static gboolean map_event(GtkWidget *widget, gpointer *user_data)
 {
-  struct frame *f = gtk4_any_window_to_frame (GTK_WINDOW(widget));
+  struct frame *f = gtk4_any_window_to_frame (widget);
   union buffered_input_event inev;
 
   GTK4_TRACE("map_event");
@@ -5523,11 +5526,16 @@ x_focus_changed (gboolean is_enter, int state, struct gtk4_display_info *dpyinfo
 }
 
 static gboolean
-enter_notify_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
+enter_notify_event(GtkEventControllerMotion *controller,
+		   gdouble                   x,
+		   gdouble                   y,
+		   GdkCrossingMode           crossing_mode,
+		   GdkNotifyType             notify_type,
+		   gpointer                  user_data)
 {
   GTK4_TRACE("enter_notify_event");
   union buffered_input_event inev;
-  struct frame *focus_frame = gtk4_any_window_to_frame(widget);
+  struct frame *focus_frame = gtk4_any_window_to_frame(gtk_event_controller_get_widget((GtkEventController*)controller));
   int focus_state
     = focus_frame ? focus_frame->output_data.gtk4->focus_state : 0;
 
@@ -5545,11 +5553,14 @@ enter_notify_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
 }
 
 static gboolean
-leave_notify_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
+leave_notify_event(GtkEventControllerMotion *controller,
+		   GdkCrossingMode           crossing_mode,
+		   GdkNotifyType             notify_type,
+		   gpointer                  user_data)
 {
   GTK4_TRACE("leave_notify_event");
   union buffered_input_event inev;
-  struct frame *focus_frame = gtk4_any_window_to_frame(widget);
+  struct frame *focus_frame = gtk4_any_window_to_frame(gtk_event_controller_get_widget((GtkEventController*)controller));
   int focus_state
     = focus_frame ? focus_frame->output_data.gtk4->focus_state : 0;
 
@@ -5664,13 +5675,18 @@ note_mouse_movement (struct frame *frame, const GdkEventMotion *event)
 }
 
 static gboolean
-motion_notify_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
+motion_notify_event(GtkEventControllerMotion *controller,
+		    gdouble                   x,
+		    gdouble                   y,
+		    gpointer                  user_data)
 {
   GTK4_TRACE("motion_notify_event");
   union buffered_input_event inev;
   struct frame *f, *frame;
   struct gtk4_display_info *dpyinfo;
   Mouse_HLInfo *hlinfo;
+  GtkWidget *widget = gtk_event_controller_get_widget((GtkEventController*)controller);
+  void * event = NULL;
 
   EVENT_INIT (inev.ie);
   inev.ie.kind = NO_EVENT;
@@ -6096,18 +6112,32 @@ gtk4_set_event_handler(struct frame *f)
   g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "destroy", G_CALLBACK(delete_event), NULL);
   g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "map", G_CALLBACK(map_event), NULL);
   //g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "event", G_CALLBACK(gtk4_handle_event), NULL);
-
   g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "size-allocate", G_CALLBACK(size_allocate), NULL);
-  /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "key-press-event", G_CALLBACK(key_press_event), NULL); */
-  /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "key-release-event", G_CALLBACK(key_release_event), NULL); */
-  /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "focus-in-event", G_CALLBACK(focus_in_event), NULL); */
-  /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "focus-out-event", G_CALLBACK(focus_out_event), NULL); */
-  /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "enter-notify-event", G_CALLBACK(enter_notify_event), NULL); */
-  /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "leave-notify-event", G_CALLBACK(leave_notify_event), NULL); */
-  /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "motion-notify-event", G_CALLBACK(motion_notify_event), NULL); */
-  /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "button-press-event", G_CALLBACK(button_event), NULL); */
-  /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "button-release-event", G_CALLBACK(button_event), NULL); */
-  /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "scroll-event", G_CALLBACK(scroll_event), NULL); */
+
+  GtkEventController *key = gtk_event_controller_key_new();
+  g_signal_connect(key, "key-pressed", G_CALLBACK(key_press_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
+  g_signal_connect(key, "key-released", G_CALLBACK(key_release_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
+  g_signal_connect(key, "focus-in", G_CALLBACK(focus_in_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
+  g_signal_connect(key, "focus-out", G_CALLBACK(focus_out_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
+  gtk_widget_add_controller(FRAME_GTK_WIDGET(f), key);
+
+  GtkEventController *motion = gtk_event_controller_motion_new();
+  g_signal_connect(motion, "enter", G_CALLBACK(enter_notify_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
+  g_signal_connect(motion, "leave", G_CALLBACK(leave_notify_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
+  g_signal_connect(motion, "motion", G_CALLBACK(motion_notify_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
+  gtk_widget_add_controller(FRAME_GTK_WIDGET(f), motion);
+
+  GtkGesture *button = gtk_gesture_click_new();
+
+  g_signal_connect(button, "pressed", G_CALLBACK(button_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
+  g_signal_connect(button, "released", G_CALLBACK(button_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
+  gtk_widget_add_controller(FRAME_GTK_WIDGET(f), button);
+
+  GtkEventController *scroll = gtk_event_controller_scroll_new(GTK_EVENT_CONTROLLER_SCROLL_VERTICAL);
+  g_signal_connect(scroll, "scroll-event", G_CALLBACK(scroll_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
+  gtk_widget_add_controller(FRAME_GTK_WIDGET(f), scroll);
+
+
   /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "selection-clear-event", G_CALLBACK(gtk4_selection_lost), NULL); */
   /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "drag-drop", G_CALLBACK(drag_drop), NULL); */
   /* g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "drag-data-received", G_CALLBACK(drag_data_received), NULL); */
