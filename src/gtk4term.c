@@ -4962,14 +4962,18 @@ static void print_widget_tree(GtkWidget *w)
 /* } */
 
 static void size_allocate(GtkWidget *widget, int width, int  height,
-			int baseline, gpointer *user_data)
+			  int baseline)
 {
   GTK4_TRACE("___size-alloc: %dx%d + %d.", width, height, baseline);
 
   struct frame *f = gtk4_any_window_to_frame (widget);
   if (f) {
+    GtkAllocation alloc;
     GTK4_TRACE("resized: %dx%d", width, height);
-    xg_frame_resized(f, width, height -40);
+    gtk_widget_get_allocation(widget, &alloc);
+
+    GTK4_TRACE("resized: %dx%d", alloc.width, alloc.height);
+    xg_frame_resized(f, alloc.width, alloc.height);
   }
 }
 
@@ -5578,11 +5582,15 @@ leave_notify_event(GtkEventControllerMotion *controller,
 }
 
 static gboolean
-focus_in_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
+focus_in_event(GtkEventController *controller,
+               GdkCrossingMode        mode,
+               GdkNotifyType          detail,
+               gpointer               user_data)
 {
   GTK4_TRACE("focus_in_event");
   union buffered_input_event inev;
-  struct frame *frame = gtk4_any_window_to_frame(widget);
+  struct frame *frame = gtk4_any_window_to_frame(gtk_event_controller_get_widget(controller));
+  GTK4_TRACE("focus_in_event");
 
   if (frame == NULL)
     return TRUE;
@@ -5599,12 +5607,15 @@ focus_in_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
 }
 
 static gboolean
-focus_out_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
+focus_out_event(GtkEventController *controller,
+               GdkCrossingMode        mode,
+               GdkNotifyType          detail,
+               gpointer               user_data)
 {
   GTK4_TRACE("focus_out_event");
   union buffered_input_event inev;
-  struct frame *frame = gtk4_any_window_to_frame(widget);
-
+  struct frame *frame = gtk4_any_window_to_frame(gtk_event_controller_get_widget(controller));
+  GTK4_TRACE("focus_out_event");
   if (frame == NULL)
     return TRUE;
 
@@ -5707,8 +5718,8 @@ motion_notify_event(GtkEventControllerMotion *controller,
       clear_mouse_face (hlinfo);
     }
 
-  if (f && xg_event_is_for_scrollbar (f, event))
-    f = 0;
+  /* if (f && xg_event_is_for_scrollbar (f, event)) */
+  /*   f = 0; */
   if (f)
     {
       /* Maybe generate a SELECT_WINDOW_EVENT for
@@ -5753,8 +5764,8 @@ motion_notify_event(GtkEventControllerMotion *controller,
 	  last_mouse_window = window;
 	}
 
-      if (!note_mouse_movement (f, (GdkEventMotion*)event))
-	help_echo_string = previous_help_echo_string;
+      /* if (!note_mouse_movement (f, (GdkEventMotion*)event)) */
+      /* 	help_echo_string = previous_help_echo_string; */
     }
   else
     {
@@ -5852,16 +5863,20 @@ construct_mouse_click (struct input_event *result,
 }
 
 static gboolean
-button_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
+button_event (GtkGestureClick *gesture,
+	      gint                  n_press,
+	      gdouble               x,
+	      gdouble               y,
+	      GtkWidget             *widget)
 {
   union buffered_input_event inev;
   struct frame *f, *frame;
   struct gtk4_display_info *dpyinfo;
   guint button;
-  const GdkEventType type = gdk_event_get_event_type(event);
+  /* const GdkEventType type = gdk_event_get_event_type(event); */
 
-  gdk_event_get_button(event, &button);
-  GTK4_TRACE("button_event: type=%u, button=%u.", type, button);
+  /* gdk_event_get_button(event, &button); */
+  GTK4_TRACE("button_event: type=%u, button=%u.", n_press, button);
 
   /* If we decide we want to generate an event to be seen
      by the rest of Emacs, we put it here.  */
@@ -5870,10 +5885,6 @@ button_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
   EVENT_INIT (inev.ie);
   inev.ie.kind = NO_EVENT;
   inev.ie.arg = Qnil;
-
-  /* ignore double click and triple click. */
-  if (type != GDK_BUTTON_PRESS && type != GDK_BUTTON_RELEASE)
-    return TRUE;
 
   frame = gtk4_any_window_to_frame(widget);
   dpyinfo = FRAME_DISPLAY_INFO (frame);
@@ -5889,7 +5900,7 @@ button_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
     {
       f = gtk4_any_window_to_frame(widget);
 
-      if (f && type == GDK_BUTTON_PRESS
+      if (f /* && type == GDK_BUTTON_PRESS */
 	  && !FRAME_NO_ACCEPT_FOCUS (f))
 	{
 	  /* When clicking into a child frame or when clicking
@@ -5912,25 +5923,26 @@ button_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
 	}
     }
 
-  if (f && xg_event_is_for_scrollbar (f, event))
-    f = 0;
+  /* if (f && xg_event_is_for_scrollbar (f, event)) */
+  /*   f = 0; */
   if (f)
     {
       if (!tool_bar_p)
 	{
 	  if (ignore_next_mouse_click_timeout)
 	    {
-	      if (type == GDK_BUTTON_PRESS
-		  && gdk_event_get_time(event) > ignore_next_mouse_click_timeout)
-		{
-		  ignore_next_mouse_click_timeout = 0;
-		  construct_mouse_click (&inev.ie, (GdkEventButton *)event, f);
-		}
-	      if (type == GDK_BUTTON_RELEASE)
-		ignore_next_mouse_click_timeout = 0;
-	    }
-	  else
-	    construct_mouse_click (&inev.ie, (GdkEventButton *)event, f);
+	      /* if (/\* type == GDK_BUTTON_PRESS *\/ */
+	  /* 	  /\* && *\/ gdk_event_get_time(event) > ignore_next_mouse_click_timeout) */
+	  /* 	{ */
+	  /* 	  ignore_next_mouse_click_timeout = 0; */
+	  /* 	  construct_mouse_click (&inev.ie, (GdkEventButton *)event, f); */
+	  /* 	} */
+	  /*     /\* if (type == GDK_BUTTON_RELEASE) *\/ */
+	  /*     /\* 	ignore_next_mouse_click_timeout = 0; *\/ */
+	  /*   } */
+	  /* else */
+	  /*   construct_mouse_click (&inev.ie, (GdkEventButton *)event, f); */
+	}
 	}
 #if 0
       if (FRAME_X_EMBEDDED_P (f))
@@ -5939,13 +5951,13 @@ button_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
 #endif
     }
 
-  if (type == GDK_BUTTON_PRESS)
-    {
-      dpyinfo->grabbed |= (1 << button);
-      dpyinfo->last_mouse_frame = f;
-    }
-  else
-    dpyinfo->grabbed &= ~(1 << button);
+  /* if (type == GDK_BUTTON_PRESS) */
+  /*   { */
+  /*     dpyinfo->grabbed |= (1 << button); */
+  /*     dpyinfo->last_mouse_frame = f; */
+  /*   } */
+  /* else */
+  /*   dpyinfo->grabbed &= ~(1 << button); */
 
   /* Ignore any mouse motion that happened before this event;
      any subsequent mouse-movement Emacs events should reflect
@@ -6107,12 +6119,10 @@ gtk4_set_event_handler(struct frame *f)
 
   g_signal_connect_swapped(gsurf,
 		   "notify::state", G_CALLBACK(window_state_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
-  g_signal_connect_swapped(gsurf, "size-changed", G_CALLBACK(configure_event), FRAME_GTK_OUTER_WIDGET(f));
-
   g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "destroy", G_CALLBACK(delete_event), NULL);
   g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "map", G_CALLBACK(map_event), NULL);
-  //g_signal_connect(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "event", G_CALLBACK(gtk4_handle_event), NULL);
-  g_signal_connect(G_OBJECT(FRAME_GTK_WIDGET(f)), "size-allocate", G_CALLBACK(size_allocate), NULL);
+  g_signal_connect_swapped(G_OBJECT(FRAME_GTK_OUTER_WIDGET(f)), "size-allocate",
+			   G_CALLBACK(size_allocate), G_OBJECT(FRAME_GTK_WIDGET(f)));
 
   GtkEventController *key = gtk_event_controller_key_new();
   g_signal_connect(key, "key-pressed", G_CALLBACK(key_press_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
@@ -6130,8 +6140,6 @@ gtk4_set_event_handler(struct frame *f)
   GtkGesture *button = gtk_gesture_click_new();
 
   g_signal_connect(button, "pressed", G_CALLBACK(button_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
-  g_signal_connect(button, "released", G_CALLBACK(button_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
-  gtk_widget_add_controller(FRAME_GTK_WIDGET(f), button);
 
   GtkEventController *scroll = gtk_event_controller_scroll_new(GTK_EVENT_CONTROLLER_SCROLL_VERTICAL);
   g_signal_connect(scroll, "scroll-event", G_CALLBACK(scroll_event), G_OBJECT(FRAME_GTK_WIDGET(f)));

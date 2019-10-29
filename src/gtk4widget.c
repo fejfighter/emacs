@@ -237,6 +237,8 @@ static void emacs_fixed_snapshot (GtkWidget   *widget,
 
   cairo_set_source_surface (cr, src, 0, 0);
   cairo_paint(cr);
+  GTK4_TRACE("___size-alloc: %dx%d.", gtk_widget_get_width (widget),
+				    gtk_widget_get_height (widget));
 
   GTK4_TRACE("snapshot____2");
   cairo_destroy(cr);
@@ -295,9 +297,6 @@ emacs_fixed_init (EmacsFixed *fixed)
   fixed->priv = G_TYPE_INSTANCE_GET_PRIVATE (fixed, emacs_fixed_get_type (),
 					     EmacsFixedPrivate);
   fixed->priv->f = 0;
-
-  GtkEventController *motion = gtk_event_controller_motion_new();
-  g_signal_connect(motion, "focus", focus_in_event, fixed );
 
 }
 
