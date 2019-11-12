@@ -1383,23 +1383,31 @@ This function is an internal primitive--use `make-frame' instead.  */)
 	  GdkRectangle pos = {
 	    .x = f->left_pos,
 	    .y = f->top_pos,
-	    .width = 100,
-	    .height = 90
+	    .width = 20,
+	    .height = 20
 	  };
+	  GTK4_TRACE("is true");
 
+	  gtk_widget_hide(win);
+	  GTK4_TRACE("is true");
 
 	  //gdk_surface_set_type_hint (win, GDK_SURFACE_TYPE_HINT_POPUP_MENU);
-	  gtk_window_set_type_hint (win, GTK_WINDOW_POPUP);
-	  gtk_window_set_transient_for(win, FRAME_GTK_OUTER_WINDOW(p));
+	  gtk_window_set_type_hint (win, GDK_SURFACE_TYPE_HINT_POPUP_MENU);
+	  GTK4_TRACE("is true");
 
-	  gdk_surface_move_to_rect(gtk_native_get_surface(GTK_NATIVE(win)),
+	  gtk_window_set_transient_for(win, FRAME_GTK_OUTER_WINDOW(p));
+	  GTK4_TRACE("is true");
+
+	  gdk_surface_move_to_rect(gtk_native_get_surface(gtk_widget_get_native(GTK_WIDGET((win)))),
 				   &pos,
 				   GDK_GRAVITY_NORTH_EAST,
 				   GDK_GRAVITY_NORTH_EAST,
 				   GDK_ANCHOR_FLIP_X,
 				   0, 0);
-
-	  GTK4_TRACE("+======+ lef %d top %d",  f->left_pos, f->top_pos+90 );
+	  GTK4_TRACE("is true");
+	  GTK4_TRACE("+======+ lef %d top %d",  f->left_pos, f->top_pos );
+	  gtk_widget_show(win);
+	  GTK4_TRACE("+======+ lef %d top %d",  f->left_pos, f->top_pos );
 	}
       else
 	{
@@ -1459,6 +1467,7 @@ This function is an internal primitive--use `make-frame' instead.  */)
      cannot control visibility, so don't try.  */
   if (!FRAME_X_OUTPUT(f)->explicit_parent)
     {
+      GTK4_TRACE("explicit parent");
       Lisp_Object visibility
 	= gui_display_get_arg (dpyinfo, parms, Qvisibility, 0, 0, RES_TYPE_SYMBOL);
 
@@ -3020,7 +3029,7 @@ be used as the image of the icon representing the frame.  */);
   defsubr (&Sx_show_tip);
   defsubr (&Sx_hide_tip);
 
-  // defsubr (&Sgtk4_export_frames);
+  //defsubr (&Sgtk4_export_frames);
   defsubr (&Sgtk4_page_setup_dialog);
   defsubr (&Sgtk4_get_page_setup);
   defsubr (&Sgtk4_print_frames_dialog);

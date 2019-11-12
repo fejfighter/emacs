@@ -431,7 +431,7 @@ gtk4_set_window_size (struct frame *f,
 }
 
 void
-gtk4_set_parent_frame (struct frame *f, Lisp_Object new_value, Lisp_Object old_value)
+gtk4_set_parent_frame  (struct frame *f, Lisp_Object new_value, Lisp_Object old_value)
 /* --------------------------------------------------------------------------
      Set frame F's `parent-frame' parameter.  If non-nil, make F a child
      frame of the frame specified by that parameter.  Technically, this
@@ -467,7 +467,6 @@ gtk4_set_parent_frame (struct frame *f, Lisp_Object new_value, Lisp_Object old_v
 
   p = XFRAME (new_value);
 
-  GTK4_TRACE("=====_____________= frame");
   if(!FRAME_LIVE_P (p)
      || !FRAME_GTK4_P (p))
     {
@@ -482,20 +481,24 @@ gtk4_set_parent_frame (struct frame *f, Lisp_Object new_value, Lisp_Object old_v
       //if(GTK_IS_WINDOW(FRAME_GTK_OUTER_WIDGET(f)))
 
       GtkWindow *win = FRAME_GTK_OUTER_WINDOW(f);
+      //gtk_widget_hide(win);
+
       //GtkWindow *win = gtk_widget_get_surface (FRAME_GTK_OUTER_WIDGET(f));
 
       gtk_window_set_type_hint (win, GDK_SURFACE_TEMP);
       //gdk_surface_set_type_hint (win,  GDK_SURFACE_TEMP);
        gtk_window_set_transient_for (win,
 				     FRAME_GTK_OUTER_WINDOW(p));
-       //gdk_surface_move(gtk_native_get_surface(gtk_widget_get_native(GTK_WIDGET(win))), f->left_pos, f->top_pos+30);
 
+       //gdk_surface_move(gtk_native_get_surface(gtk_widget_get_native(GTK_WIDGET(win))), f->left_pos, f->top_pos+30);
        //gtk_window_
        /* gdk_surface_reparent(GDK_SURFACE (FRAME_GTK_OUTER_WIDGET(f)), */
        /*				  GDK_SURFACE (FRAME_GTK_OUTER_WIDGET(p)), */
        /*				  f->left_pos, f->top_pos); */
 
        GTK4_TRACE("=====_____________= lef %d top %d",  f->left_pos, f->top_pos+30 );
+       //  gtk_widget_show(win);
+
        unblock_input ();
 
        fset_parent_frame (f, new_value);
@@ -2876,6 +2879,8 @@ gtk4_update_window_begin (struct window *w)
   GTK4_TRACE("p_update_window_begin ======== %p =======", f);
   Mouse_HLInfo *hlinfo = MOUSE_HL_INFO (f);
 
+  DTRACE_PROBE2(emacs, update_window_begin, f, w);
+
   w->output_cursor = w->cursor;
 
   block_input ();
@@ -2887,8 +2892,10 @@ gtk4_update_window_begin (struct window *w)
 
       /* If F needs to be redrawn, simply forget about any prior mouse
 	 highlighting.  */
-      if (FRAME_GARBAGED_P (f))
+      if (FRAME_GARBAGED_P (f)){
+	DTRACE_PROBE2(emacs, update_window_begin_garbled, f, w);
 	hlinfo->mouse_face_window = Qnil;
+      }
     }
 
   unblock_input ();
@@ -3033,7 +3040,7 @@ gtk4_update_end (struct frame *f)
   if (FRAME_CR_SURFACE (f))
     {
       block_input();
-      gtk_widget_queue_draw(FRAME_GTK_WIDGET(f));
+      gtk_widget_queue_draw(GTK_WIDGET(FRAME_GTK_WIDGET(f)));
       unblock_input ();
     }
 }
@@ -4662,7 +4669,7 @@ gtk4_create_terminal (struct gtk4_display_info *dpyinfo)
   terminal->update_begin_hook = gtk4_update_begin;
   terminal->update_end_hook = gtk4_update_end;
   terminal->read_socket_hook = gtk4_read_socket;
-  // terminal->frame_up_to_date_hook = gtk4_frame_up_to_date;
+  //terminal->frame_up_to_date_hook = gtk4_frame_up_to_date;
   terminal->mouse_position_hook = gtk4_mouse_position;
   terminal->frame_rehighlight_hook = XTframe_rehighlight;
   // terminal->frame_raise_lower_hook = gtk4_frame_raise_lower;
@@ -5583,9 +5590,9 @@ leave_notify_event(GtkEventControllerMotion *controller,
 
 static gboolean
 focus_in_event(GtkEventController *controller,
-               GdkCrossingMode        mode,
-               GdkNotifyType          detail,
-               gpointer               user_data)
+	       GdkCrossingMode        mode,
+	       GdkNotifyType          detail,
+	       gpointer               user_data)
 {
   GTK4_TRACE("focus_in_event");
   union buffered_input_event inev;
@@ -5608,9 +5615,9 @@ focus_in_event(GtkEventController *controller,
 
 static gboolean
 focus_out_event(GtkEventController *controller,
-               GdkCrossingMode        mode,
-               GdkNotifyType          detail,
-               gpointer               user_data)
+	       GdkCrossingMode        mode,
+	       GdkNotifyType          detail,
+	       gpointer               user_data)
 {
   GTK4_TRACE("focus_out_event");
   union buffered_input_event inev;
@@ -5765,7 +5772,7 @@ motion_notify_event(GtkEventControllerMotion *controller,
 	}
 
       /* if (!note_mouse_movement (f, (GdkEventMotion*)event)) */
-      /* 	help_echo_string = previous_help_echo_string; */
+      /*	help_echo_string = previous_help_echo_string; */
     }
   else
     {
@@ -5932,13 +5939,13 @@ button_event (GtkGestureClick *gesture,
 	  if (ignore_next_mouse_click_timeout)
 	    {
 	      /* if (/\* type == GDK_BUTTON_PRESS *\/ */
-	  /* 	  /\* && *\/ gdk_event_get_time(event) > ignore_next_mouse_click_timeout) */
-	  /* 	{ */
-	  /* 	  ignore_next_mouse_click_timeout = 0; */
-	  /* 	  construct_mouse_click (&inev.ie, (GdkEventButton *)event, f); */
-	  /* 	} */
+	  /*	  /\* && *\/ gdk_event_get_time(event) > ignore_next_mouse_click_timeout) */
+	  /*	{ */
+	  /*	  ignore_next_mouse_click_timeout = 0; */
+	  /*	  construct_mouse_click (&inev.ie, (GdkEventButton *)event, f); */
+	  /*	} */
 	  /*     /\* if (type == GDK_BUTTON_RELEASE) *\/ */
-	  /*     /\* 	ignore_next_mouse_click_timeout = 0; *\/ */
+	  /*     /\*	ignore_next_mouse_click_timeout = 0; *\/ */
 	  /*   } */
 	  /* else */
 	  /*   construct_mouse_click (&inev.ie, (GdkEventButton *)event, f); */

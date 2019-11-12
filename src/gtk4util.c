@@ -1450,7 +1450,7 @@ xg_create_frame_widgets (struct frame *f)
 	/* wtop = gdk_surface_new_child (GDK_SURFACE (FRAME_GTK_OUTER_WINDOW(XFRAME(f->parent_frame))), &pos); */
 	gtk_window_set_decorated(GTK_WINDOW (wtop), FALSE);
 	gtk_window_set_transient_for(GTK_WINDOW (wtop), GTK_WINDOW (FRAME_GTK_OUTER_WIDGET(XFRAME(f->parent_frame))));
-	gtk_window_set_default_size(GTK_WINDOW(wtop), 30, 40);
+	//gtk_window_set_default_size(GTK_WINDOW(wtop), 200, 300);
       }
     }
 #ifndef HAVE_GTK4
@@ -3261,8 +3261,8 @@ xg_create_widget (const char *type, const char *name, struct frame *f,
 static const char *
 xg_get_menu_item_label (GtkMenuItem *witem)
 {
-  GtkLabel *wlabel = GTK_LABEL (XG_BIN_CHILD (witem));
-  return gtk_label_get_label (wlabel);
+  GtkAccelLabel *wlabel = GTK_ACCEL_LABEL (XG_BIN_CHILD (witem));
+  return gtk_accel_label_get_label (wlabel);
 }
 
 /* Return true if the menu item WITEM has the text LABEL.  */
@@ -4498,9 +4498,10 @@ xg_update_horizontal_scrollbar_pos (struct frame *f,
 /* Get the current value of the range, truncated to an integer.  */
 
 static int
-int_gtk_range_get_value (GtkRange *range)
+int_gtk_range_get_value (GtkScrollbar *wscroll)
 {
-  return gtk_range_get_value (range);
+  GtkAdjustment *adj = gtk_scrollbar_get_adjustment(wscroll);
+  return gtk_adjustment_get_value (adj);
 }
 
 
@@ -4513,7 +4514,7 @@ xg_set_toolkit_scroll_bar_thumb (struct scroll_bar *bar,
 				 int position,
 				 int whole)
 {
-  GtkWidget *wscroll = xg_get_widget_from_map (bar->x_window);
+  GtkScrollbar *wscroll = xg_get_widget_from_map (bar->x_window);
 
   struct frame *f = XFRAME (WINDOW_FRAME (XWINDOW (bar->window)));
 
@@ -4529,7 +4530,7 @@ xg_set_toolkit_scroll_bar_thumb (struct scroll_bar *bar,
       int new_step;
       bool changed = 0;
 
-      adj = gtk_range_get_adjustment (GTK_RANGE (wscroll));
+      adj = gtk_scrollbar_get_adjustment (GTK_SCROLLBAR(wscroll));
 
       if (scroll_bar_adjust_thumb_portion_p)
 	{
@@ -4581,8 +4582,8 @@ xg_set_toolkit_scroll_bar_thumb (struct scroll_bar *bar,
 	}
 
       GTK4_TRACE("xg_set_toolkit_scroll_bar_thumb: changed=%d, old=%d, value=%d.",
-		 changed, int_gtk_range_get_value (GTK_RANGE (wscroll)), value);
-      if (changed || int_gtk_range_get_value (GTK_RANGE (wscroll)) != value)
+		 changed, int_gtk_range_get_value (wscroll), value);
+      if (changed || int_gtk_range_get_value (wscroll) != value)
       {
 	block_input ();
 
@@ -4590,8 +4591,11 @@ xg_set_toolkit_scroll_bar_thumb (struct scroll_bar *bar,
 	   ignore_gtk_scrollbar to make the callback do nothing  */
 	xg_ignore_gtk_scrollbar = 1;
 
-	if (int_gtk_range_get_value (GTK_RANGE (wscroll)) != value)
-	  gtk_range_set_value (GTK_RANGE (wscroll), (gdouble)value);
+	if (int_gtk_range_get_value (wscroll) != value)
+	  {
+	    GtkAdjustment *adj = gtk_scrollbar_get_adjustment(wscroll);
+	    gtk_adjustment_set_value (adj, (gdouble)value);
+	  }
 #if ! GTK_CHECK_VERSION (3, 18, 0)
 	else if (changed)
 	  gtk_adjustment_changed (adj);
@@ -5160,7 +5164,7 @@ xg_make_tool_item (struct frame *f,
 				   "}",
 				   -1);
 
-  //gsty = gtk_widget_get_style_context (weventbox);
+  gsty = gtk_widget_get_style_context (wimage);
   gtk_style_context_add_provider (gsty,
 				  GTK_STYLE_PROVIDER (css_prov),
 				  GTK_STYLE_PROVIDER_PRIORITY_USER);

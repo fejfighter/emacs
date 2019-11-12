@@ -28,8 +28,9 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #ifdef HAVE_GTK4
 
 #include <gtk/gtk.h>
+#include <sys/sdt.h>
 
-#define GTK4_DEBUG
+//#define GTK4_DEBUG
 
 #ifdef GTK4_DEBUG
 extern void gtk4_log(const char *file, int lineno, const char *fmt, ...)

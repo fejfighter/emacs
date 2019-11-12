@@ -229,30 +229,9 @@ static void emacs_fixed_snapshot (GtkWidget   *widget,
   EmacsFixedPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE (fixed, emacs_fixed_get_type (),
 				      EmacsFixedPrivate);
 
-
-  //EmacsFixedPrivate *priv = fixed->priv;
-  //GList *list;
   cairo_t *cr =  gtk4_begin_cr_clip(priv->f);
   cairo_surface_t *src = NULL;
 
-
-  /* priv = G_TYPE_INSTANCE_GET_PRIVATE (widget, GTK_TYPE_FIXED, */
-  /*				      ); */
-  //struct GtkFixedPrivateL *priv;
-
-  /* for (list = priv->children; list != NULL; list = list->next) */
-  /*   { */
-  /*     // we have none? */
-  /*   } */
-
-  //gtk_widget_snapshot_child(widget, GTK_WIDGET(&fixed->container), snapshot);
-
-  /* cr = gtk_snapshot_append_cairo (snapshot,   &GRAPHENE_RECT_INIT ( */
-  /*                                   0, 0, */
-  /*                                   gtk_widget_get_width (widget), */
-  /*                                   gtk_widget_get_height (widget) */
-  /*                                 )); */
-  //gtk4_begin_cr_clip
   src = FRAME_CR_SURFACE (priv->f);
 
   cairo_set_source_surface (cr, src, 0, 0);

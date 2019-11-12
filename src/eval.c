@@ -29,6 +29,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "dispextern.h"
 #include "buffer.h"
 #include "pdumper.h"
+#include <sys/sdt.h>
 
 /* CACHEABLE is ordinarily nothing, except it is 'volatile' if
    necessary to cajole GCC into not warning incorrectly that a
@@ -620,16 +621,16 @@ The return value is BASE-VARIABLE.  */)
      still works.  */
   if (NILP (Fboundp (base_variable)))
     set_internal (base_variable, find_symbol_value (new_alias),
-                  Qnil, SET_INTERNAL_BIND);
+		  Qnil, SET_INTERNAL_BIND);
   else if (!NILP (Fboundp (new_alias))
-           && !EQ (find_symbol_value (new_alias),
-                   find_symbol_value (base_variable)))
+	   && !EQ (find_symbol_value (new_alias),
+		   find_symbol_value (base_variable)))
     call2 (intern ("display-warning"),
-           list3 (Qdefvaralias, intern ("losing-value"), new_alias),
-           CALLN (Fformat_message,
-                  build_string
-                  ("Overwriting value of `%s' by aliasing to `%s'"),
-                  new_alias, base_variable));
+	   list3 (Qdefvaralias, intern ("losing-value"), new_alias),
+	   CALLN (Fformat_message,
+		  build_string
+		  ("Overwriting value of `%s' by aliasing to `%s'"),
+		  new_alias, base_variable));
 
   {
     union specbinding *p;
@@ -1145,7 +1146,7 @@ internal_catch (Lisp_Object tag,
 
 static AVOID
 unwind_to_catch (struct handler *catch, enum nonlocal_exit type,
-                 Lisp_Object value)
+		 Lisp_Object value)
 {
   bool last_time;
 
@@ -1189,8 +1190,8 @@ Both TAG and VALUE are evalled.  */
     for (c = handlerlist; c; c = c->next)
       {
 	if (c->type == CATCHER_ALL)
-          unwind_to_catch (c, NONLOCAL_EXIT_THROW, Fcons (tag, value));
-        if (c->type == CATCHER && EQ (c->tag_or_ch, tag))
+	  unwind_to_catch (c, NONLOCAL_EXIT_THROW, Fcons (tag, value));
+	if (c->type == CATCHER && EQ (c->tag_or_ch, tag))
 	  unwind_to_catch (c, NONLOCAL_EXIT_THROW, value);
       }
   xsignal2 (Qno_catch, tag, value);
@@ -1447,7 +1448,7 @@ static Lisp_Object Qcatch_all_memory_full;
 
 Lisp_Object
 internal_catch_all (Lisp_Object (*function) (void *), void *argument,
-                    Lisp_Object (*handler) (enum nonlocal_exit, Lisp_Object))
+		    Lisp_Object (*handler) (enum nonlocal_exit, Lisp_Object))
 {
   struct handler *c = push_handler_nosignal (Qt, CATCHER_ALL);
   if (c == NULL)
@@ -1609,7 +1610,7 @@ signal_or_quit (Lisp_Object error_symbol, Lisp_Object data, bool keyboard_quit)
   if (! NILP (Vsignal_hook_function)
       && ! NILP (error_symbol)
       /* Don't try to call a lisp function if we've already overflowed
-         the specpdl stack.  */
+	 the specpdl stack.  */
       && specpdl_ptr < specpdl + specpdl_size)
     {
       /* Edebug takes care of restoring these variables when it exits.  */
@@ -1638,10 +1639,10 @@ signal_or_quit (Lisp_Object error_symbol, Lisp_Object data, bool keyboard_quit)
   for (h = handlerlist; h; h = h->next)
     {
       if (h->type == CATCHER_ALL)
-        {
-          clause = Qt;
-          break;
-        }
+	{
+	  clause = Qt;
+	  break;
+	}
       if (h->type != CONDITION_CASE)
 	continue;
       clause = find_handler_clause (h->tag_or_ch, conditions);
@@ -1824,7 +1825,7 @@ maybe_call_debugger (Lisp_Object conditions, Lisp_Object sig, Lisp_Object data)
 	  : wants_debugger (Vdebug_on_error, conditions))
       && ! skip_debugger (conditions, combined_data)
       /* See commentary on definition of
-         `internal-when-entered-debugger'.  */
+	 `internal-when-entered-debugger'.  */
       && when_entered_debugger < num_nonmacro_input_events)
     {
       call_debugger (list2 (Qerror, combined_data));
@@ -1852,8 +1853,8 @@ find_handler_clause (Lisp_Object handlers, Lisp_Object conditions)
     {
       Lisp_Object handler = XCAR (h);
       if (!NILP (Fmemq (handler, conditions))
-          /* t is also used as a catch-all by Lisp code.  */
-          || EQ (handler, Qt))
+	  /* t is also used as a catch-all by Lisp code.  */
+	  || EQ (handler, Qt))
 	return handlers;
     }
 
@@ -2762,6 +2763,7 @@ usage: (funcall FUNCTION &rest ARGUMENTS)  */)
   ptrdiff_t numargs = nargs - 1;
   Lisp_Object val;
   ptrdiff_t count;
+  char * cname;// = SSDATA(name);
 
   maybe_quit ();
 
@@ -2781,17 +2783,21 @@ usage: (funcall FUNCTION &rest ARGUMENTS)  */)
     do_debug_on_call (Qlambda, count);
 
   original_fun = args[0];
-
  retry:
 
   /* Optimize for no indirection.  */
   fun = original_fun;
+
   if (SYMBOLP (fun) && !NILP (fun)
       && (fun = XSYMBOL (fun)->u.s.function, SYMBOLP (fun)))
     fun = indirect_function (fun);
 
-  if (SUBRP (fun))
+  if (SUBRP (fun)){
+    cname = SSDATA(SYMBOL_NAME(original_fun));
+    DTRACE_PROBE1(emacs, funcall, cname);
+
     val = funcall_subr (XSUBR (fun), numargs, args + 1);
+  }
   else if (COMPILEDP (fun) || MODULE_FUNCTIONP (fun))
     val = funcall_lambda (fun, numargs, args + 1);
   else
@@ -2850,57 +2856,57 @@ funcall_subr (struct Lisp_Subr *subr, ptrdiff_t numargs, Lisp_Object *args)
       Lisp_Object internal_argbuf[8];
       Lisp_Object *internal_args;
       if (subr->max_args > numargs)
-        {
-          eassert (subr->max_args <= ARRAYELTS (internal_argbuf));
-          internal_args = internal_argbuf;
-          memcpy (internal_args, args, numargs * word_size);
-          memclear (internal_args + numargs,
-                    (subr->max_args - numargs) * word_size);
-        }
+	{
+	  eassert (subr->max_args <= ARRAYELTS (internal_argbuf));
+	  internal_args = internal_argbuf;
+	  memcpy (internal_args, args, numargs * word_size);
+	  memclear (internal_args + numargs,
+		    (subr->max_args - numargs) * word_size);
+	}
       else
-        internal_args = args;
+	internal_args = args;
       switch (subr->max_args)
-        {
-        case 0:
-          return (subr->function.a0 ());
-        case 1:
-          return (subr->function.a1 (internal_args[0]));
-        case 2:
-          return (subr->function.a2
-                  (internal_args[0], internal_args[1]));
-        case 3:
-          return (subr->function.a3
-                  (internal_args[0], internal_args[1], internal_args[2]));
-        case 4:
-          return (subr->function.a4
-                  (internal_args[0], internal_args[1], internal_args[2],
-                   internal_args[3]));
-        case 5:
-          return (subr->function.a5
-                  (internal_args[0], internal_args[1], internal_args[2],
-                   internal_args[3], internal_args[4]));
-        case 6:
-          return (subr->function.a6
-                  (internal_args[0], internal_args[1], internal_args[2],
-                   internal_args[3], internal_args[4], internal_args[5]));
-        case 7:
-          return (subr->function.a7
-                  (internal_args[0], internal_args[1], internal_args[2],
-                   internal_args[3], internal_args[4], internal_args[5],
-                   internal_args[6]));
-        case 8:
-          return (subr->function.a8
-                  (internal_args[0], internal_args[1], internal_args[2],
-                   internal_args[3], internal_args[4], internal_args[5],
-                   internal_args[6], internal_args[7]));
+	{
+	case 0:
+	  return (subr->function.a0 ());
+	case 1:
+	  return (subr->function.a1 (internal_args[0]));
+	case 2:
+	  return (subr->function.a2
+		  (internal_args[0], internal_args[1]));
+	case 3:
+	  return (subr->function.a3
+		  (internal_args[0], internal_args[1], internal_args[2]));
+	case 4:
+	  return (subr->function.a4
+		  (internal_args[0], internal_args[1], internal_args[2],
+		   internal_args[3]));
+	case 5:
+	  return (subr->function.a5
+		  (internal_args[0], internal_args[1], internal_args[2],
+		   internal_args[3], internal_args[4]));
+	case 6:
+	  return (subr->function.a6
+		  (internal_args[0], internal_args[1], internal_args[2],
+		   internal_args[3], internal_args[4], internal_args[5]));
+	case 7:
+	  return (subr->function.a7
+		  (internal_args[0], internal_args[1], internal_args[2],
+		   internal_args[3], internal_args[4], internal_args[5],
+		   internal_args[6]));
+	case 8:
+	  return (subr->function.a8
+		  (internal_args[0], internal_args[1], internal_args[2],
+		   internal_args[3], internal_args[4], internal_args[5],
+		   internal_args[6], internal_args[7]));
 
-        default:
+	default:
 
-          /* If a subr takes more than 8 arguments without using MANY
-             or UNEVALLED, we need to extend this function to support it.
-             Until this is done, there is no way to call the function.  */
-          emacs_abort ();
-        }
+	  /* If a subr takes more than 8 arguments without using MANY
+	     or UNEVALLED, we need to extend this function to support it.
+	     Until this is done, there is no way to call the function.  */
+	  emacs_abort ();
+	}
     }
 }
 
@@ -3011,17 +3017,17 @@ funcall_lambda (Lisp_Object fun, ptrdiff_t nargs,
 	xsignal1 (Qinvalid_function, fun);
 
       if (EQ (next, Qand_rest))
-        {
-          if (rest)
-            xsignal1 (Qinvalid_function, fun);
-          rest = 1;
-        }
+	{
+	  if (rest)
+	    xsignal1 (Qinvalid_function, fun);
+	  rest = 1;
+	}
       else if (EQ (next, Qand_optional))
-        {
-          if (optional || rest)
-            xsignal1 (Qinvalid_function, fun);
-          optional = 1;
-        }
+	{
+	  if (optional || rest)
+	    xsignal1 (Qinvalid_function, fun);
+	  optional = 1;
+	}
       else
 	{
 	  Lisp_Object arg;
@@ -3158,7 +3164,7 @@ lambda_arity (Lisp_Object fun)
 	xsignal1 (Qinvalid_function, fun);
       syms_left = AREF (fun, COMPILED_ARGLIST);
       if (FIXNUMP (syms_left))
-        return get_byte_code_arity (syms_left);
+	return get_byte_code_arity (syms_left);
     }
   else
     emacs_abort ();
@@ -3177,10 +3183,10 @@ lambda_arity (Lisp_Object fun)
 	optional = true;
       else
 	{
-          if (!optional)
-            minargs++;
-          maxargs++;
-        }
+	  if (!optional)
+	    minargs++;
+	  maxargs++;
+	}
     }
 
   if (!NILP (syms_left))
@@ -3243,7 +3249,7 @@ let_shadows_buffer_binding_p (struct Lisp_Symbol *symbol)
 
 static void
 do_specbind (struct Lisp_Symbol *sym, union specbinding *bind,
-             Lisp_Object value, enum Set_Internal_Bind bindflag)
+	     Lisp_Object value, enum Set_Internal_Bind bindflag)
 {
   switch (sym->u.s.redirect)
     {
@@ -3251,14 +3257,14 @@ do_specbind (struct Lisp_Symbol *sym, union specbinding *bind,
       if (!sym->u.s.trapped_write)
 	SET_SYMBOL_VAL (sym, value);
       else
-        set_internal (specpdl_symbol (bind), value, Qnil, bindflag);
+	set_internal (specpdl_symbol (bind), value, Qnil, bindflag);
       break;
 
     case SYMBOL_FORWARDED:
       if (BUFFER_OBJFWDP (SYMBOL_FWD (sym))
 	  && specpdl_kind (bind) == SPECPDL_LET_DEFAULT)
 	{
-          set_default_internal (specpdl_symbol (bind), value, bindflag);
+	  set_default_internal (specpdl_symbol (bind), value, bindflag);
 	  return;
 	}
       FALLTHROUGH;
@@ -3335,7 +3341,7 @@ specbind (Lisp_Object symbol, Lisp_Object value)
 	      {
 		specpdl_ptr->let.kind = SPECPDL_LET_DEFAULT;
 		grow_specpdl ();
-                do_specbind (sym, specpdl_ptr - 1, value, SET_INTERNAL_BIND);
+		do_specbind (sym, specpdl_ptr - 1, value, SET_INTERNAL_BIND);
 		return;
 	      }
 	  }
@@ -3343,7 +3349,7 @@ specbind (Lisp_Object symbol, Lisp_Object value)
 	  specpdl_ptr->let.kind = SPECPDL_LET;
 
 	grow_specpdl ();
-        do_specbind (sym, specpdl_ptr - 1, value, SET_INTERNAL_BIND);
+	do_specbind (sym, specpdl_ptr - 1, value, SET_INTERNAL_BIND);
 	break;
       }
     default: emacs_abort ();
@@ -3426,15 +3432,15 @@ rebind_for_thread_switch (void)
 	  Lisp_Object value = specpdl_saved_value (bind);
 	  Lisp_Object sym = specpdl_symbol (bind);
 	  bind->let.saved_value = Qnil;
-          do_specbind (XSYMBOL (sym), bind, value,
-                       SET_INTERNAL_THREAD_SWITCH);
+	  do_specbind (XSYMBOL (sym), bind, value,
+		       SET_INTERNAL_THREAD_SWITCH);
 	}
     }
 }
 
 static void
 do_one_unbind (union specbinding *this_binding, bool unwinding,
-               enum Set_Internal_Bind bindflag)
+	       enum Set_Internal_Bind bindflag)
 {
   eassert (unwinding || this_binding->kind >= SPECPDL_LET);
   switch (this_binding->kind)
@@ -3474,7 +3480,7 @@ do_one_unbind (union specbinding *this_binding, bool unwinding,
 	      SET_SYMBOL_VAL (XSYMBOL (sym), specpdl_old_value (this_binding));
 	    else
 	      set_internal (sym, specpdl_old_value (this_binding),
-                            Qnil, bindflag);
+			    Qnil, bindflag);
 	    break;
 	  }
       }
@@ -3483,8 +3489,8 @@ do_one_unbind (union specbinding *this_binding, bool unwinding,
       FALLTHROUGH;
     case SPECPDL_LET_DEFAULT:
       set_default_internal (specpdl_symbol (this_binding),
-                            specpdl_old_value (this_binding),
-                            bindflag);
+			    specpdl_old_value (this_binding),
+			    bindflag);
       break;
     case SPECPDL_LET_LOCAL:
       {
@@ -3496,7 +3502,7 @@ do_one_unbind (union specbinding *this_binding, bool unwinding,
 	/* If this was a local binding, reset the value in the appropriate
 	   buffer, but only if that buffer's binding still exists.  */
 	if (!NILP (Flocal_variable_p (symbol, where)))
-          set_internal (symbol, old_value, where, bindflag);
+	  set_internal (symbol, old_value, where, bindflag);
       }
       break;
     }
@@ -3591,7 +3597,7 @@ unbind_for_thread_switch (struct thread_state *thr)
 	{
 	  Lisp_Object sym = specpdl_symbol (bind);
 	  bind->let.saved_value = find_symbol_value (sym);
-          do_one_unbind (bind, false, SET_INTERNAL_THREAD_SWITCH);
+	  do_one_unbind (bind, false, SET_INTERNAL_THREAD_SWITCH);
 	}
     }
 }
@@ -3616,8 +3622,8 @@ get_backtrace_starting_at (Lisp_Object base)
     { /* Skip up to `base'.  */
       base = Findirect_function (base, Qt);
       while (backtrace_p (pdl)
-             && !EQ (base, Findirect_function (backtrace_function (pdl), Qt)))
-        pdl = backtrace_next (pdl);
+	     && !EQ (base, Findirect_function (backtrace_function (pdl), Qt)))
+	pdl = backtrace_next (pdl);
     }
 
   return pdl;
@@ -3692,8 +3698,8 @@ returns nil.  */)
       ptrdiff_t i = pdl - specpdl;
       backtrace_frame_apply (function, pdl);
       /* Beware! PDL is no longer valid here because FUNCTION might
-         have caused grow_specpdl to reallocate pdlvec.  We must use
-         the saved index, cf. Bug#27258.  */
+	 have caused grow_specpdl to reallocate pdlvec.  We must use
+	 the saved index, cf. Bug#27258.  */
       pdl = backtrace_next (&specpdl[i]);
     }
 
@@ -3833,7 +3839,7 @@ backtrace_eval_unrewind (int distance)
 	      {
 		set_specpdl_old_value
 		  (tmp, Fbuffer_local_value (symbol, where));
-                set_internal (symbol, old_value, where, SET_INTERNAL_UNBIND);
+		set_internal (symbol, old_value, where, SET_INTERNAL_UNBIND);
 	      }
 	  }
 	  break;
@@ -3951,7 +3957,7 @@ mark_specpdl (union specbinding *first, union specbinding *ptr)
   for (pdl = first; pdl != ptr; pdl++)
     {
       switch (pdl->kind)
-        {
+	{
 	case SPECPDL_UNWIND:
 	  mark_object (specpdl_arg (pdl));
 	  break;
@@ -3989,7 +3995,7 @@ mark_specpdl (union specbinding *first, union specbinding *ptr)
 	case SPECPDL_UNWIND_PTR:
 	case SPECPDL_UNWIND_INT:
 	case SPECPDL_UNWIND_INTMAX:
-        case SPECPDL_UNWIND_VOID:
+	case SPECPDL_UNWIND_VOID:
 	  break;
 
 	default:
@@ -4154,7 +4160,7 @@ still determine whether to handle the particular condition.  */);
    invocations.  */
   DEFSYM (Qinternal_when_entered_debugger, "internal-when-entered-debugger");
   DEFVAR_INT ("internal-when-entered-debugger", when_entered_debugger,
-              doc: /* The number of keyboard events as of last time `debugger' was called.
+	      doc: /* The number of keyboard events as of last time `debugger' was called.
 Used to avoid infinite loops if the debugger itself has an error.
 Don't set this unless you're sure that can't happen.  */);
 

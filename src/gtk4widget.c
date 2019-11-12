@@ -151,70 +151,6 @@ emacs_fixed_gtk_widget_size_allocate (GtkWidget *widget,
 
 #endif  /* HAVE_XWIDGETS */
 
-#if 0 //def HAVE_GTK4
-#define FRAME_CR_SURFACE(f)	((f)->output_data.gtk4->cr_surface)
-
-static GdkSurface *
-gtk_emacsfixed_native_get_surface (GtkNative *native)
-{
-  /* GtkWindow *self = GTK_WINDOW (native); */
-  /* GtkWindowPrivate *priv = gtk_emacsfixed_get_instance_private (self); */
-
-  /* return priv->surface; */
-
-  GTK4_TRACE("snapshot____");
-  EmacsFixed *fixed = EMACS_FIXED (native);
-  EmacsFixedPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE (native, emacs_fixed_get_type (),
-				      EmacsFixedPrivate);
-
-  return FRAME_CR_SURFACE (priv->f);
-
-  /* return NULL; */
-}
-
-static GskRenderer *
-gtk_emacsfixed_native_get_renderer (GtkNative *native)
-{
-  /* GtkWindow *self = GTK_WINDOW (native); */
-  /* GtkWindowPrivate *priv = gtk_emacsfixed_get_instance_private (self); */
-
-  /* return priv->renderer; */
-  return NULL;
-}
-
-static void
-gtk_emacsfixed_native_get_surface_transform (GtkNative *native,
-					 int       *x,
-					 int       *y)
-{
-  GtkWindow *self = GTK_WINDOW (native);
-  GtkStyleContext *context;
-  GtkBorder margin, border, padding;
-
-  context = gtk_widget_get_style_context (GTK_WIDGET (self));
-  gtk_style_context_get_margin (context, &margin);
-  gtk_style_context_get_border (context, &border);
-  gtk_style_context_get_padding (context, &padding);
-
-  *x = margin.left + border.left + padding.left;
-  *y = margin.top + border.top + padding.top;
-}
-
-static void
-gtk_emacsfixed_native_check_resize (GtkNative *native)
-{
-  //  gtk_emacsfixed_check_resize (GTK_WINDOW (native));
-}
-
-
-static void gtk_emacsfixed_native_interface_init (GtkNativeInterface  *iface)
-{
-  iface->get_renderer = gtk_emacsfixed_native_get_renderer;
-  iface->get_surface = gtk_emacsfixed_native_get_surface;
-  iface->get_surface_transform = gtk_emacsfixed_native_get_surface_transform;
-  iface->check_resize = gtk_emacsfixed_native_check_resize;
-}
-#endif
 #if 1
 #define FRAME_CR_SURFACE(f)	((f)->output_data.gtk4->cr_surface)
 
@@ -247,29 +183,6 @@ static void emacs_fixed_snapshot (GtkWidget   *widget,
 #endif
 struct frame *
 gtk4_any_window_to_frame (GtkWidget *window);
-
-
-static gboolean
-focus_in_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
-{
-  GTK4_TRACE("focus_in_event");
-  //  union buffered_input_event inev;
-  struct frame *frame = gtk4_any_window_to_frame(widget);
-
-  if (frame == NULL)
-    return TRUE;
-
-  /* EVENT_INIT (inev.ie); */
-  /* inev.ie.kind = NO_EVENT; */
-  /* inev.ie.arg = Qnil; */
-
-  /* x_focus_changed (TRUE, FOCUS_IMPLICIT, */
-  /*		   FRAME_DISPLAY_INFO(frame), frame, &inev); */
-  /* if (inev.ie.kind != NO_EVENT) */
-  /*   evq_enqueue (&inev); */
-  return TRUE;
-}
-
 
 
 static void
