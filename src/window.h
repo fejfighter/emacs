@@ -163,7 +163,6 @@ struct window
        at the time of last redisplay.  The value is saved for the
        selected window too.  */
     Lisp_Object old_pointm;
-
     /* No permanent meaning; used by save-window-excursion's
        bookkeeping.  */
     Lisp_Object temslot;
@@ -749,7 +748,7 @@ wset_next_buffers (struct window *w, Lisp_Object val)
 #endif
 
 /* True if W is a tab bar window.  */
-#if defined (HAVE_WINDOW_SYSTEM)
+#if defined (HAVE_WINDOW_SYSTEM) && !defined(HAVE_GTK4)
 # define WINDOW_TAB_BAR_P(W) \
    (WINDOWP (WINDOW_XFRAME (W)->tab_bar_window) \
     && (W) == XWINDOW (WINDOW_XFRAME (W)->tab_bar_window))
@@ -1091,7 +1090,7 @@ extern Lisp_Object minibuf_selected_window;
 
 extern Lisp_Object make_window (void);
 extern Lisp_Object window_from_coordinates (struct frame *, int, int,
-                                            enum window_part *, bool, bool);
+					    enum window_part *, bool, bool);
 extern void resize_frame_windows (struct frame *, int, bool);
 extern void restore_window_configuration (Lisp_Object);
 extern void delete_all_child_windows (Lisp_Object);
@@ -1105,7 +1104,7 @@ void run_window_change_functions (void);
    to run hooks.  See make_frame for a case where it's not allowed.  */
 
 void set_window_buffer (Lisp_Object window, Lisp_Object buffer,
-                        bool run_hooks_p, bool keep_margins_p);
+			bool run_hooks_p, bool keep_margins_p);
 
 /* This is the window where the echo area message was displayed.  It
    is always a minibuffer window, but it may not be the same window

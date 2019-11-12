@@ -608,6 +608,7 @@ extern void gtk4_set_scroll_bar_default_height (struct frame *f);
 extern Lisp_Object x_get_focus_frame (struct frame *frame);
 
 extern void gtk4_frame_rehighlight (struct gtk4_display_info *dpyinfo);
+extern void x_change_tab_bar_height (struct frame *, int);
 extern void update_frame_tool_bar (struct frame *f);
 
 
