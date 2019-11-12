@@ -111,6 +111,7 @@ Security'."
     "/usr/ssl/certs/ca-bundle.crt"           ; Cygwin
     "/usr/local/share/certs/ca-root-nss.crt" ; FreeBSD
     "/etc/ssl/cert.pem"                      ; macOS
+    "/etc/certs/ca-certificates.crt"         ; OpenIndiana
     )
   "List of CA bundle location filenames or a function returning said list.
 If a file path contains glob wildcards, they will be expanded.
@@ -137,7 +138,8 @@ network security is handled at a higher level via
 node `(emacs) Network Security'."
   :type '(choice (const :tag "Use default value" nil)
                  (integer :tag "Number of bits" 2048))
-  :group 'gnutls)
+  :group 'gnutls
+  :version "27.1")
 
 (defcustom gnutls-crlfiles
   '(

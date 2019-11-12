@@ -2128,7 +2128,10 @@ the end of the list of defaults just after the default value."
 
 (defun goto-history-element (nabs)
   "Puts element of the minibuffer history in the minibuffer.
-The argument NABS specifies the absolute history position."
+The argument NABS specifies the absolute history position in
+descending order, where 0 means the current element and a
+positive number N means the Nth previous element.  NABS being a
+negative number -N means the Nth entry of \"future history.\""
   (interactive "p")
   (when (and (not minibuffer-default-add-done)
 	     (functionp minibuffer-default-add-function)
@@ -2185,7 +2188,9 @@ The argument NABS specifies the absolute history position."
 
 (defun next-history-element (n)
   "Puts next element of the minibuffer history in the minibuffer.
-With argument N, it uses the Nth following element."
+With argument N, it uses the Nth following element.  The position
+in the history can go beyond the current position and invoke \"future
+history.\""
   (interactive "p")
   (or (zerop n)
       (goto-history-element (- minibuffer-history-position n))))
@@ -2506,6 +2511,10 @@ as an argument limits undo to changes within the current region."
 	 (base-buffer (or (buffer-base-buffer) (current-buffer)))
 	 (recent-save (with-current-buffer base-buffer
 			(recent-auto-save-p)))
+         ;; Allow certain commands to inhibit an immediately following
+         ;; undo-in-region.
+         (inhibit-region (and (symbolp last-command)
+                              (get last-command 'undo-inhibit-region)))
 	 message)
     ;; If we get an error in undo-start,
     ;; the next command should not be a "consecutive undo".
@@ -2523,7 +2532,8 @@ as an argument limits undo to changes within the current region."
 		       ;; it shows nothing else happened in between.
 		       (gethash list undo-equiv-table))))
       (setq undo-in-region
-	    (or (region-active-p) (and arg (not (numberp arg)))))
+	    (and (or (region-active-p) (and arg (not (numberp arg))))
+                 (not inhibit-region)))
       (if undo-in-region
 	  (undo-start (region-beginning) (region-end))
 	(undo-start))
@@ -3336,7 +3346,7 @@ to `shell-command-history'."
         (shell-completion-vars)
 	(set (make-local-variable 'minibuffer-default-add-function)
 	     'minibuffer-default-add-shell-commands))
-    (apply 'read-from-minibuffer prompt initial-contents
+    (apply #'read-from-minibuffer prompt initial-contents
 	   minibuffer-local-shell-command-map
 	   nil
 	   (or hist 'shell-command-history)
@@ -5164,80 +5174,13 @@ and KILLP is t if a prefix arg was specified."
     ;; Avoid warning about delete-backward-char
     (with-no-warnings (delete-backward-char n killp))))
 
-(defvar read-char-with-history--history nil
-  "The default history for `read-char-with-history'.")
-
-(defun read-char-with-history (prompt &optional inherit-input-method seconds
-                                      history)
-  "Like `read-char', but allows navigating in a history.
-HISTORY is like HIST in `read-from-minibuffer'.
-
-The navigation commands are `M-p' and `M-n', with `RET' to select
-a character from history."
-  (let* ((result nil)
-         (real-prompt prompt)
-         (hist-format
-          (lambda (char)
-            (if (string-match ": *\\'" real-prompt)
-                (format "%s (default %c): "
-                        (substring real-prompt 0 (match-beginning 0))
-                        char)
-              (format "%s (default %c) " real-prompt char))))
-         (index 0)
-         histvar)
-    ;; Use the same history interface as `read-from-minibuffer'.
-    (cond
-     ((null history)
-      (setq histvar 'read-char-with-history--history))
-     ((consp history)
-      (setq histvar (car history)
-            index (cdr history)))
-     ((symbolp history)
-      (setq histvar history))
-     (t
-      (error "Invalid history: %s" history)))
-    (while (not result)
-      (setq result (read-char prompt inherit-input-method seconds))
-      ;; Go back in history.
-      (cond
-       ((eq result ?\M-p)
-        (if (>= index (length (symbol-value histvar)))
-            (progn
-              (message "Beginning of history; no preceding item")
-              (ding)
-              (sit-for 2))
-          (setq index (1+ index)
-                prompt (funcall hist-format
-                                (elt (symbol-value histvar) (1- index)))))
-        (setq result nil))
-       ;; Go forward in history.
-       ((eq result ?\M-n)
-        (if (zerop index)
-            (progn
-              (message "End of history; no next item")
-              (ding)
-              (sit-for 2))
-          (setq index (1- index)
-                prompt (if (zerop index)
-                           real-prompt
-                         (funcall hist-format
-                                  (elt (symbol-value histvar) (1- index))))))
-        (setq result nil))
-       ;; The user hits RET to either select a history item or to
-       ;; return RET.
-       ((eq result ?\r)
-        (unless (zerop index)
-          (setq result (elt (symbol-value histvar) (1- index)))))))
-    ;; Record the chosen key.
-    (set histvar (cons result (symbol-value histvar)))
-    result))
-
 (defun zap-to-char (arg char)
   "Kill up to and including ARGth occurrence of CHAR.
 Case is ignored if `case-fold-search' is non-nil in the current buffer.
 Goes backward if ARG is negative; error if CHAR not found."
   (interactive (list (prefix-numeric-value current-prefix-arg)
-		     (read-char-with-history "Zap to char: " t)))
+		     (read-char-from-minibuffer "Zap to char: "
+						nil 'read-char-history)))
   ;; Avoid "obsolete" warnings for translation-table-for-input.
   (with-no-warnings
     (if (char-table-p translation-table-for-input)
@@ -8494,10 +8437,7 @@ Called from `temp-buffer-show-hook'."
 		 "In this buffer, type \\[choose-completion] to \
 select the completion near point.\n\n"))))))
 
-(add-hook 'completion-setup-hook 'completion-setup-function)
-
-(define-key minibuffer-local-completion-map [prior] 'switch-to-completions)
-(define-key minibuffer-local-completion-map "\M-v"  'switch-to-completions)
+(add-hook 'completion-setup-hook #'completion-setup-function)
 
 (defun switch-to-completions ()
   "Select the completion list window."
@@ -9125,7 +9065,7 @@ contains the list of implementations currently supported for this command."
              (unless (string-equal val "")
 	       (when (null ,varimp-sym)
 		 (message
-		  "Use C-u M-x %s RET`to select another implementation"
+		  "Use `C-u M-x %s RET' to select another implementation"
 		  ,command-name)
 		 (sit-for 3))
 	       (customize-save-variable ',varimp-sym

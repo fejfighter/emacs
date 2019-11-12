@@ -828,7 +828,13 @@ that warning is not logged.
 
 Sometimes, you may wish to avoid showing a warning while a command is
 running, and only show it only after the end of the command.  You can
-use the variable @code{delayed-warnings-list} for this.
+use the function @code{delay-warning} for this.
+
+@defun delay-warning type message &optional level buffer-name
+This function is the delayed counterpart to @code{display-warning}
+(@pxref{Warning Basics}), and it is called with the same arguments.
+The warning message is queued into @code{delayed-warnings-list}.
+@end defun
 
 @defvar delayed-warnings-list
 The value of this variable is a list of warnings to be displayed after
@@ -840,8 +846,8 @@ the current command has finished.  Each element must be a list
 
 @noindent
 with the same form, and the same meanings, as the argument list of
-@code{display-warning} (@pxref{Warning Basics}).  Immediately after
-running @code{post-command-hook} (@pxref{Command Overview}), the Emacs
+@code{display-warning}.  Immediately after running
+@code{post-command-hook} (@pxref{Command Overview}), the Emacs
 command loop displays all the warnings specified by this variable,
 then resets it to @code{nil}.
 @end defvar
@@ -2242,10 +2248,8 @@ is equivalent to a Lisp symbol with the same name.}.  Named faces are
 defined using the @code{defface} macro (@pxref{Defining Faces}).
 Emacs comes with several standard named faces (@pxref{Basic Faces}).
 
-  Many parts of Emacs require named faces, and do not accept
-anonymous faces.  These include the functions documented in
-@ref{Attribute Functions}, and the variable @code{font-lock-keywords}
-(@pxref{Search-based Fontification}).  Unless otherwise stated, we
+  Some parts of Emacs require named faces (e.g., the functions
+documented in @ref{Attribute Functions}).  Unless otherwise stated, we
 will use the term @dfn{face} to refer only to named faces.
 
 @defun facep object
@@ -2461,16 +2465,18 @@ or a fontset.  @xref{Low-Level Font}, for information about font
 objects, font specs, and font entities.  @xref{Fontsets}, for
 information about fontsets.
 
-When specifying this attribute using @code{set-face-attribute}
-(@pxref{Attribute Functions}), you may also supply a font spec, a font
-entity, or a string.  Emacs converts such values to an appropriate
-font object, and stores that font object as the actual attribute
-value.  If you specify a string, the contents of the string should be
-a font name (@pxref{Fonts,,, emacs, The GNU Emacs Manual}); if the
-font name is an XLFD containing wildcards, Emacs chooses the first
-font matching those wildcards.  Specifying this attribute also changes
-the values of the @code{:family}, @code{:foundry}, @code{:width},
-@code{:height}, @code{:weight}, and @code{:slant} attributes.
+@anchor{face-font-attribute}
+When specifying this attribute using @code{set-face-attribute} or
+@code{set-face-font} (@pxref{Attribute Functions}), you may also
+supply a font spec, a font entity, or a string.  Emacs converts such
+values to an appropriate font object, and stores that font object as
+the actual attribute value.  If you specify a string, the contents of
+the string should be a font name (@pxref{Fonts,,, emacs, The GNU Emacs
+Manual}); if the font name is an XLFD containing wildcards, Emacs
+chooses the first font matching those wildcards.  Specifying this
+attribute also changes the values of the @code{:family},
+@code{:foundry}, @code{:width}, @code{:height}, @code{:weight}, and
+@code{:slant} attributes.
 
 @cindex inheritance, for faces
 @item :inherit
@@ -2828,7 +2834,14 @@ This sets the @code{:stipple} attribute of @var{face} to
 @end deffn
 
 @deffn Command set-face-font face font &optional frame
-This sets the @code{:font} attribute of @var{face} to @var{font}.
+Change the font-related attributes of @var{face} to those of
+@var{font} (a string or a font object).  @xref{face-font-attribute},
+for the supported formats of the @var{font} argument.  This function
+sets the attribute @code{:font} of the face, and indirectly also the
+@code{:family}, @code{:foundry}, @code{:width}, @code{:height},
+@code{:weight}, and @code{:slant} attributes, as defined by the font.
+If @var{frame} is non-@code{nil}, only change the attributes on the
+specified frame.
 @end deffn
 
 @defun set-face-bold face bold-p &optional frame
@@ -3655,7 +3668,10 @@ The font name (a string), in either XLFD, Fontconfig, or GTK+ format.
 @itemx :slant
 @itemx :width
 These have the same meanings as the face attributes of the same name.
-@xref{Face Attributes}.
+@xref{Face Attributes}.  @code{:family} and @code{:foundry} are
+strings, while the other three are symbols.  As example values,
+@code{:slant} may be @code{italic}, @code{:weight} may be @code{bold}
+and @code{:width} may be @code{normal}.
 
 @item :size
 The font size---either a non-negative integer that specifies the pixel
@@ -4217,6 +4233,17 @@ a display specification has the form
 to display.  The optional @var{face} names a face whose foreground
 color is used to display the bitmap; this face is automatically merged
 with the @code{fringe} face.
+
+  For instance, to display an arrow in the left fringe, using the
+@code{warning} face, you could say something like:
+
+@lisp
+(overlay-put
+ (make-overlay (point) (point))
+ 'before-string (propertize
+                 "x" 'display
+                 `(left-fringe right-arrow warning)))
+@end lisp
 
   Here is a list of the standard fringe bitmaps defined in Emacs, and
 how they are currently used in Emacs (via

@@ -129,9 +129,9 @@ This metadata is an alist.  Currently understood keys are:
 The metadata of a completion table should be constant between two boundaries."
   (let ((metadata (if (functionp table)
                       (funcall table string pred 'metadata))))
-    (if (eq (car-safe metadata) 'metadata)
-        metadata
-      '(metadata))))
+    (cons 'metadata
+          (if (eq (car-safe metadata) 'metadata)
+              (cdr metadata)))))
 
 (defun completion--field-metadata (field-start)
   (completion-metadata (buffer-substring-no-properties field-start (point))
@@ -715,6 +715,11 @@ If ARGS are provided, then pass MESSAGE through `format-message'."
           (message "%s" message))
         (prog1 (sit-for (or minibuffer-message-timeout 1000000))
           (message nil)))
+    ;; Record message in the *Messages* buffer
+    (let ((inhibit-message t))
+      (if args
+          (apply #'message message args)
+        (message "%s" message)))
     ;; Clear out any old echo-area message to make way for our new thing.
     (message nil)
     (setq message (if (and (null args)
@@ -909,9 +914,6 @@ This overrides the defaults specified in `completion-category-defaults'."
 
 (defun completion--nth-completion (n string table pred point metadata)
   "Call the Nth method of completion styles."
-  (unless metadata
-    (setq metadata
-          (completion-metadata (substring string 0 point) table pred)))
   ;; We provide special support for quoting/unquoting here because it cannot
   ;; reliably be done within the normal completion-table routines: Completion
   ;; styles such as `substring' or `partial-completion' need to match the
@@ -922,31 +924,39 @@ This overrides the defaults specified in `completion-category-defaults'."
   ;; The quote/unquote function needs to come from the completion table (rather
   ;; than from completion-extra-properties) because it may apply only to some
   ;; part of the string (e.g. substitute-in-file-name).
-  (let ((requote
-         (when (and
-                (completion-metadata-get metadata 'completion--unquote-requote)
-                ;; Sometimes a table's metadata is used on another
-                ;; table (typically that other table is just a list taken
-                ;; from the output of `all-completions' or something equivalent,
-                ;; for progressive refinement).  See bug#28898 and bug#16274.
-                ;; FIXME: Rather than do nothing, we should somehow call
-                ;; the original table, in that case!
-                (functionp table))
-           (let ((new (funcall table string point 'completion--unquote)))
-             (setq string (pop new))
-             (setq table (pop new))
-             (setq point (pop new))
-	     (cl-assert (<= point (length string)))
-             (pop new))))
-        (result
-         (completion--some (lambda (style)
-                             (funcall (nth n (assq style
-                                                   completion-styles-alist))
-                                      string table pred point))
-                           (completion--styles metadata))))
+  (let* ((md (or metadata
+                 (completion-metadata (substring string 0 point) table pred)))
+         (requote
+          (when (and
+                 (completion-metadata-get md 'completion--unquote-requote)
+                 ;; Sometimes a table's metadata is used on another
+                 ;; table (typically that other table is just a list taken
+                 ;; from the output of `all-completions' or something
+                 ;; equivalent, for progressive refinement).
+                 ;; See bug#28898 and bug#16274.
+                 ;; FIXME: Rather than do nothing, we should somehow call
+                 ;; the original table, in that case!
+                 (functionp table))
+            (let ((new (funcall table string point 'completion--unquote)))
+              (setq string (pop new))
+              (setq table (pop new))
+              (setq point (pop new))
+              (cl-assert (<= point (length string)))
+              (pop new))))
+         (result-and-style
+          (completion--some
+           (lambda (style)
+             (let ((probe (funcall (nth n (assq style
+                                                completion-styles-alist))
+                                   string table pred point)))
+               (and probe (cons probe style))))
+           (completion--styles md)))
+         (adjust-fn (get (cdr result-and-style) 'completion--adjust-metadata)))
+    (when (and adjust-fn metadata)
+      (setcdr metadata (cdr (funcall adjust-fn metadata))))
     (if requote
-        (funcall requote result n)
-      result)))
+        (funcall requote (car result-and-style) n)
+      (car result-and-style))))
 
 (defun completion-try-completion (string table pred point &optional metadata)
   "Try to complete STRING using completion table TABLE.
@@ -1679,14 +1689,11 @@ See also `display-completion-list'.")
 
 (defface completions-first-difference
   '((t (:inherit bold)))
-  "Face for the first uncommon character in completions.
+  "Face for the first character after point in completions.
 See also the face `completions-common-part'.")
 
 (defface completions-common-part '((t nil))
-  "Face for the common prefix substring in completions.
-The idea of this face is that you can use it to make the common parts
-less visible than normal, so that the differing parts are emphasized
-by contrast.
+  "Face for the parts of completions which matched the pattern.
 See also the face `completions-first-difference'.")
 
 (defun completion-hilit-commonality (completions prefix-len &optional base-size)
@@ -2234,6 +2241,13 @@ The completion method is determined by `completion-at-point-functions'."
 (let ((map minibuffer-local-map))
   (define-key map "\C-g" 'abort-recursive-edit)
   (define-key map "\M-<" 'minibuffer-beginning-of-buffer)
+
+  (define-key map [remap recenter-top-bottom] 'minibuffer-recenter-top-bottom)
+  (define-key map [remap scroll-up-command] 'minibuffer-scroll-up-command)
+  (define-key map [remap scroll-down-command] 'minibuffer-scroll-down-command)
+  (define-key map [remap scroll-other-window] 'minibuffer-scroll-other-window)
+  (define-key map [remap scroll-other-window-down] 'minibuffer-scroll-other-window-down)
+
   (define-key map "\r" 'exit-minibuffer)
   (define-key map "\n" 'exit-minibuffer))
 
@@ -2246,6 +2260,8 @@ The completion method is determined by `completion-at-point-functions'."
     ;; (define-key map "\e\t" 'minibuffer-force-complete)
     (define-key map " " 'minibuffer-complete-word)
     (define-key map "?" 'minibuffer-completion-help)
+    (define-key map [prior] 'switch-to-completions)
+    (define-key map "\M-v"  'switch-to-completions)
     map)
   "Local keymap for minibuffer input with completion.")
 
@@ -3055,16 +3071,18 @@ PATTERN is as returned by `completion-pcm--string->pattern'."
 	    (when (string-match-p regex c) (push c poss)))
 	  (nreverse poss))))))
 
-(defvar flex-score-match-tightness 100
+(defvar flex-score-match-tightness 3
   "Controls how the `flex' completion style scores its matches.
 
-Value is a positive number.  Values smaller than one make the
-scoring formula value matches scattered along the string, while
-values greater than one make the formula value tighter matches.
-I.e \"foo\" matches both strings \"barbazfoo\" and \"fabrobazo\",
-which are of equal length, but only a value greater than one will
-score the former (which has one \"hole\") higher than the
-latter (which has two).")
+Value is a positive number.  A number smaller than 1 makes the
+scoring formula reward matches scattered along the string, while
+a number greater than one make the formula reward matches that
+are clumped together.  I.e \"foo\" matches both strings
+\"fbarbazoo\" and \"fabrobazo\", which are of equal length, but
+only a value greater than one will score the former (which has
+one large \"hole\" and a clumped-together \"oo\" match) higher
+than the latter (which has two \"holes\" and three
+one-letter-long matches).")
 
 (defun completion-pcm--hilit-commonality (pattern completions)
   (when completions
@@ -3083,27 +3101,39 @@ latter (which has two).")
                 (end (pop md))
                 (len (length str))
                 ;; To understand how this works, consider these bad
-                ;; ascii(tm) diagrams showing how the pattern \"foo\"
-                ;; flex-matches \"fabrobazo" and
-                ;; \"barfoobaz\":
+                ;; ascii(tm) diagrams showing how the pattern "foo"
+                ;; flex-matches "fabrobazo", "fbarbazoo" and
+                ;; "barfoobaz":
 
                 ;;      f abr o baz o
                 ;;      + --- + --- +
 
-                ;;      bar foo baz
-                ;;      --- +++ ---
+                ;;      f barbaz oo
+                ;;      + ------ ++
 
-                ;; Where + indicates parts where the pattern matched,
-                ;; - where it didn't match.  The score is a number
+                ;;      bar foo baz
+                ;;          +++
+
+                ;; "+" indicates parts where the pattern matched.  A
+                ;; "hole" in the middle of the string is indicated by
+                ;; "-".  Note that there are no "holes" near the edges
+                ;; of the string.  The completion score is a number
                 ;; bound by ]0..1]: the higher the better and only a
                 ;; perfect match (pattern equals string) will have
                 ;; score 1.  The formula takes the form of a quotient.
                 ;; For the numerator, we use the number of +, i.e. the
                 ;; length of the pattern.  For the denominator, it
-                ;; sums (1+ (/ (grouplen - 1)
-                ;; flex-score-match-tightness)) across all groups of
-                ;; -, sums one to that total, and then multiples by
-                ;; the length of the string.
+                ;; first computes
+                ;;
+                ;;     hole_i_contrib = 1 + (Li-1)^(1/tightness)
+                ;;
+                ;; , for each hole "i" of length "Li", where tightness
+                ;; is given by `flex-score-match-tightness'.  The
+                ;; final value for the denominator is then given by:
+                ;;
+                ;;    (SUM_across_i(hole_i_contrib) + 1) * len
+                ;;
+                ;; , where "len" is the string's length.
                 (score-numerator 0)
                 (score-denominator 0)
                 (last-b 0)
@@ -3112,29 +3142,31 @@ latter (which has two).")
                    "Update score variables given match range (A B)."
                    (setq
                     score-numerator   (+ score-numerator (- b a)))
-                   (unless (= a last-b)
+                   (unless (or (= a last-b)
+                               (zerop last-b)
+                               (= a (length str)))
                      (setq
                       score-denominator (+ score-denominator
                                            1
-                                           (/ (- a last-b 1)
-                                              flex-score-match-tightness
-                                              1.0))))
+                                           (expt (- a last-b 1)
+                                                 (/ 1.0
+                                                    flex-score-match-tightness)))))
                    (setq
                     last-b              b))))
            (funcall update-score start start)
            (while md
              (funcall update-score start (car md))
              (put-text-property start (pop md)
-                                'font-lock-face 'completions-common-part
+                                'face 'completions-common-part
                                 str)
              (setq start (pop md)))
            (funcall update-score len len)
            (put-text-property start end
-                              'font-lock-face 'completions-common-part
+                              'face 'completions-common-part
                               str)
            (if (> (length str) pos)
                (put-text-property pos (1+ pos)
-                                  'font-lock-face 'completions-first-difference
+                                  'face 'completions-first-difference
                                   str))
            (unless (zerop (length str))
              (put-text-property
@@ -3462,6 +3494,32 @@ that is non-nil."
 ;;; "flex" completion, also known as flx/fuzzy/scatter completion
 ;; Completes "foo" to "frodo" and "farfromsober"
 
+(put 'flex 'completion--adjust-metadata 'completion--flex-adjust-metadata)
+
+(defun completion--flex-adjust-metadata (metadata)
+  (cl-flet ((compose-flex-sort-fn
+             (existing-sort-fn) ; wish `cl-flet' had proper indentation...
+             (lambda (completions)
+               (let ((res
+                      (if existing-sort-fn
+                          (funcall existing-sort-fn completions)
+                        completions)))
+                 (sort
+                  res
+                  (lambda (c1 c2)
+                    (or (equal c1 minibuffer-default)
+                        (let ((s1 (get-text-property 0 'completion-score c1))
+                              (s2 (get-text-property 0 'completion-score c2)))
+                          (> (or s1 0) (or s2 0))))))))))
+    `(metadata
+      (display-sort-function
+       . ,(compose-flex-sort-fn
+           (completion-metadata-get metadata 'display-sort-function)))
+      (cycle-sort-function
+       . ,(compose-flex-sort-fn
+           (completion-metadata-get metadata 'cycle-sort-function)))
+      ,@(cdr metadata))))
+
 (defun completion-flex--make-flex-pattern (pattern)
   "Convert PCM-style PATTERN into PCM-style flex pattern.
 
@@ -3624,6 +3682,46 @@ Otherwise move to the start of the buffer."
                (minibuffer-prompt-end))))
   (when (and arg (not (consp arg)))
     (forward-line 1)))
+
+(defmacro with-minibuffer-selected-window (&rest body)
+  "Execute the forms in BODY from the minibuffer in its original window.
+When used in a minibuffer window, select the window selected just before
+the minibuffer was activated, and execute the forms."
+  (declare (indent 0) (debug t))
+  `(let ((window (minibuffer-selected-window)))
+     (when window
+       (with-selected-window window
+         ,@body))))
+
+(defun minibuffer-recenter-top-bottom (&optional arg)
+  "Run `recenter-top-bottom' from the minibuffer in its original window."
+  (interactive "P")
+  (with-minibuffer-selected-window
+    (recenter-top-bottom arg)))
+
+(defun minibuffer-scroll-up-command (&optional arg)
+  "Run `scroll-up-command' from the minibuffer in its original window."
+  (interactive "^P")
+  (with-minibuffer-selected-window
+    (scroll-up-command arg)))
+
+(defun minibuffer-scroll-down-command (&optional arg)
+  "Run `scroll-down-command' from the minibuffer in its original window."
+  (interactive "^P")
+  (with-minibuffer-selected-window
+    (scroll-down-command arg)))
+
+(defun minibuffer-scroll-other-window (&optional arg)
+  "Run `scroll-other-window' from the minibuffer in its original window."
+  (interactive "P")
+  (with-minibuffer-selected-window
+    (scroll-other-window arg)))
+
+(defun minibuffer-scroll-other-window-down (&optional arg)
+  "Run `scroll-other-window-down' from the minibuffer in its original window."
+  (interactive "^P")
+  (with-minibuffer-selected-window
+    (scroll-other-window-down arg)))
 
 (provide 'minibuffer)
 

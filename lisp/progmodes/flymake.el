@@ -553,16 +553,19 @@ Node `(Flymake)Flymake error types'"
 (put 'flymake-error 'flymake-bitmap 'flymake-error-bitmap)
 (put 'flymake-error 'severity (warning-numeric-level :error))
 (put 'flymake-error 'mode-line-face 'compilation-error)
+(put 'flymake-error 'flymake-type-name "error")
 
 (put 'flymake-warning 'face 'flymake-warning)
 (put 'flymake-warning 'flymake-bitmap 'flymake-warning-bitmap)
 (put 'flymake-warning 'severity (warning-numeric-level :warning))
 (put 'flymake-warning 'mode-line-face 'compilation-warning)
+(put 'flymake-warning 'flymake-type-name "warning")
 
 (put 'flymake-note 'face 'flymake-note)
 (put 'flymake-note 'flymake-bitmap 'flymake-note-bitmap)
 (put 'flymake-note 'severity (warning-numeric-level :debug))
 (put 'flymake-note 'mode-line-face 'compilation-info)
+(put 'flymake-note 'flymake-type-name "note")
 
 (defun flymake--lookup-type-property (type prop &optional default)
   "Look up PROP for diagnostic TYPE.
@@ -652,7 +655,9 @@ associated `flymake-category' return DEFAULT."
              (flymake-diagnostics pos)
              "\n"))))
       (default-maybe 'severity (warning-numeric-level :error))
-      (default-maybe 'priority (+ 100 (overlay-get ov 'severity))))
+      ;; Use (PRIMARY . SECONDARY) priority, to avoid clashing with
+      ;; `region' face, for example (bug#34022).
+      (default-maybe 'priority (cons nil (+ 40 (overlay-get ov 'severity)))))
     ;; Some properties can't be overridden.
     ;;
     (overlay-put ov 'evaporate t)
@@ -749,7 +754,10 @@ report applies to that region."
                                   (format "Unknown action %S" report-action))
         (flymake-error "Expected report, but got unknown key %s" report-action))
        (t
-        (setq new-diags report-action)
+        (setq new-diags
+              (cl-remove-if-not
+               (lambda (diag) (eq (flymake--diag-buffer diag) (current-buffer)))
+               report-action))
         (save-restriction
           (widen)
           ;; Before adding to backend's diagnostic list, decide if
@@ -1331,7 +1339,9 @@ POS can be a buffer position or a button"
                                     'severity (warning-numeric-level :error)))
                    `[,(format "%s" line)
                      ,(format "%s" col)
-                     ,(propertize (format "%s" type)
+                     ,(propertize (format "%s"
+                                          (flymake--lookup-type-property
+                                           type 'flymake-type-name type))
                                   'face (flymake--lookup-type-property
                                          type 'mode-line-face 'flymake-error))
                      (,(format "%s" (flymake--diag-text diag))

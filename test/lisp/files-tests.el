@@ -240,8 +240,8 @@ form.")
     (should (equal kill-emacs-args '(nil)))))
 
 (ert-deftest files-tests-read-file-in-~ ()
-  "Test file prompting in directory named '~'.
-If we are in a directory named '~', the default value should not
+  "Test file prompting in directory named `~'.
+If we are in a directory named `~', the default value should not
 be $HOME."
   (cl-letf (((symbol-function 'completing-read)
              (lambda (_prompt _coll &optional _pred _req init _hist def _)
@@ -1052,7 +1052,13 @@ unquoted file names."
           (should (search-forward emacs-version nil t))
           ;; Don't stop the test run with a query, as the subprocess
           ;; may or may not be dead by the time we reach here.
-          (set-process-query-on-exit-flag proc nil)))))
+          (set-process-query-on-exit-flag proc nil)
+          ;; On MS-Windows, wait for the process to die, since the OS
+          ;; will not let us delete a directory that is the cwd of a
+          ;; running process.
+          (when (eq system-type 'windows-nt)
+            (while (process-live-p proc)
+              (sleep-for 0.1)))))))
   (files-tests--with-temp-non-special-and-file-name-handler
       (tmpdir nospecial-dir t)
     (with-temp-buffer

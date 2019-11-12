@@ -109,10 +109,26 @@ Its format is that of the ZONE argument of the `format-time-string' function."
   :type '(choice (const :tag "Emacs local time" nil)
                  (const :tag "Universal Time" t)
                  (const :tag "system wall clock time" wall)
-                 (string :tag "TZ environment variable value"))
+                 (string :tag "TZ environment variable value")
+                 (list :tag "Offset and name"
+                       (integer :tag "Offset (seconds east of UTC)")
+                       (string :tag "Time zone abbreviation"))
+                 (integer :tag "Offset (seconds east of UTC)"))
   :group 'time-stamp
   :version "20.1")
-;;;###autoload(put 'time-stamp-time-zone 'safe-local-variable 'string-or-null-p)
+;;;###autoload(put 'time-stamp-time-zone 'safe-local-variable 'time-stamp-zone-type-p)
+
+;;;###autoload
+(defun time-stamp-zone-type-p (zone)
+  "Return whether or not ZONE is of the correct type for a timezone rule.
+Valid ZONE values are described in the documentation of `format-time-string'."
+  (or (memq zone '(nil t wall))
+      (stringp zone)
+      (and (consp zone)
+           (integerp (car zone))
+           (consp (cdr zone))
+           (stringp (cadr zone)))
+      (integerp zone)))
 
 ;;; Do not change time-stamp-line-limit, time-stamp-start,
 ;;; time-stamp-end, time-stamp-pattern, time-stamp-inserts-lines,
@@ -554,11 +570,13 @@ and all `time-stamp-format' compatibility."
               (string-to-number (time-stamp--format "%Y" time)))))
 	 ((eq cur-char ?Y)		;4-digit year
 	  (string-to-number (time-stamp--format "%Y" time)))
-	 ((eq cur-char ?z)		;time zone lower case
+	 ((eq cur-char ?z)		;time zone offset
 	  (if change-case
 	      ""			;discourage %z variations
-	    (time-stamp--format "%#Z" time)))
-	 ((eq cur-char ?Z)
+            (if alt-form
+                (time-stamp--format "%z" time)
+              (time-stamp--format "%#Z" time)))) ;backward compat, will change
+	 ((eq cur-char ?Z)              ;time zone name
 	  (if change-case
 	      (time-stamp--format "%#Z" time)
 	    (time-stamp--format "%Z" time)))

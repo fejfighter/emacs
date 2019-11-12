@@ -32,7 +32,7 @@
 ;;  auto-mode-alist.
 ;;
 ;;  To use:
-;;     (add-hook 'find-file-hook 'auto-insert)
+;;     (auto-insert-mode t)
 ;;     setq auto-insert-directory to an appropriate slash-terminated value
 ;;
 ;;  You can also customize the variable `auto-insert-mode' to load the
@@ -161,6 +161,29 @@ If this contains a %s, that will be replaced by the matching rule."
      '(if (search-backward "&" (line-beginning-position) t)
 	  (replace-match (capitalize (user-login-name)) t t))
      '(end-of-line 1) " <" (progn user-mail-address) ">\n")
+
+    (".dir-locals.el"
+     nil
+     ";;; Directory Local Variables\n"
+     ";;; For more information see (info \"(emacs) Directory Variables\")\n\n"
+     "(("
+     '(setq v1 (let (modes)
+                 (mapatoms (lambda (mode)
+                             (let ((name (symbol-name mode)))
+                               (when (string-match "-mode$" name)
+                                 (add-to-list 'modes name)))))
+                 (sort modes 'string<)))
+     (completing-read "Local variables for mode: " v1 nil t)
+     " . (("
+     (let ((all-variables
+            (apropos-internal ".*"
+                              (lambda (symbol)
+			        (and (boundp symbol)
+				     (get symbol 'variable-documentation))))))
+       (completing-read "Variable to set: " all-variables))
+     " . "
+     (completing-read "Value to set it to: " nil)
+     "))))\n")
 
     (("\\.el\\'" . "Emacs Lisp header")
      "Short description: "
@@ -315,7 +338,7 @@ described above, e.g. [\"header.insert\" date-and-author-update]."
                 ;; There's no custom equivalent of "repeat" for vectors.
                 :value-type (choice file function
                                     (sexp :tag "Skeleton or vector")))
-  :version "25.1")
+  :version "27.1")
 
 
 ;; Establish a default value for auto-insert-directory

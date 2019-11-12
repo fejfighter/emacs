@@ -2918,20 +2918,29 @@ type @kbd{C-h C-p} to read it.
 @end menu
 
 @node Problems with very large files
-@section Does Emacs have problems with files larger than 8 megabytes?
+@section Does Emacs have problems with large files?
 @cindex Very large files, opening
 @cindex Large files, opening
 @cindex Opening very large files
 @cindex Maximum file size
 @cindex Files, maximum size
 
-Old versions (i.e., anything before 19.29) of Emacs had problems editing
-files larger than 8 megabytes.  In versions 19.29 and later, the maximum
-buffer size is at least @math{2^{27}-1}, or 134,217,727 bytes, or 132 MBytes.
-The maximum buffer size on 32-bit machines increased to 256 MBytes in
-Emacs 22, and again to 512 MBytes in Emacs 23.2.
+Emacs has an inherent fixed limitation on the size of buffers.  This
+limit is stricter than the maximum size of objects supported by other
+programs on the same architecture.
 
-Emacs compiled on a 64-bit machine can handle much larger buffers.
+The maximum buffer size on 32-bit machines is 512 MBytes beginning
+with version 23.2.  If Emacs was built using the
+@code{--with-wide-int} flag, the maximum buffer size on 32-bit
+machines is 2 GB.
+
+Emacs compiled on a 64-bit machine can handle much larger buffers; up
+to @code{most-positive-fixnum} (2.3 exabytes).
+
+Due to things like decoding of multibyte characters, you can only
+visit files with a size that is roughly half the buffer size limit.
+When visiting compressed archives, the file size limit will be
+smaller than that due to decompression.
 
 @node ^M in the shell buffer
 @section How do I get rid of @samp{^M} or echoed commands in my shell buffer?
@@ -3207,23 +3216,12 @@ You can tell Emacs the shell's current directory with the command
 @itemize @bullet
 
 @item
-The @file{movemail} incident.  (No, this is not a risk.)
+Third party packages.
 
-In his book @cite{The Cuckoo's Egg}, Cliff Stoll describes this in
-chapter 4.  The site at LBL had installed the @file{/etc/movemail}
-program setuid root.  (As of version 19, @file{movemail} is in your
-architecture-specific directory; type @kbd{C-h v exec-directory
-@key{RET}} to see what it is.)  Since @code{movemail} had not been
-designed for this situation, a security hole was created and users could
-get root privileges.
-
-@code{movemail} has since been changed so that this security hole will
-not exist, even if it is installed setuid root.  However,
-@code{movemail} no longer needs to be installed setuid root, which
-should eliminate this particular risk.
-
-We have heard unverified reports that the 1988 Internet worm took
-advantage of this configuration problem.
+Any package you install into Emacs can run arbtitrary code with the
+same privileges as the Emacs process itself.  Be aware of this when
+you use the package system (e.g. @code{M-x list-packages}) with third
+party archives.  Use only third parties that you can trust!
 
 @item
 The @code{file-local-variable} feature.  (Yes, a risk, but easy to

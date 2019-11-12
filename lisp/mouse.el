@@ -622,9 +622,9 @@ START-EVENT is the starting mouse event of the drag action.  Its
 position window denotes the frame that will be dragged.
 
 PART specifies the part that has been dragged and must be one of
-the symbols 'left', 'top', 'right', 'bottom', 'top-left',
-'top-right', 'bottom-left', 'bottom-right' to drag an internal
-border or edge.  If PART equals 'move', this means to move the
+the symbols `left', `top', `right', `bottom', `top-left',
+`top-right', `bottom-left', `bottom-right' to drag an internal
+border or edge.  If PART equals `move', this means to move the
 frame with the mouse."
   ;; Give temporary modes such as isearch a chance to turn off.
   (run-hooks 'mouse-leave-buffer-hook)
@@ -1103,6 +1103,12 @@ is dragged over to."
     ;; Give temporary modes such as isearch a chance to turn off.
     (run-hooks 'mouse-leave-buffer-hook)
     (mouse-drag-track start-event)))
+
+;; Inhibit the region-confinement when undoing mouse-drag-region
+;; immediately after the command.  Otherwise, the selection left
+;; active around the dragged text would prevent an undo of the whole
+;; operation.
+(put 'mouse-drag-region 'undo-inhibit-region t)
 
 (defun mouse-posn-property (pos property)
   "Look for a property at click position.

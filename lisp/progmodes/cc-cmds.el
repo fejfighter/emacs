@@ -391,6 +391,16 @@ This action does nothing when the mode only has one comment style."
 	(if c-block-comment-flag
 	    (concat " " c-block-comment-ender)
 	  ""))
+  ;; If necessary, invert the sense of fontification of wrong style comments.
+  (when (and c-mark-wrong-style-of-comment
+	     font-lock-mode
+	     c-block-comment-starter
+	     c-block-comment-ender)
+    (save-excursion
+      (save-restriction
+	(widen)
+	(goto-char (point-min))
+	(c-font-lock-flush (point-min) (point-max)))))
   (c-update-modeline)
   (c-keep-region-active))
 
@@ -4083,14 +4093,18 @@ command to conveniently insert and align the necessary backslashes."
 	    ;; `comment-prefix' on a line and indent it to find the
 	    ;; correct column and the correct mix of tabs and spaces.
 	    (setq res
-		  (let (tmp-pre tmp-post)
+		  (let (tmp-pre tmp-post at-close)
 		    (unwind-protect
 			(progn
 
 			  (goto-char (car lit-limits))
 			  (if (looking-at comment-start-regexp)
-			      (goto-char (min (match-end 0)
-					      comment-text-end))
+			      (progn
+				(goto-char (min (match-end 0)
+						comment-text-end))
+				(setq
+				 at-close
+				 (looking-at c-block-comment-ender-regexp)))
 			    (forward-char 2)
 			    (skip-chars-forward " \t"))
 
@@ -4106,8 +4120,13 @@ command to conveniently insert and align the necessary backslashes."
 					   (save-excursion
 					     (skip-chars-backward " \t")
 					     (point))
-					   (point)))))
-
+					   (point))))
+			    ;; If hard up against the comment ender, the
+			    ;; prefix must end in at least two spaces.
+			    (when at-close
+			      (or (string-match "\\s \\s +\\'" comment-prefix)
+				  (setq comment-prefix
+					(concat comment-prefix " ")))))
 			  (setq tmp-pre (point-marker))
 
 			  ;; We insert an extra non-whitespace character
@@ -4776,7 +4795,6 @@ If a fill prefix is specified, it overrides all the above."
 				    (c-collect-line-comments c-lit-limits))
 			      c-lit-type)))
 		     (pos (point))
-		     (start-col (current-column))
 		     (comment-text-end
 		      (or (and (eq c-lit-type 'c)
 			       (save-excursion
@@ -4821,9 +4839,10 @@ If a fill prefix is specified, it overrides all the above."
 			  (goto-char (+ (car c-lit-limits) 2))))
 		   (funcall do-line-break)
 		   (insert-and-inherit (car fill))
-		   (if (> (current-column) start-col)
-		       (move-to-column start-col)))) ; can this hit the
-					             ; middle of a TAB?
+		   (if (and (looking-at c-block-comment-ender-regexp)
+			    (memq (char-before) '(?\  ?\t)))
+		       (backward-char)))) ; can this hit the
+					  ; middle of a TAB?
 	     ;; Inside a comment that should be broken.
 	     (let ((comment-start comment-start)
 		   (comment-end comment-end)

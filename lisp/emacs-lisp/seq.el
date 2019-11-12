@@ -57,7 +57,6 @@
 ;;; Code:
 
 (eval-when-compile (require 'cl-generic))
-(require 'cl-lib) ;; for cl-subseq
 
 (defmacro seq-doseq (spec &rest body)
   "Loop over a sequence.
@@ -151,7 +150,27 @@ If END is omitted, it defaults to the length of the sequence.  If
 START or END is negative, it counts from the end.  Signal an
 error if START or END are outside of the sequence (i.e too large
 if positive or too small if negative)."
-  (cl-subseq sequence start end))
+  (cond
+   ((or (stringp sequence) (vectorp sequence)) (substring sequence start end))
+   ((listp sequence)
+    (let (len
+          (errtext (format "Bad bounding indices: %s, %s" start end)))
+      (and end (< end 0) (setq end (+ end (setq len (length sequence)))))
+      (if (< start 0) (setq start (+ start (or len (setq len (length sequence))))))
+      (unless (>= start 0)
+        (error "%s" errtext))
+      (when (> start 0)
+        (setq sequence (nthcdr (1- start) sequence))
+        (or sequence (error "%s" errtext))
+        (setq sequence (cdr sequence)))
+      (if end
+          (let ((res nil))
+            (while (and (>= (setq end (1- end)) start) sequence)
+              (push (pop sequence) res))
+            (or (= (1+ end) start) (error "%s" errtext))
+            (nreverse res))
+        (copy-sequence sequence))))
+   (t (error "Unsupported sequence: %s" sequence))))
 
 
 (cl-defgeneric seq-map (function sequence)
@@ -204,6 +223,7 @@ If N is a negative integer or zero, SEQUENCE is returned."
     (let ((length (seq-length sequence)))
       (seq-subseq sequence (min n length) length))))
 
+;;;###autoload
 (cl-defgeneric seq-take (sequence n)
   "Take the first N elements of SEQUENCE and return the result.
 The result is a sequence of the same type as SEQUENCE.
@@ -237,6 +257,7 @@ The result is a sequence of the same type as SEQUENCE."
 (cl-defmethod seq-sort (pred (list list))
   (sort (seq-copy list) pred))
 
+;;;###autoload
 (defun seq-sort-by (function pred sequence)
   "Sort SEQUENCE using PRED as a comparison function.
 Elements of SEQUENCE are transformed by FUNCTION before being
@@ -286,6 +307,7 @@ list."
     (`list (seq--into-list sequence))
     (_ (error "Not a sequence type name: %S" type))))
 
+;;;###autoload
 (cl-defgeneric seq-filter (pred sequence)
   "Return a list of all the elements for which (PRED element) is non-nil in SEQUENCE."
   (let ((exclude (make-symbol "exclude")))
@@ -295,11 +317,13 @@ list."
                                exclude))
                            sequence))))
 
+;;;###autoload
 (cl-defgeneric seq-remove (pred sequence)
   "Return a list of all the elements for which (PRED element) is nil in SEQUENCE."
   (seq-filter (lambda (elt) (not (funcall pred elt)))
               sequence))
 
+;;;###autoload
 (cl-defgeneric seq-reduce (function sequence initial-value)
   "Reduce the function FUNCTION across SEQUENCE, starting with INITIAL-VALUE.
 

@@ -1233,6 +1233,7 @@ please check its value")
   ;; If any package directory exists, initialize the package system.
   (and user-init-file
        package-enable-at-startup
+       (not (bound-and-true-p package--activated))
        (catch 'package-dir-found
 	 (let (dirs)
 	   (if (boundp 'package-directory-list)

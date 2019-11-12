@@ -1635,11 +1635,26 @@ If `ask', ask for user confirmation."
 	       dired-create-files-failures)
 	 (dired-log "Can't set date on %s:\n%s\n" from err))))))
 
+(defcustom dired-vc-rename-file nil
+  "Whether Dired should register file renaming in underlying vc system.
+If nil, use default `rename-file'.
+If non-nil and the renamed files are under version control,
+rename them using `vc-rename-file'."
+  :type '(choice (const :tag "Use rename-file" nil)
+                 (const :tag "Use vc-rename-file" t))
+  :group 'dired
+  :version "27.1")
+
 ;;;###autoload
 (defun dired-rename-file (file newname ok-if-already-exists)
   (dired-handle-overwrite newname)
   (dired-maybe-create-dirs (file-name-directory newname))
-  (rename-file file newname ok-if-already-exists) ; error is caught in -create-files
+  (if (and dired-vc-rename-file
+           (vc-backend file)
+           (ignore-errors (vc-responsible-backend newname)))
+      (vc-rename-file file newname)
+    ;; error is caught in -create-files
+    (rename-file file newname ok-if-already-exists))
   ;; Silently rename the visited file of any buffer visiting this file.
   (and (get-file-buffer file)
        (with-current-buffer (get-file-buffer file)
@@ -1713,7 +1728,7 @@ If `ask', ask for user confirmation."
     (let ((regexp (regexp-quote (directory-file-name dir)))
 	  (newtext (directory-file-name to))
 	  buffer-read-only)
-      (goto-char (dired-get-subdir-min elt))
+      (goto-char (cdr elt))
       ;; Update subdir headerline in buffer
       (if (not (looking-at dired-subdir-regexp))
 	  (error "%s not found where expected - dired-subdir-alist broken?"
@@ -1977,6 +1992,18 @@ Optional arg HOW-TO determines how to treat the target.
    #'read-file-name
    (format prompt (dired-mark-prompt arg files)) dir default))
 
+(defun dired-dwim-target-directories ()
+  ;; Return directories from all visible windows with dired-mode buffers
+  ;; ordered by most-recently-used.
+  (mapcar #'cdr (sort (mapcan (lambda (w)
+                                (with-current-buffer (window-buffer w)
+                                  (when (eq major-mode 'dired-mode)
+                                    (list (cons (window-use-time w)
+                                                (dired-current-directory))))))
+                              (delq (selected-window)
+                                    (window-list-1 nil 'nomini 'visible)))
+                      (lambda (a b) (> (car a) (car b))))))
+
 (defun dired-dwim-target-directory ()
   ;; Try to guess which target directory the user may want.
   ;; If there is a dired buffer displayed in one of the next windows,
@@ -1985,15 +2012,7 @@ Optional arg HOW-TO determines how to treat the target.
 		       (dired-current-directory))))
     ;; non-dired buffer may want to profit from this function, e.g. vm-uudecode
     (if dired-dwim-target
-	(let* ((other-win (get-window-with-predicate
-			   (lambda (window)
-			     (with-current-buffer (window-buffer window)
-			       (eq major-mode 'dired-mode)))))
-	       (other-dir (and other-win
-			       (with-current-buffer (window-buffer other-win)
-				 (and (eq major-mode 'dired-mode)
-				      (dired-current-directory))))))
-	  (or other-dir this-dir))
+	(or (car (dired-dwim-target-directories)) this-dir)
       this-dir)))
 
 (defun dired-dwim-target-defaults (fn-list target-dir)
@@ -2011,15 +2030,11 @@ Optional arg HOW-TO determines how to treat the target.
 	 (and (consp fn-list) (null (cdr fn-list)) (car fn-list)))
 	(current-dir (and (eq major-mode 'dired-mode)
 			  (dired-current-directory)))
-	dired-dirs)
-    ;; Get a list of directories of visible buffers in dired-mode.
-    (walk-windows (lambda (w)
-		    (with-current-buffer (window-buffer w)
-		      (and (eq major-mode 'dired-mode)
-			   (push (dired-current-directory) dired-dirs)))))
+	;; Get a list of directories of visible buffers in dired-mode.
+	(dired-dirs (dired-dwim-target-directories)))
     ;; Force the current dir to be the first in the list.
     (setq dired-dirs
-	  (delete-dups (delq nil (cons current-dir (nreverse dired-dirs)))))
+	  (delete-dups (delq nil (cons current-dir dired-dirs))))
     ;; Remove the target dir (if specified) or the current dir from
     ;; default values, because it should be already in initial input.
     (setq dired-dirs (delete (or target-dir current-dir) dired-dirs))
@@ -2476,8 +2491,8 @@ This function takes some pains to conform to `ls -lR' output."
   (setq dired-subdir-alist
 	(sort dired-subdir-alist
 	      (lambda (elt1 elt2)
-		(> (dired-get-subdir-min elt1)
-		   (dired-get-subdir-min elt2))))))
+                (> (cdr elt1)
+                   (cdr elt2))))))
 
 (defun dired-kill-tree (dirname &optional remember-marks kill-root)
   "Kill all proper subdirs of DIRNAME, excluding DIRNAME itself.
@@ -2520,7 +2535,7 @@ of marked files.  If KILL-ROOT is non-nil, kill DIRNAME as well."
 (defun dired-insert-subdir-del (element)
   ;; Erase an already present subdir (given by ELEMENT) from buffer.
   ;; Move to that buffer position.  Return a mark-alist.
-  (let ((begin-marker (dired-get-subdir-min element)))
+  (let ((begin-marker (cdr element)))
     (goto-char begin-marker)
     ;; Are at beginning of subdir (and inside it!).  Now determine its end:
     (goto-char (dired-subdir-max))
@@ -2551,7 +2566,7 @@ of marked files.  If KILL-ROOT is non-nil, kill DIRNAME as well."
   ;; BEG-END is the subdir-region (as list of begin and end).
   (if elt				; subdir was already present
       ;; update its position (should actually be unchanged)
-      (set-marker (dired-get-subdir-min elt) (point-marker))
+      (set-marker (cdr elt) (point-marker))
     (dired-alist-add dirname (point-marker)))
   ;; The hook may depend on the subdir-alist containing the just
   ;; inserted subdir, so run it after dired-alist-add:
@@ -2665,7 +2680,7 @@ The next char is \\n."
   (setq dir (file-name-as-directory dir))
   (let ((elt (assoc dir dired-subdir-alist)))
     (and elt
-	 (goto-char (dired-get-subdir-min elt))
+         (goto-char (cdr elt))
 	 ;; dired-subdir-hidden-p and dired-add-entry depend on point being
 	 ;; at \n after this function succeeds.
 	 (progn (end-of-line)
@@ -2763,7 +2778,7 @@ Use \\[dired-hide-all] to (un)hide all directories."
 	     (end-pos (1- (dired-get-subdir-max elt)))
 	     buffer-read-only)
 	;; keep header line visible, hide rest
-	(goto-char (dired-get-subdir-min elt))
+	(goto-char (cdr elt))
 	(end-of-line)
 	(if hidden-p
 	    (dired--unhide (point) end-pos)
@@ -2782,14 +2797,14 @@ Use \\[dired-hide-subdir] to (un)hide a particular subdirectory."
       ;; hide
       (let ((pos (point-max)))		; pos of end of last directory
         (dolist (subdir dired-subdir-alist)
-	  (let ((start (dired-get-subdir-min subdir)) ; pos of prev dir
+          (let ((start (cdr subdir)) ; pos of prev dir
 		(end (save-excursion
 		       (goto-char pos) ; current dir
 		       ;; we're somewhere on current dir's line
 		       (forward-line -1)
 		       (point))))
             (dired--hide start end))
-	  (setq pos (dired-get-subdir-min subdir))))))) ; prev dir gets current dir
+          (setq pos (cdr subdir))))))) ; prev dir gets current dir
 
 ;;;###end dired-ins.el
 

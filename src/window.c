@@ -3539,8 +3539,8 @@ DEFUN ("run-window-scroll-functions", Frun_window_scroll_functions,
        doc: /* Run `window-scroll-functions' for WINDOW.
 If WINDOW is omitted or nil, it defaults to the selected window.
 
-This function is curently only called by 'split-window' for the new
-window after it has established the size of the new window.  */)
+This function is called by `split-window' for the new window, after it
+has established the size of the new window.  */)
   (Lisp_Object window)
 {
   struct window *w = decode_live_window (window);
@@ -6253,12 +6253,12 @@ followed by all visible frames on the current terminal.  */)
     {
       /* Nothing specified; look for a neighboring window on the same
 	 frame.  */
-      window = Fnext_window (selected_window, Qnil, Qnil);
+      window = Fnext_window (selected_window, Qlambda, Qnil);
 
       if (EQ (window, selected_window))
 	/* That didn't get us anywhere; look for a window on another
            visible frame on the current terminal.  */
-        window = Fnext_window (window, Qnil, Qvisible);
+        window = Fnext_window (window, Qlambda, Qvisible);
     }
 
   CHECK_LIVE_WINDOW (window);
@@ -7661,7 +7661,7 @@ display marginal areas and the text area.
 Optional fifth argument PERSISTENT non-nil means that fringe settings
 for WINDOW are persistent, i.e., remain unchanged when another buffer
 is shown in WINDOW.  PERSISTENT nil means that fringes are reset from
-buffer local values when 'set-window-buffer' is called on WINDOW with
+buffer local values when `set-window-buffer' is called on WINDOW with
 the argument KEEP-MARGINS nil.
 
 Leave fringes unchanged if WINDOW is not large enough to accommodate
@@ -7812,7 +7812,7 @@ order to show a scroll bar for mini windows.
 Optional sixth argument PERSISTENT non-nil means that scroll bar
 settings for WINDOW are persistent, i.e., remain unchanged when
 another buffer is shown in WINDOW.  PERSISTENT nil means that scroll
-bars are reset from buffer local values when 'set-window-buffer' is
+bars are reset from buffer local values when `set-window-buffer' is
 called on WINDOW with the argument KEEP-MARGINS nil.
 
 If WINDOW is not large enough to accommodate a scroll bar of the

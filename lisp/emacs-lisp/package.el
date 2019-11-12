@@ -1082,10 +1082,13 @@ boundaries."
   (let ((file-name (match-string-no-properties 1))
         (desc      (match-string-no-properties 2))
         (start     (line-beginning-position)))
-    ;; The terminating comment format could be extended to accept a
-    ;; generic string that is not in English.
+    ;; This warning was added in Emacs 27.1, and should be removed at
+    ;; the earliest in version 31.1.  The idea is to phase out the
+    ;; requirement for a "footer line" without unduly impacting users
+    ;; on earlier Emacs versions.  See Bug#26490 for more details.
     (unless (search-forward (concat ";;; " file-name ".el ends here"))
-      (error "Package lacks a terminating comment"))
+      (lwarn '(package package-format) :warning
+             "Package lacks a terminating comment"))
     ;; Try to include a trailing newline.
     (forward-line)
     (narrow-to-region start (point))
@@ -1540,20 +1543,24 @@ If successful, set or update `package-archive-contents'."
   (dolist (archive package-archives)
     (package-read-archive-contents (car archive))))
 
+
 ;;;; Package Initialize
 ;; A bit of a milestone.  This brings together some of the above
 ;; sections and populates all relevant lists of packages from contents
 ;; available on disk.
-(defvar package--initialized nil)
+
+(defvar package--initialized nil
+  "Non-nil if `package-initialize' has been run.")
+
+;;;###autoload
+(defvar package--activated nil
+  "Non-nil if `package-activate-all' has been run.")
 
 ;;;###autoload
 (defun package-initialize (&optional no-activate)
   "Load Emacs Lisp packages, and activate them.
 The variable `package-load-list' controls which packages to load.
 If optional arg NO-ACTIVATE is non-nil, don't activate packages.
-If called as part of loading `user-init-file', set
-`package-enable-at-startup' to nil, to prevent accidentally
-loading packages twice.
 
 It is not necessary to adjust `load-path' or `require' the
 individual packages after calling `package-initialize' -- this is
@@ -1570,7 +1577,6 @@ that code in the early init-file."
     (lwarn '(package reinitialization) :warning
            "Unnecessary call to `package-initialize' in init file"))
   (setq package-alist nil)
-  (setq package-enable-at-startup nil)
   (package-load-all-descriptors)
   (package-read-all-archive-contents)
   (setq package--initialized t)
@@ -1586,7 +1592,7 @@ that code in the early init-file."
 (defun package-activate-all ()
   "Activate all installed packages.
 The variable `package-load-list' controls which packages to load."
-  (setq package-enable-at-startup nil)
+  (setq package--activated t)
   (if (file-readable-p package-quickstart-file)
       ;; Skip load-source-file-function which would slow us down by a factor
       ;; 2 (this assumes we were careful to save this file so it doesn't need
@@ -2616,7 +2622,7 @@ Helper function for `describe-package'."
 
 (defun package-install-button-action (button)
   "Run `package-install' on the package BUTTON points to.
-Used for the 'action property of buttons in the buffer created by
+Used for the `action' property of buttons in the buffer created by
 `describe-package'."
   (let ((pkg-desc (button-get button 'package-desc)))
     (when (y-or-n-p (format-message "Install package `%s'? "
@@ -2627,7 +2633,7 @@ Used for the 'action property of buttons in the buffer created by
 
 (defun package-delete-button-action (button)
   "Run `package-delete' on the package BUTTON points to.
-Used for the 'action property of buttons in the buffer created by
+Used for the `action' property of buttons in the buffer created by
 `describe-package'."
   (let ((pkg-desc (button-get button 'package-desc)))
     (when (y-or-n-p (format-message "Delete package `%s'? "
@@ -2639,7 +2645,7 @@ Used for the 'action property of buttons in the buffer created by
 (defun package-keyword-button-action (button)
   "Show filtered \"*Packages*\" buffer for BUTTON.
 The buffer is filtered by the `package-keyword' property of BUTTON.
-Used for the 'action property of buttons in the buffer created by
+Used for the `action' property of buttons in the buffer created by
 `describe-package'."
   (let ((pkg-keyword (button-get button 'package-keyword)))
     (package-show-package-list t (list pkg-keyword))))
@@ -2687,7 +2693,7 @@ either a full name or nil, and EMAIL is a valid email address."
     (define-key map "d" 'package-menu-mark-delete)
     (define-key map "i" 'package-menu-mark-install)
     (define-key map "U" 'package-menu-mark-upgrades)
-    (define-key map "r" 'package-menu-refresh)
+    (define-key map "r" 'revert-buffer)
     (define-key map (kbd "/ k") 'package-menu-filter-by-keyword)
     (define-key map (kbd "/ n") 'package-menu-filter-by-name)
     (define-key map (kbd "/ /") 'package-menu-clear-filter)
@@ -2706,7 +2712,7 @@ either a full name or nil, and EMAIL is a valid email address."
     ["Describe Package" package-menu-describe-package :help "Display information about this package"]
     ["Help" package-menu-quick-help :help "Show short key binding help for package-menu-mode"]
     "--"
-    ["Refresh Package List" package-menu-refresh
+    ["Refresh Package List" revert-buffer
      :help "Redownload the ELPA archive"
      :active (not package--downloads-in-progress)]
     ["Redisplay buffer" revert-buffer :help "Update the buffer with current list of packages"]
@@ -2761,6 +2767,7 @@ Letters do not insert themselves; instead, they are commands.
   (setq tabulated-list-sort-key (cons "Status" nil))
   (add-hook 'tabulated-list-revert-hook #'package-menu--refresh nil t)
   (tabulated-list-init-header)
+  (setq revert-buffer-function 'package-menu--refresh-contents)
   (setf imenu-prev-index-position-function
         #'package--imenu-prev-index-position-function)
   (setf imenu-extract-index-name-function
@@ -2770,6 +2777,7 @@ Letters do not insert themselves; instead, they are commands.
   "Convenience macro for `package-menu--generate'.
 If the alist stored in the symbol LISTNAME lacks an entry for a
 package PKG-DESC, add one.  The alist is keyed with PKG-DESC."
+  (declare (obsolete nil "27.1"))
   `(unless (assoc ,pkg-desc ,listname)
      ;; FIXME: Should we move status into pkg-desc?
      (push (cons ,pkg-desc ,status) ,listname)))
@@ -2782,6 +2790,11 @@ package PKG-DESC, add one.  The alist is keyed with PKG-DESC."
 
 (defvar package--emacs-version-list (version-to-list emacs-version)
   "The value of variable `emacs-version' as a list.")
+
+(defun package--ensure-package-menu-mode ()
+  "Signal a user-error if major mode is not `package-menu-mode'."
+  (unless (derived-mode-p 'package-menu-mode)
+    (user-error "The current buffer is not a Package Menu")))
 
 (defun package--incompatible-p (pkg &optional shallow)
   "Return non-nil if PKG has no chance of being installable.
@@ -2858,8 +2871,7 @@ Installed obsolete packages are always displayed.")
 (defun package-menu-toggle-hiding ()
   "In Package Menu, toggle visibility of obsolete available packages."
   (interactive)
-  (unless (derived-mode-p 'package-menu-mode)
-    (user-error "The current buffer is not a Package Menu"))
+  (package--ensure-package-menu-mode)
   (setq package-menu--hide-packages
         (not package-menu--hide-packages))
   (if package-menu--hide-packages
@@ -3158,24 +3170,28 @@ Return (PKG-DESC [NAME VERSION STATUS DOC])."
 (defvar package-menu--old-archive-contents nil
   "`package-archive-contents' before the latest refresh.")
 
-(defun package-menu-refresh ()
+(defun package-menu--refresh-contents (&optional _arg _noconfirm)
   "In Package Menu, download the Emacs Lisp package archive.
 Fetch the contents of each archive specified in
 `package-archives', and then refresh the package menu.  Signal a
-user-error if there is already a refresh running asynchronously."
-  (interactive)
-  (unless (derived-mode-p 'package-menu-mode)
-    (user-error "The current buffer is not a Package Menu"))
+user-error if there is already a refresh running asynchronously.
+
+`package-menu-mode' sets `revert-buffer-function' to this
+function.  The args ARG and NOCONFIRM, passed from
+`revert-buffer', are ignored."
+  (package--ensure-package-menu-mode)
   (when (and package-menu-async package--downloads-in-progress)
     (user-error "Package refresh is already in progress, please wait..."))
   (setq package-menu--old-archive-contents package-archive-contents)
   (setq package-menu--new-package-list nil)
   (package-refresh-contents package-menu-async))
+(define-obsolete-function-alias 'package-menu-refresh 'revert-buffer "27.1")
 
 (defun package-menu-hide-package ()
   "Hide a package under point in Package Menu.
 If optional arg BUTTON is non-nil, describe its associated package."
   (interactive)
+  (package--ensure-package-menu-mode)
   (declare (interactive-only "change `package-hidden-regexps' instead."))
   (let* ((name (when (derived-mode-p 'package-menu-mode)
                  (concat "\\`" (regexp-quote (symbol-name (package-desc-name
@@ -3209,6 +3225,7 @@ If optional arg BUTTON is non-nil, describe its associated package."
 (defun package-menu-mark-delete (&optional _num)
   "Mark a package for deletion and move to the next line."
   (interactive "p")
+  (package--ensure-package-menu-mode)
   (if (member (package-menu-get-status)
               '("installed" "dependency" "obsolete" "unsigned"))
       (tabulated-list-put-tag "D" t)
@@ -3217,6 +3234,7 @@ If optional arg BUTTON is non-nil, describe its associated package."
 (defun package-menu-mark-install (&optional _num)
   "Mark a package for installation and move to the next line."
   (interactive "p")
+  (package--ensure-package-menu-mode)
   (if (member (package-menu-get-status) '("available" "avail-obso" "new" "dependency"))
       (tabulated-list-put-tag "I" t)
     (forward-line)))
@@ -3224,17 +3242,20 @@ If optional arg BUTTON is non-nil, describe its associated package."
 (defun package-menu-mark-unmark (&optional _num)
   "Clear any marks on a package and move to the next line."
   (interactive "p")
+  (package--ensure-package-menu-mode)
   (tabulated-list-put-tag " " t))
 
 (defun package-menu-backup-unmark ()
   "Back up one line and clear any marks on that package."
   (interactive)
+  (package--ensure-package-menu-mode)
   (forward-line -1)
   (tabulated-list-put-tag " "))
 
 (defun package-menu-mark-obsolete-for-deletion ()
   "Mark all obsolete packages for deletion."
   (interactive)
+  (package--ensure-package-menu-mode)
   (save-excursion
     (goto-char (point-min))
     (while (not (eobp))
@@ -3265,6 +3286,7 @@ If optional arg BUTTON is non-nil, describe its associated package."
   "Show short key binding help for `package-menu-mode'.
 The full list of keys can be viewed with \\[describe-mode]."
   (interactive)
+  (package--ensure-package-menu-mode)
   (message (mapconcat #'package--prettify-quick-help-key
                       package--quick-help-keys "\n")))
 
@@ -3273,6 +3295,7 @@ The full list of keys can be viewed with \\[describe-mode]."
 
 (defun package-menu-get-status ()
   "Return status text of package at point in Package Menu."
+  (package--ensure-package-menu-mode)
   (let* ((id (tabulated-list-get-id))
          (entry (and id (assoc id tabulated-list-entries))))
     (if entry
@@ -3328,8 +3351,6 @@ corresponding to the newer version."
 (defun package-menu--mark-upgrades-1 ()
   "Mark all upgradable packages in the Package Menu.
 Implementation of `package-menu-mark-upgrades'."
-  (unless (derived-mode-p 'package-menu-mode)
-    (error "The current buffer is not a Package Menu"))
   (setq package-menu--mark-upgrades-pending nil)
   (let ((upgrades (package-menu--find-upgrades)))
     (if (null upgrades)
@@ -3361,6 +3382,7 @@ If there's an async refresh operation in progress, the flags will
 be placed as part of `package-menu--post-refresh' instead of
 immediately."
   (interactive)
+  (package--ensure-package-menu-mode)
   (if (not package--downloads-in-progress)
       (package-menu--mark-upgrades-1)
     (setq package-menu--mark-upgrades-pending t)
@@ -3454,8 +3476,7 @@ Packages marked for installation are downloaded and installed;
 packages marked for deletion are removed.
 Optional argument NOQUERY non-nil means do not ask the user to confirm."
   (interactive)
-  (unless (derived-mode-p 'package-menu-mode)
-    (error "The current buffer is not in Package Menu mode"))
+  (package--ensure-package-menu-mode)
   (let (install-list delete-list cmd pkg-desc)
     (save-excursion
       (goto-char (point-min))
@@ -3634,7 +3655,7 @@ short description."
       (package-menu-mode)
 
       ;; Fetch the remote list of packages.
-      (unless no-fetch (package-menu-refresh))
+      (unless no-fetch (package-menu--refresh-contents))
 
       ;; If we're not async, this would be redundant.
       (when package-menu-async
@@ -3681,6 +3702,7 @@ Statuses available include \"incompat\", \"available\",
   (interactive
    (list (completing-read-multiple
           "Keywords (comma separated): " (package-all-keywords))))
+  (package--ensure-package-menu-mode)
   (package-show-package-list t (if (stringp keyword)
                                    (list keyword)
                                  keyword)))
@@ -3690,6 +3712,7 @@ Statuses available include \"incompat\", \"available\",
 Show only those items whose name matches the regular expression
 NAME.  If NAME is nil or the empty string, show all packages."
   (interactive (list (read-from-minibuffer "Filter by name (regexp): ")))
+  (package--ensure-package-menu-mode)
   (if (or (not name) (string-empty-p name))
       (package-show-package-list t nil)
     ;; Update `tabulated-list-entries' so that it contains all
@@ -3707,6 +3730,7 @@ NAME.  If NAME is nil or the empty string, show all packages."
 (defun package-menu-clear-filter ()
   "Clear any filter currently applied to the \"*Packages*\" buffer."
   (interactive)
+  (package--ensure-package-menu-mode)
   (package-menu--generate t t))
 
 (defun package-list-packages-no-fetch ()

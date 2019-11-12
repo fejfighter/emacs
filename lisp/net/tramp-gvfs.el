@@ -535,7 +535,7 @@ It has been changed in GVFS 1.14.")
   '((access-file . tramp-handle-access-file)
     (add-name-to-file . tramp-handle-add-name-to-file)
     ;; `byte-compiler-base-file-name' performed by default handler.
-    ;; `copy-directory' performed by default handler.
+    (copy-directory . tramp-handle-copy-directory)
     (copy-file . tramp-gvfs-handle-copy-file)
     (delete-directory . tramp-gvfs-handle-delete-directory)
     (delete-file . tramp-gvfs-handle-delete-file)
@@ -765,6 +765,10 @@ file names."
 	  (msg-operation (if (eq op 'copy) "Copying" "Renaming")))
 
       (with-parsed-tramp-file-name (if t1 filename newname) nil
+	(unless (file-exists-p filename)
+	  (tramp-error
+	   v tramp-file-missing
+	   "%s file" msg-operation "No such file or directory" filename))
 	(when (and (not ok-if-already-exists) (file-exists-p newname))
 	  (tramp-error v 'file-already-exists newname))
 	(when (and (file-directory-p newname)
@@ -1306,6 +1310,8 @@ file-notify events."
   "Like `make-directory' for Tramp files."
   (setq dir (directory-file-name (expand-file-name dir)))
   (with-parsed-tramp-file-name dir nil
+    (when (and (null parents) (file-exists-p dir))
+      (tramp-error v 'file-already-exists "Directory already exists %s" dir))
     (tramp-flush-directory-properties v localname)
     (save-match-data
       (let ((ldir (file-name-directory dir)))
@@ -1911,7 +1917,9 @@ connection if a previous connection has died for some reason."
 	  (tramp-error vec 'file-error "FUSE mount denied"))
 
 	;; Save the password.
-	(ignore-errors (funcall tramp-password-save-function))
+	(ignore-errors
+	  (and (functionp tramp-password-save-function)
+	       (funcall tramp-password-save-function)))
 
 	;; Set connection-local variables.
 	(tramp-set-connection-local-variables vec)

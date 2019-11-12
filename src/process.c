@@ -3761,7 +3761,7 @@ host, and only clients connecting to that address will be accepted.
 If all interfaces should be bound, an address of \"0.0.0.0\" (for
 IPv4) or \"::\" (for IPv6) can be used.  (On some operating systems,
 using \"::\" listens on both IPv4 and IPv6.)  `local' will use IPv4 by
-default, use a FAMILY of 'ipv6 to override this.
+default, use a FAMILY of `ipv6' to override this.
 
 :service SERVICE -- SERVICE is name of the service desired, or an
 integer specifying a port number to connect to.  If SERVICE is t,
@@ -3794,6 +3794,8 @@ process, the FAMILY, HOST, and SERVICE args are ignored.
 The format of ADDRESS depends on the address family:
 - An IPv4 address is represented as a vector of integers [A B C D P]
 corresponding to numeric IP address A.B.C.D and port number P.
+- An IPv6 address has the same format as an IPv4 address but with 9
+elements rather than 5.
 - A local address is represented as a string with the address in the
 local address space.
 - An "unsupported family" address is represented by a cons (F . AV)
@@ -4013,9 +4015,11 @@ usage: (make-network-process &rest ARGS)  */)
       if (family != AF_LOCAL)
 #endif
         {
+#ifdef AF_INET6
         if (family == AF_INET6)
           host = build_string ("::1");
         else
+#endif
           host = build_string ("127.0.0.1");
         }
     }
@@ -4025,9 +4029,11 @@ usage: (make-network-process &rest ARGS)  */)
         {
 	/* Depending on setup, "localhost" may map to different IPv4 and/or
 	   IPv6 addresses, so it's better to be explicit (Bug#6781).  */
+#ifdef AF_INET6
         if (family == AF_INET6)
           host = build_string ("::1");
         else
+#endif
           host = build_string ("127.0.0.1");
         }
       CHECK_STRING (host);
@@ -4620,7 +4626,8 @@ DEFUN ("network-lookup-address-info", Fnetwork_lookup_address_info,
 Optional parameter FAMILY controls whether to look up IPv4 or IPv6
 addresses.  The default of nil means both, symbol `ipv4' means IPv4
 only, symbol `ipv6' means IPv6 only.  Returns a list of addresses, or
-nil if none were found.  Each address is a vector of integers.  */)
+nil if none were found.  Each address is a vector of integers, as per
+the description of ADDRESS in `make-network-process'.  */)
      (Lisp_Object name, Lisp_Object family)
 {
   Lisp_Object addresses = Qnil;
@@ -4634,12 +4641,9 @@ nil if none were found.  Each address is a vector of integers.  */)
     hints.ai_family = AF_UNSPEC;
   else if (EQ (family, Qipv4))
     hints.ai_family = AF_INET;
-  else if (EQ (family, Qipv6))
 #ifdef AF_INET6
+  else if (EQ (family, Qipv6))
     hints.ai_family = AF_INET6;
-#else
-  /* If we don't support IPv6, querying will never work anyway */
-    return addresses;
 #endif
   else
     error ("Unsupported lookup type");
@@ -4651,9 +4655,15 @@ nil if none were found.  Each address is a vector of integers.  */)
   else
     {
       for (lres = res; lres; lres = lres->ai_next)
-	addresses = Fcons (conv_sockaddr_to_lisp (lres->ai_addr,
-						  lres->ai_addrlen),
-			   addresses);
+        {
+#ifndef AF_INET6
+          if (lres->ai_family != AF_INET)
+            continue;
+#endif
+          addresses = Fcons (conv_sockaddr_to_lisp (lres->ai_addr,
+                                                    lres->ai_addrlen),
+                             addresses);
+        }
       addresses = Fnreverse (addresses);
 
       freeaddrinfo (res);

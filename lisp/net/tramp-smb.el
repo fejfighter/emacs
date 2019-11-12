@@ -415,6 +415,10 @@ pass to the OPERATION."
       (with-parsed-tramp-file-name (if t1 dirname newname) nil
 	(with-tramp-progress-reporter
 	    v 0 (format "Copying %s to %s" dirname newname)
+	  (unless (file-exists-p dirname)
+	    (tramp-error
+	     v tramp-file-missing
+	     "Copying directory" "No such file or directory" dirname))
 	  (when (and (file-directory-p newname)
 		     (not (tramp-compat-directory-name-p newname)))
 	    (tramp-error v 'file-already-exists newname))
@@ -570,6 +574,13 @@ PRESERVE-UID-GID and PRESERVE-EXTENDED-ATTRIBUTES are completely ignored."
     (if (file-directory-p filename)
 	(copy-directory filename newname keep-date 'parents 'copy-contents)
 
+      (unless (file-exists-p filename)
+	(tramp-error
+	 (tramp-dissect-file-name
+	  (if (tramp-tramp-file-p filename) filename newname))
+	 tramp-file-missing
+	 "Copying file" "No such file or directory" filename))
+
       (let ((tmpfile (file-local-copy filename)))
 	(if tmpfile
 	    ;; Remote filename.
@@ -669,6 +680,10 @@ PRESERVE-UID-GID and PRESERVE-EXTENDED-ATTRIBUTES are completely ignored."
 (defun tramp-smb-handle-directory-files
   (directory &optional full match nosort)
   "Like `directory-files' for Tramp files."
+  (unless (file-exists-p directory)
+    (tramp-error
+     (tramp-dissect-file-name directory) tramp-file-missing
+     "No such file or directory" directory))
   (let ((result (mapcar #'directory-file-name
 			(file-name-all-completions "" directory))))
     ;; Discriminate with regexp.
@@ -946,29 +961,31 @@ PRESERVE-UID-GID and PRESERVE-EXTENDED-ATTRIBUTES are completely ignored."
     (unless (file-directory-p filename)
       (setq filename (file-name-directory filename)))
     (with-parsed-tramp-file-name (expand-file-name filename) nil
-      (tramp-message v 5 "file system info: %s" localname)
-      (tramp-smb-send-command v (format "du %s/*" (tramp-smb-get-localname v)))
-      (with-current-buffer (tramp-get-connection-buffer v)
-	(let (total avail blocksize)
-	  (goto-char (point-min))
-	  (forward-line)
-	  (when (looking-at
-		 (eval-when-compile
-		   (concat "[[:space:]]*\\([[:digit:]]+\\)"
-			   " blocks of size \\([[:digit:]]+\\)"
-			   "\\. \\([[:digit:]]+\\) blocks available")))
-	    (setq blocksize (string-to-number (match-string 2))
-		  total (* blocksize (string-to-number (match-string 1)))
-		  avail (* blocksize (string-to-number (match-string 3)))))
-	  (forward-line)
-	  (when (looking-at "Total number of bytes: \\([[:digit:]]+\\)")
-	    ;; The used number of bytes is not part of the result.  As
-	    ;; side effect, we store it as file property.
-	    (tramp-set-file-property
-	     v localname "used-bytes" (string-to-number (match-string 1))))
-	  ;; Result.
-	  (when (and total avail)
-	    (list total (- total avail) avail)))))))
+      (when (tramp-smb-get-share v)
+	(tramp-message v 5 "file system info: %s" localname)
+	(tramp-smb-send-command
+	 v (format "du %s/*" (tramp-smb-get-localname v)))
+	(with-current-buffer (tramp-get-connection-buffer v)
+	  (let (total avail blocksize)
+	    (goto-char (point-min))
+	    (forward-line)
+	    (when (looking-at
+		   (eval-when-compile
+		     (concat "[[:space:]]*\\([[:digit:]]+\\)"
+			     " blocks of size \\([[:digit:]]+\\)"
+			     "\\. \\([[:digit:]]+\\) blocks available")))
+	      (setq blocksize (string-to-number (match-string 2))
+		    total (* blocksize (string-to-number (match-string 1)))
+		    avail (* blocksize (string-to-number (match-string 3)))))
+	    (forward-line)
+	    (when (looking-at "Total number of bytes: \\([[:digit:]]+\\)")
+	      ;; The used number of bytes is not part of the result.
+	      ;; As side effect, we store it as file property.
+	      (tramp-set-file-property
+	       v localname "used-bytes" (string-to-number (match-string 1))))
+	    ;; Result.
+	    (when (and total avail)
+	      (list total (- total avail) avail))))))))
 
 (defun tramp-smb-handle-file-writable-p (filename)
   "Like `file-writable-p' for Tramp files."
@@ -1122,6 +1139,8 @@ PRESERVE-UID-GID and PRESERVE-EXTENDED-ATTRIBUTES are completely ignored."
   (unless (file-name-absolute-p dir)
     (setq dir (expand-file-name dir default-directory)))
   (with-parsed-tramp-file-name dir nil
+    (when (and (null parents) (file-exists-p dir))
+      (tramp-error v 'file-already-exists "Directory already exists %s" dir))
     (let* ((ldir (file-name-directory dir)))
       ;; Make missing directory parts.
       (when (and parents
@@ -1331,6 +1350,10 @@ component is used as the target of the symlink."
 
   (with-parsed-tramp-file-name
       (if (tramp-tramp-file-p filename) filename newname) nil
+    (unless (file-exists-p filename)
+      (tramp-error
+       v tramp-file-missing
+       "Renaming file" "No such file or directory" filename))
     (when (and (not ok-if-already-exists) (file-exists-p newname))
       (tramp-error v 'file-already-exists newname))
     (when (and (file-directory-p newname)

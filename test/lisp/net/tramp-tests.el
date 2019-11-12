@@ -57,6 +57,7 @@
 (declare-function tramp-method-out-of-band-p "tramp-sh")
 (declare-function tramp-smb-get-localname "tramp-smb")
 (declare-function tramp-time-diff "tramp")
+(defvar ange-ftp-make-backup-files)
 (defvar auto-save-file-name-transforms)
 (defvar tramp-connection-properties)
 (defvar tramp-copy-size-limit)
@@ -264,7 +265,7 @@ properly.  BODY shall not contain a timeout."
   ;; No newline or linefeed.
   (should-not (tramp-tramp-file-p "/method::file\nname"))
   (should-not (tramp-tramp-file-p "/method::file\rname"))
-  ;; Ange-ftp syntax.
+  ;; Ange-FTP syntax.
   (should-not (tramp-tramp-file-p "/host:"))
   (should-not (tramp-tramp-file-p "/user@host:"))
   (should-not (tramp-tramp-file-p "/1.2.3.4:"))
@@ -398,7 +399,7 @@ properly.  BODY shall not contain a timeout."
 	  ;; No strings.
 	  (should-not (tramp-tramp-file-p nil))
 	  (should-not (tramp-tramp-file-p 'symbol))
-	  ;; Ange-ftp syntax.
+	  ;; Ange-FTP syntax.
 	  (should-not (tramp-tramp-file-p "/host:"))
 	  (should-not (tramp-tramp-file-p "/user@host:"))
 	  (should-not (tramp-tramp-file-p "/1.2.3.4:"))
@@ -1956,36 +1957,40 @@ properly.  BODY shall not contain a timeout."
       (substitute-in-file-name "/method:host:/:/path//foo")
       "/method:host:/:/path//foo"))
 
-    (should
-     (string-equal (substitute-in-file-name "/method:host://~foo") "/~foo"))
-    (should
-     (string-equal
-      (substitute-in-file-name "/method:host:/~foo") "/method:host:/~foo"))
-    (should
-     (string-equal
-      (substitute-in-file-name "/method:host:/path//~foo") "/~foo"))
-    ;; (substitute-in-file-name "/path/~foo") expands only for a local
-    ;; user "foo" to "/~foo"".  Otherwise, it doesn't expand.
-    (should
-     (string-equal
-      (substitute-in-file-name
-       "/method:host:/path/~foo") "/method:host:/path/~foo"))
-    ;; Quoting local part.
-    (should
-     (string-equal
-      (substitute-in-file-name "/method:host:/://~foo")
-      "/method:host:/://~foo"))
-    (should
-     (string-equal
-      (substitute-in-file-name "/method:host:/:/~foo") "/method:host:/:/~foo"))
-    (should
-     (string-equal
-      (substitute-in-file-name
-       "/method:host:/:/path//~foo") "/method:host:/:/path//~foo"))
-    (should
-     (string-equal
-      (substitute-in-file-name
-       "/method:host:/:/path/~foo") "/method:host:/:/path/~foo"))
+    ;; Forwhatever reasons, the following tests let Emacs crash for
+    ;; Emacs 24 and Emacs 25, occasionally. No idea what's up.
+    (when (tramp--test-emacs26-p)
+      (should
+       (string-equal (substitute-in-file-name "/method:host://~foo") "/~foo"))
+      (should
+       (string-equal
+	(substitute-in-file-name "/method:host:/~foo") "/method:host:/~foo"))
+      (should
+       (string-equal
+	(substitute-in-file-name "/method:host:/path//~foo") "/~foo"))
+      ;; (substitute-in-file-name "/path/~foo") expands only for a local
+      ;; user "foo" to "/~foo"".  Otherwise, it doesn't expand.
+      (should
+       (string-equal
+	(substitute-in-file-name
+	 "/method:host:/path/~foo") "/method:host:/path/~foo"))
+      ;; Quoting local part.
+      (should
+       (string-equal
+	(substitute-in-file-name "/method:host:/://~foo")
+	"/method:host:/://~foo"))
+      (should
+       (string-equal
+	(substitute-in-file-name
+	 "/method:host:/:/~foo") "/method:host:/:/~foo"))
+      (should
+       (string-equal
+	(substitute-in-file-name
+	 "/method:host:/:/path//~foo") "/method:host:/:/path//~foo"))
+      (should
+       (string-equal
+	(substitute-in-file-name
+	 "/method:host:/:/path/~foo") "/method:host:/:/path/~foo")))
 
     (let (process-environment)
       (should
@@ -2061,7 +2066,8 @@ properly.  BODY shall not contain a timeout."
   (skip-unless (tramp--test-enabled))
 
   ;; These are the methods the test doesn't fail.
-  (when (or (tramp--test-adb-p) (tramp--test-gvfs-p) (tramp--test-rclone-p)
+  (when (or (tramp--test-adb-p) (tramp--test-ange-ftp-p) (tramp--test-gvfs-p)
+	    (tramp--test-rclone-p)
 	    (tramp-smb-file-name-p tramp-test-temporary-file-directory))
     (setf (ert-test-expected-result-type
 	   (ert-get-test 'tramp-test05-expand-file-name-relative))
@@ -2146,7 +2152,7 @@ This checks also `file-name-as-directory', `file-name-directory',
 	   (string-equal
 	    (file-name-as-directory file)
 	    (if (tramp-completion-mode-p)
-		file (concat file "./"))))
+		file (concat file (if (tramp--test-ange-ftp-p) "/" "./")))))
 	  (should (string-equal (file-name-directory file) file))
 	  (should (string-equal (file-name-nondirectory file) "")))))))
 
@@ -2251,18 +2257,19 @@ This checks also `file-name-as-directory', `file-name-directory',
 	      (should (string-equal (buffer-string) "foo")))
 
 	    ;; Append.
-	    (with-temp-buffer
-	      (insert "bla")
-	      (write-region nil nil tmp-name 'append))
-	    (with-temp-buffer
-	      (insert-file-contents tmp-name)
-	      (should (string-equal (buffer-string) "foobla")))
-	    (with-temp-buffer
-	      (insert "baz")
-	      (write-region nil nil tmp-name 3))
-	    (with-temp-buffer
-	      (insert-file-contents tmp-name)
-	      (should (string-equal (buffer-string) "foobaz")))
+	    (unless (tramp--test-ange-ftp-p)
+	      (with-temp-buffer
+		(insert "bla")
+		(write-region nil nil tmp-name 'append))
+	      (with-temp-buffer
+		(insert-file-contents tmp-name)
+		(should (string-equal (buffer-string) "foobla")))
+	      (with-temp-buffer
+		(insert "baz")
+		(write-region nil nil tmp-name 3))
+	      (with-temp-buffer
+		(insert-file-contents tmp-name)
+		(should (string-equal (buffer-string) "foobaz"))))
 
 	    ;; Write string.
 	    (write-region "foo" nil tmp-name)
@@ -2282,7 +2289,8 @@ This checks also `file-name-as-directory', `file-name-directory',
 	    ;; Macro `ert-with-message-capture' was introduced in Emacs 26.1.
 	    (with-no-warnings (when (symbol-plist 'ert-with-message-capture)
 	      (let ((tramp-message-show-message t))
-		(dolist (noninteractive '(nil t))
+		(dolist
+		    (noninteractive (unless (tramp--test-ange-ftp-p) '(nil t)))
 		  (dolist (visit '(nil t "string" no-message))
 		    (ert-with-message-capture tramp--test-messages
 		      (write-region "foo" nil tmp-name nil visit)
@@ -2296,12 +2304,16 @@ This checks also `file-name-as-directory', `file-name-directory',
 			tramp--test-messages))))))))
 
 	    ;; Do not overwrite if excluded.
-	    (cl-letf (((symbol-function 'y-or-n-p) (lambda (_prompt) t)))
+	    (cl-letf (((symbol-function 'y-or-n-p) (lambda (_prompt) t))
+		      ;; Ange-FTP.
+		      ((symbol-function 'yes-or-no-p) (lambda (_prompt) t)))
 	      (write-region "foo" nil tmp-name nil nil nil 'mustbenew))
 	    ;; `mustbenew' is passed to Tramp since Emacs 26.1.
 	    (when (tramp--test-emacs26-p)
 	      (should-error
-	       (cl-letf (((symbol-function 'y-or-n-p) 'ignore))
+	       (cl-letf (((symbol-function 'y-or-n-p) 'ignore)
+			 ;; Ange-FTP.
+			 ((symbol-function 'yes-or-no-p) 'ignore))
 		 (write-region "foo" nil tmp-name nil nil nil 'mustbenew))
                :type 'file-already-exists)
 	      (should-error
@@ -2366,6 +2378,9 @@ This checks also `file-name-as-directory', `file-name-directory',
 	  ;; Copy simple file.
 	  (unwind-protect
 	      (progn
+		(should-error
+		 (copy-file source target)
+		 :type tramp-file-missing)
 		(write-region "foo" nil source)
 		(should (file-exists-p source))
 		(copy-file source target)
@@ -2387,7 +2402,7 @@ This checks also `file-name-as-directory', `file-name-directory',
 	  (unwind-protect
 	      ;; FIXME: This fails on my QNAP server, see
 	      ;; /share/Web/owncloud/data/owncloud.log
-	      (unless (tramp--test-nextcloud-p)
+	      (unless (or (tramp--test-ange-ftp-p) (tramp--test-nextcloud-p))
 		(write-region "foo" nil source)
 		(should (file-exists-p source))
 		(make-directory target)
@@ -2413,7 +2428,7 @@ This checks also `file-name-as-directory', `file-name-directory',
 	  (unwind-protect
 	      ;; FIXME: This fails on my QNAP server, see
 	      ;; /share/Web/owncloud/data/owncloud.log
-	      (unless (tramp--test-nextcloud-p)
+	      (unless (or (tramp--test-ange-ftp-p) (tramp--test-nextcloud-p))
 		(make-directory source)
 		(should (file-directory-p source))
 		(write-region "foo" nil (expand-file-name "foo" source))
@@ -2436,7 +2451,7 @@ This checks also `file-name-as-directory', `file-name-directory',
 	  (unwind-protect
 	      ;; FIXME: This fails on my QNAP server, see
 	      ;; /share/Web/owncloud/data/owncloud.log
-	      (unless (tramp--test-nextcloud-p)
+	      (unless (or (tramp--test-ange-ftp-p) (tramp--test-nextcloud-p))
 		(make-directory source)
 		(should (file-directory-p source))
 		(write-region "foo" nil (expand-file-name "foo" source))
@@ -2478,6 +2493,9 @@ This checks also `file-name-as-directory', `file-name-directory',
 	  ;; Rename simple file.
 	  (unwind-protect
 	      (progn
+		(should-error
+		 (rename-file source target)
+		 :type tramp-file-missing)
 		(write-region "foo" nil source)
 		(should (file-exists-p source))
 		(rename-file source target)
@@ -2528,7 +2546,7 @@ This checks also `file-name-as-directory', `file-name-directory',
 	  (unwind-protect
 	      ;; FIXME: This fails on my QNAP server, see
 	      ;; /share/Web/owncloud/data/owncloud.log
-	      (unless (tramp--test-nextcloud-p)
+	      (unless (or (tramp--test-ange-ftp-p) (tramp--test-nextcloud-p))
 		(make-directory source)
 		(should (file-directory-p source))
 		(write-region "foo" nil (expand-file-name "foo" source))
@@ -2552,7 +2570,7 @@ This checks also `file-name-as-directory', `file-name-directory',
 	  (unwind-protect
 	      ;; FIXME: This fails on my QNAP server, see
 	      ;; /share/Web/owncloud/data/owncloud.log
-	      (unless (tramp--test-nextcloud-p)
+	      (unless (or (tramp--test-ange-ftp-p) (tramp--test-nextcloud-p))
 		(make-directory source)
 		(should (file-directory-p source))
 		(write-region "foo" nil (expand-file-name "foo" source))
@@ -2583,9 +2601,14 @@ This tests also `file-directory-p' and `file-accessible-directory-p'."
       (unwind-protect
 	  (progn
 	    (make-directory tmp-name1)
+	    (should-error
+	     (make-directory tmp-name1)
+	     :type 'file-already-exists)
 	    (should (file-directory-p tmp-name1))
 	    (should (file-accessible-directory-p tmp-name1))
-	    (should-error (make-directory tmp-name2) :type 'file-error)
+	    (should-error
+	     (make-directory tmp-name2)
+	     :type 'file-error)
 	    (make-directory tmp-name2 'parents)
 	    (should (file-directory-p tmp-name2))
 	    (should (file-accessible-directory-p tmp-name2))
@@ -2601,20 +2624,27 @@ This tests also `file-directory-p' and `file-accessible-directory-p'."
   (skip-unless (tramp--test-enabled))
 
   (dolist (quoted (if (tramp--test-expensive-test) '(nil t) '(nil)))
-    (let ((tmp-name (tramp--test-make-temp-name nil quoted)))
+    (let* ((tmp-name1 (tramp--test-make-temp-name nil quoted))
+	   (tmp-name2 (expand-file-name "foo" tmp-name1)))
       ;; Delete empty directory.
-      (make-directory tmp-name)
-      (should (file-directory-p tmp-name))
-      (delete-directory tmp-name)
-      (should-not (file-directory-p tmp-name))
+      (make-directory tmp-name1)
+      (should (file-directory-p tmp-name1))
+      (delete-directory tmp-name1)
+      (should-not (file-directory-p tmp-name1))
       ;; Delete non-empty directory.
-      (make-directory tmp-name)
-      (should (file-directory-p tmp-name))
-      (write-region "foo" nil (expand-file-name "bla" tmp-name))
-      (should (file-exists-p (expand-file-name "bla" tmp-name)))
-      (should-error (delete-directory tmp-name) :type 'file-error)
-      (delete-directory tmp-name 'recursive)
-      (should-not (file-directory-p tmp-name)))))
+      (make-directory tmp-name1)
+      (should (file-directory-p tmp-name1))
+      (write-region "foo" nil (expand-file-name "bla" tmp-name1))
+      (should (file-exists-p (expand-file-name "bla" tmp-name1)))
+      (make-directory tmp-name2)
+      (should (file-directory-p tmp-name2))
+      (write-region "foo" nil (expand-file-name "bla" tmp-name2))
+      (should (file-exists-p (expand-file-name "bla" tmp-name2)))
+      (should-error
+       (delete-directory tmp-name1)
+       :type 'file-error)
+      (delete-directory tmp-name1 'recursive)
+      (should-not (file-directory-p tmp-name1)))))
 
 (ert-deftest tramp-test15-copy-directory ()
   "Check `copy-directory'."
@@ -2632,6 +2662,9 @@ This tests also `file-directory-p' and `file-accessible-directory-p'."
       ;; Copy complete directory.
       (unwind-protect
 	  (progn
+	    (should-error
+	     (copy-directory tmp-name1 tmp-name2)
+	     :type tramp-file-missing)
 	    ;; Copy empty directory.
 	    (make-directory tmp-name1)
 	    (write-region "foo" nil tmp-name4)
@@ -2645,7 +2678,7 @@ This tests also `file-directory-p' and `file-accessible-directory-p'."
 	    (when (tramp--test-emacs26-p)
 	      (should-error
 	       (copy-directory tmp-name1 tmp-name2)
-	       :type 'file-error))
+	       :type 'file-already-exists))
 	    (copy-directory tmp-name1 (file-name-as-directory tmp-name2))
 	    (should (file-directory-p tmp-name3))
 	    (should (file-exists-p tmp-name6)))
@@ -2692,6 +2725,9 @@ This tests also `file-directory-p' and `file-accessible-directory-p'."
 	   (tmp-name3 (expand-file-name "foo" tmp-name1)))
       (unwind-protect
 	  (progn
+	    (should-error
+	     (directory-files tmp-name1)
+	     :type tramp-file-missing)
 	    (make-directory tmp-name1)
 	    (write-region "foo" nil tmp-name2)
 	    (write-region "bla" nil tmp-name3)
@@ -2782,6 +2818,10 @@ This tests also `file-directory-p' and `file-accessible-directory-p'."
 (ert-deftest tramp-test17-insert-directory ()
   "Check `insert-directory'."
   (skip-unless (tramp--test-enabled))
+  ;; Ange-FTP is very special.  It does not include the header line
+  ;; (this is performed by `dired').  If FULL is nil, it shows just
+  ;; one file.  So we refrain from testing.
+  (skip-unless (not (tramp--test-ange-ftp-p)))
 
   (dolist (quoted (if (tramp--test-expensive-test) '(nil t) '(nil)))
     (let* ((tmp-name1
@@ -3170,6 +3210,9 @@ They might differ only in time attributes or directory size."
 	   attr)
       (unwind-protect
 	  (progn
+	    (should-error
+	     (directory-files-and-attributes tmp-name1)
+	     :type tramp-file-missing)
 	    (make-directory tmp-name1)
 	    (should (file-directory-p tmp-name1))
 	    (setq tramp--test-start-time
@@ -3499,7 +3542,9 @@ This tests also `make-symbolic-link', `file-truename' and `add-name-to-file'."
 		  :type 'file-error)
 	       (make-symbolic-link tmp-name1 tmp-name2)
 	       (should (file-symlink-p tmp-name2))
-	       (should-error (file-truename tmp-name1) :type 'file-error))))
+	       (should-error
+		(file-truename tmp-name1)
+		:type 'file-error))))
 
 	;; Cleanup.
 	(ignore-errors
@@ -3895,9 +3940,12 @@ This tests also `make-symbolic-link', `file-truename' and `add-name-to-file'."
 	      (should (equal (file-name-completion "foo" tmp-name) t))
 	      (should (equal (file-name-completion "b" tmp-name) "bo"))
 	      (should-not (file-name-completion "a" tmp-name))
-	      (should
-	       (equal
-		(file-name-completion "b" tmp-name #'file-directory-p) "boz/"))
+	      ;; Ange-FTP does not support predicates.
+	      (unless (tramp--test-ange-ftp-p)
+		(should
+		 (equal
+		  (file-name-completion "b" tmp-name #'file-directory-p)
+		  "boz/")))
 	      (should
 	       (equal (file-name-all-completions "fo" tmp-name) '("foo")))
 	      (should
@@ -3907,14 +3955,17 @@ This tests also `make-symbolic-link', `file-truename' and `add-name-to-file'."
 	      (should-not (file-name-all-completions "a" tmp-name))
 	      ;; `completion-regexp-list' restricts the completion to
 	      ;; files which match all expressions in this list.
-	      (let ((completion-regexp-list
-		     `(,directory-files-no-dot-files-regexp "b")))
-		(should
-		 (equal (file-name-completion "" tmp-name) "bo"))
-		(should
-		 (equal
-		  (sort (file-name-all-completions "" tmp-name) #'string-lessp)
-		  '("bold" "boz/"))))
+	      ;; Ange-FTP does not complete "".
+	      (unless (tramp--test-ange-ftp-p)
+		(let ((completion-regexp-list
+		       `(,directory-files-no-dot-files-regexp "b")))
+		  (should
+		   (equal (file-name-completion "" tmp-name) "bo"))
+		  (should
+		   (equal
+		    (sort
+		     (file-name-all-completions "" tmp-name) #'string-lessp)
+		    '("bold" "boz/")))))
 	      ;; `file-name-completion' ignores file names that end in
 	      ;; any string in `completion-ignored-extensions'.
 	      (let ((completion-ignored-extensions '(".ext")))
@@ -4010,7 +4061,7 @@ This tests also `make-symbolic-link', `file-truename' and `add-name-to-file'."
   (let ((proc (get-buffer-process (current-buffer))))
     (when (processp proc)
       (tramp--test-message
-       "cmd: %s\n%s" (process-command proc) (buffer-string))))
+       "cmd: %s\nbuf:\n%s\n---" (process-command proc) (buffer-string))))
   (ert-fail (format "`%s' timed out" (ert-test-name (ert-running-test)))))
 
 (ert-deftest tramp-test29-start-file-process ()
@@ -4252,7 +4303,9 @@ This tests also `make-symbolic-link', `file-truename' and `add-name-to-file'."
 	    (while (accept-process-output proc nil nil 0)))
 	  (should-not (process-live-p proc))
 	  ;; An interrupted process cannot be interrupted, again.
-	  (should-error (interrupt-process proc) :type 'error))
+	  (should-error
+	   (interrupt-process proc)
+	   :type 'error))
 
       ;; Cleanup.
       (ignore-errors (delete-process proc)))))
@@ -4846,49 +4899,52 @@ This tests also `make-symbolic-link', `file-truename' and `add-name-to-file'."
 		    tramp-test-temporary-file-directory))))))
 
 	    ;; Use default `tramp-auto-save-directory' mechanism.
-	    (let ((tramp-auto-save-directory tmp-name2))
-	      (with-temp-buffer
-		(setq buffer-file-name tmp-name1)
-		(should
-		 (string-equal
-		  (make-auto-save-file-name)
-		  ;; This is taken from Tramp.
-		  (expand-file-name
-		   (format
-		    "#%s#"
-		    (tramp-subst-strs-in-string
-		     '(("_" . "|")
-		       ("/" . "_a")
-		       (":" . "_b")
-		       ("|" . "__")
-		       ("[" . "_l")
-		       ("]" . "_r"))
-		     (tramp-compat-file-name-unquote tmp-name1)))
-		   tmp-name2)))
-		(should (file-directory-p tmp-name2))))
+	    ;; Ange-FTP doesn't care.
+	    (unless (tramp--test-ange-ftp-p)
+	      (let ((tramp-auto-save-directory tmp-name2))
+		(with-temp-buffer
+		  (setq buffer-file-name tmp-name1)
+		  (should
+		   (string-equal
+		    (make-auto-save-file-name)
+		    ;; This is taken from Tramp.
+		    (expand-file-name
+		     (format
+		      "#%s#"
+		      (tramp-subst-strs-in-string
+		       '(("_" . "|")
+			 ("/" . "_a")
+			 (":" . "_b")
+			 ("|" . "__")
+			 ("[" . "_l")
+			 ("]" . "_r"))
+		       (tramp-compat-file-name-unquote tmp-name1)))
+		     tmp-name2)))
+		  (should (file-directory-p tmp-name2)))))
 
-	    ;; Relative file names shall work, too.
-	    (let ((tramp-auto-save-directory "."))
-	      (with-temp-buffer
-		(setq buffer-file-name tmp-name1
-		      default-directory tmp-name2)
-		(should
-		 (string-equal
-		  (make-auto-save-file-name)
-		  ;; This is taken from Tramp.
-		  (expand-file-name
-		   (format
-		    "#%s#"
-		    (tramp-subst-strs-in-string
-		     '(("_" . "|")
-		       ("/" . "_a")
-		       (":" . "_b")
-		       ("|" . "__")
-		       ("[" . "_l")
-		       ("]" . "_r"))
-		     (tramp-compat-file-name-unquote tmp-name1)))
-		   tmp-name2)))
-		(should (file-directory-p tmp-name2)))))
+	    ;; Relative file names shall work, too.  Ange-FTP doesn't care.
+	    (unless (tramp--test-ange-ftp-p)
+	      (let ((tramp-auto-save-directory "."))
+		(with-temp-buffer
+		  (setq buffer-file-name tmp-name1
+			default-directory tmp-name2)
+		  (should
+		   (string-equal
+		    (make-auto-save-file-name)
+		    ;; This is taken from Tramp.
+		    (expand-file-name
+		     (format
+		      "#%s#"
+		      (tramp-subst-strs-in-string
+		       '(("_" . "|")
+			 ("/" . "_a")
+			 (":" . "_b")
+			 ("|" . "__")
+			 ("[" . "_l")
+			 ("]" . "_r"))
+		       (tramp-compat-file-name-unquote tmp-name1)))
+		     tmp-name2)))
+		  (should (file-directory-p tmp-name2))))))
 
 	;; Cleanup.
 	(ignore-errors (delete-file tmp-name1))
@@ -4901,6 +4957,7 @@ This tests also `make-symbolic-link', `file-truename' and `add-name-to-file'."
   (dolist (quoted (if (tramp--test-expensive-test) '(nil t) '(nil)))
     (let ((tmp-name1 (tramp--test-make-temp-name nil quoted))
 	  (tmp-name2 (tramp--test-make-temp-name nil quoted))
+	  (ange-ftp-make-backup-files t)
 	  ;; These settings are not used by Tramp, so we ignore them.
 	  version-control delete-old-versions
 	  (kept-old-versions (default-toplevel-value 'kept-old-versions))
@@ -4948,58 +5005,61 @@ This tests also `make-symbolic-link', `file-truename' and `add-name-to-file'."
 	(ignore-errors (delete-directory tmp-name2 'recursive)))
 
       (unwind-protect
-	  ;; Map `tramp-backup-directory-alist'.
-	  (let ((tramp-backup-directory-alist `(("." . ,tmp-name2)))
-		backup-directory-alist)
-	    (should
-	     (equal
-	      (find-backup-file-name tmp-name1)
-	      (list
-	       (funcall
-		(if quoted #'tramp-compat-file-name-quote #'identity)
-		(expand-file-name
-		 (format
-		  "%s~"
-		  ;; This is taken from `make-backup-file-name-1'.  We
-		  ;; call `convert-standard-filename', because on MS
-		  ;; Windows the (local) colons must be replaced by
-		  ;; exclamation marks.
-		  (subst-char-in-string
-		   ?/ ?!
-		   (replace-regexp-in-string
-		    "!" "!!" (convert-standard-filename tmp-name1))))
-		 tmp-name2)))))
-	    ;; The backup directory is created.
-	    (should (file-directory-p tmp-name2)))
+	  ;; Map `tramp-backup-directory-alist'.  Ange-FTP doesn't care.
+	  (unless (tramp--test-ange-ftp-p)
+	    (let ((tramp-backup-directory-alist `(("." . ,tmp-name2)))
+		  backup-directory-alist)
+	      (should
+	       (equal
+		(find-backup-file-name tmp-name1)
+		(list
+		 (funcall
+		  (if quoted #'tramp-compat-file-name-quote #'identity)
+		  (expand-file-name
+		   (format
+		    "%s~"
+		    ;; This is taken from `make-backup-file-name-1'.
+		    ;; We call `convert-standard-filename', because on
+		    ;; MS Windows the (local) colons must be replaced
+		    ;; by exclamation marks.
+		    (subst-char-in-string
+		     ?/ ?!
+		     (replace-regexp-in-string
+		      "!" "!!" (convert-standard-filename tmp-name1))))
+		   tmp-name2)))))
+	      ;; The backup directory is created.
+	      (should (file-directory-p tmp-name2))))
 
 	;; Cleanup.
 	(ignore-errors (delete-directory tmp-name2 'recursive)))
 
       (unwind-protect
 	  ;; Map `tramp-backup-directory-alist' with local file name.
-	  (let ((tramp-backup-directory-alist
-		 `(("." . ,(file-remote-p tmp-name2 'localname))))
-		backup-directory-alist)
-	    (should
-	     (equal
-	      (find-backup-file-name tmp-name1)
-	      (list
-	       (funcall
-		(if quoted #'tramp-compat-file-name-quote #'identity)
-		(expand-file-name
-		 (format
-		  "%s~"
-		  ;; This is taken from `make-backup-file-name-1'.  We
-		  ;; call `convert-standard-filename', because on MS
-		  ;; Windows the (local) colons must be replaced by
-		  ;; exclamation marks.
-		  (subst-char-in-string
-		   ?/ ?!
-		   (replace-regexp-in-string
-		    "!" "!!" (convert-standard-filename tmp-name1))))
-		 tmp-name2)))))
-	    ;; The backup directory is created.
-	    (should (file-directory-p tmp-name2)))
+	  ;; Ange-FTP doesn't care.
+	  (unless (tramp--test-ange-ftp-p)
+	    (let ((tramp-backup-directory-alist
+		   `(("." . ,(file-remote-p tmp-name2 'localname))))
+		  backup-directory-alist)
+	      (should
+	       (equal
+		(find-backup-file-name tmp-name1)
+		(list
+		 (funcall
+		  (if quoted #'tramp-compat-file-name-quote #'identity)
+		  (expand-file-name
+		   (format
+		    "%s~"
+		    ;; This is taken from `make-backup-file-name-1'.
+		    ;; We call `convert-standard-filename', because on
+		    ;; MS Windows the (local) colons must be replaced
+		    ;; by exclamation marks.
+		    (subst-char-in-string
+		     ?/ ?!
+		     (replace-regexp-in-string
+		      "!" "!!" (convert-standard-filename tmp-name1))))
+		   tmp-name2)))))
+	      ;; The backup directory is created.
+	      (should (file-directory-p tmp-name2))))
 
 	;; Cleanup.
 	(ignore-errors (delete-directory tmp-name2 'recursive))))))
@@ -5008,6 +5068,7 @@ This tests also `make-symbolic-link', `file-truename' and `add-name-to-file'."
 (ert-deftest tramp-test39-make-nearby-temp-file ()
   "Check `make-nearby-temp-file' and `temporary-file-directory'."
   (skip-unless (tramp--test-enabled))
+  (skip-unless (not (tramp--test-ange-ftp-p)))
   ;; Since Emacs 26.1.
   (skip-unless
    (and (fboundp 'make-nearby-temp-file) (fboundp 'temporary-file-directory)))
@@ -5063,6 +5124,12 @@ variables, so we check the Emacs version directly."
   "Check, whether the remote host runs Android.
 This requires restrictions of file name syntax."
   (tramp-adb-file-name-p tramp-test-temporary-file-directory))
+
+(defun tramp--test-ange-ftp-p ()
+  "Check, whether Ange-FTP is used."
+  (eq
+   (tramp-find-foreign-file-name-handler tramp-test-temporary-file-directory)
+   'tramp-ftp-file-name-handler))
 
 (defun tramp--test-docker-p ()
   "Check, whether the docker method is used.
@@ -5338,7 +5405,8 @@ This requires restrictions of file name syntax."
   ;; expanded to <TAB>.
   (let ((files
 	 (list
-	  (if (or (tramp--test-gvfs-p)
+	  (if (or (tramp--test-ange-ftp-p)
+		  (tramp--test-gvfs-p)
 		  (tramp--test-rclone-p)
 		  (tramp--test-sudoedit-p)
 		  (tramp--test-windows-nt-or-smb-p))

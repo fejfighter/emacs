@@ -1628,7 +1628,6 @@ If BITMAP already exists, the existing definition is replaced.  */)
   fb.bits = b = ((unsigned short *)
 		 ptr_bounds_clip (xfb + 1, fb.height * BYTES_PER_BITMAP_ROW));
   xfb = ptr_bounds_clip (xfb, sizeof *xfb);
-  memset (b, 0, fb.height);
 
   j = 0;
   while (j < fb.height)
@@ -1738,8 +1737,8 @@ syms_of_fringe (void)
 
   DEFVAR_LISP ("overflow-newline-into-fringe", Voverflow_newline_into_fringe,
     doc: /* Non-nil means that newline may flow into the right fringe.
-This means that display lines which are exactly as wide as the window
-\(not counting the final newline) will only occupy one screen line, by
+This means that display lines that are exactly as wide as the window
+\(not counting the final newline) will occupy only one screen line, by
 showing (or hiding) the final newline in the right fringe; when point
 is at the final newline, the cursor is shown in the right fringe.
 If nil, also continue lines which are exactly as wide as the window.  */);

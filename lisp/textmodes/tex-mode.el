@@ -546,7 +546,7 @@ An alternative value is \" . \", if you use a font with a narrow period."
         ;; Include args.
         (,(concat slash includes opt arg) 3 font-lock-builtin-face)
         ;; Verbatim-like args.
-        (,(concat slash verbish opt arg) 3 'tex-verbatim)
+        (,(concat slash verbish opt arg) 3 'tex-verbatim t)
         ;; Definitions.  I think.
         ("^[ \t]*\\\\def *\\\\\\(\\(\\w\\|@\\)+\\)"
 	 1 font-lock-function-name-face))))
@@ -1139,6 +1139,7 @@ subshell is initiated, `tex-shell-hook' is run."
   ;; A line containing just $$ is treated as a paragraph separator.
   ;; A line starting with $$ starts a paragraph,
   ;; but does not separate paragraphs if it has more stuff on it.
+  ;; For \pagebreak allow latex optional arg like \pagebreak[2]
   (setq paragraph-start
 	(concat "[ \t]*\\(\\$\\$\\|"
 		"\\\\[][]\\|"
@@ -1162,7 +1163,7 @@ subshell is initiated, `tex-shell-hook' is run."
 					      "noindent" "newpage" "footnote"
 					      "marginpar" "parbox" "caption"))
 		"\\|\\$\\$\\|[a-z]*\\(space\\|skip\\|page[a-z]*\\)"
-		"\\>\\)[ \t]*\\($\\|%\\)\\)"))
+		"\\>\\)[][0-9 \t]*\\($\\|%\\)\\)"))
   (setq-local imenu-create-index-function #'latex-imenu-create-index)
   (setq-local tex-face-alist tex-latex-face-alist)
   (add-hook 'fill-nobreak-predicate #'latex-fill-nobreak-predicate nil t)

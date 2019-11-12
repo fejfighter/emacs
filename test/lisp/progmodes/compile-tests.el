@@ -55,11 +55,19 @@
      25 nil 8 "errors.c")
     ;; ant
     ("[javac] /src/DataBaseTestCase.java:27: unreported exception ..."
-     13 nil 27 "/src/DataBaseTestCase.java")
+     13 nil 27 "/src/DataBaseTestCase.java" 2)
     ("[javac] /src/DataBaseTestCase.java:49: warning: finally clause cannot complete normally"
-     13 nil 49 "/src/DataBaseTestCase.java")
+     13 nil 49 "/src/DataBaseTestCase.java" 1)
     ("[jikes]  foo.java:3:5:7:9: blah blah"
-     14 (5 . 10) (3 . 7) "foo.java")
+     14 (5 . 10) (3 . 7) "foo.java" 2)
+    ("[javac] c:/cygwin/Test.java:12: error: foo: bar"
+     9 nil 12 "c:/cygwin/Test.java" 2)
+    ("[javac] c:\\cygwin\\Test.java:87: error: foo: bar"
+     9 nil 87 "c:\\cygwin\\Test.java" 2)
+    ;; Checkstyle error, but ant reports a warning (note additional
+    ;; severity level after task name)
+    ("[checkstyle] [ERROR] /src/Test.java:38: warning: foo"
+     22 nil 38 "/src/Test.java" 1)
     ;; bash
     ("a.sh: line 1: ls-l: command not found"
      1 nil 1 "a.sh")
@@ -212,6 +220,13 @@
      1 nil 27041 "{standard input}")
     ("boost/container/detail/flat_tree.hpp:589:25:   [ skipping 5 instantiation contexts, use -ftemplate-backtrace-limit=0 to disable ]"
      1 25 589 "boost/container/detail/flat_tree.hpp" 0)
+    ;; gradle-kotlin
+    ("e: /src/Test.kt: (34, 15): foo: bar" 4 15 34 "/src/Test.kt" 2)
+    ("w: /src/Test.kt: (11, 98): foo: bar" 4 98 11 "/src/Test.kt" 1)
+    ("e: e:/cygwin/src/Test.kt: (34, 15): foo: bar" 4 15 34 "e:/cygwin/src/Test.kt" 2)
+    ("w: e:/cygwin/src/Test.kt: (11, 98): foo: bar" 4 98 11 "e:/cygwin/src/Test.kt" 1)
+    ("e: e:\\src\\Test.kt: (34, 15): foo: bar" 4 15 34 "e:\\src\\Test.kt" 2)
+    ("w: e:\\src\\Test.kt: (11, 98): foo: bar" 4 98 11 "e:\\src\\Test.kt" 1)
     ;; Guile
     ("In foo.scm:\n" 1 nil nil "foo.scm")
     ("  63:4 [call-with-prompt prompt0 ...]" 1 4 63 nil)
@@ -413,8 +428,8 @@ The test data is in `compile-tests--test-regexps-data'."
           (compilation-num-warnings-found 0)
           (compilation-num-infos-found 0))
       (mapc #'compile--test-error-line compile-tests--test-regexps-data)
-      (should (eq compilation-num-errors-found 87))
-      (should (eq compilation-num-warnings-found 32))
+      (should (eq compilation-num-errors-found 92))
+      (should (eq compilation-num-warnings-found 36))
       (should (eq compilation-num-infos-found 26)))))
 
 (ert-deftest compile-test-grep-regexps ()

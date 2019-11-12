@@ -451,9 +451,13 @@ Typically \"page-%s.png\".")
                         (apply orig-fun args)
                         ;; Update the cached version of the pdf file,
                         ;; too.  This is the one that's used when
-                        ;; rendering.
-                        (doc-view-make-safe-dir doc-view-cache-directory)
-                        (write-region nil nil doc-view--buffer-file-name))))
+                        ;; rendering (bug#26996).
+                        (unless (equal buffer-file-name
+                                       doc-view--buffer-file-name)
+                          ;; FIXME: Lars says he needed to recreate
+                          ;; the dir, we should figure out why.
+                          (doc-view-make-safe-dir doc-view-cache-directory)
+                          (write-region nil nil doc-view--buffer-file-name)))))
     (if (and (eq 'pdf doc-view-doc-type)
              (executable-find "pdfinfo"))
         ;; We don't want to revert if the PDF file is corrupted which
@@ -598,7 +602,7 @@ Otherwise, goto next page only on typing SPC (ARG is nil)."
   (if (or doc-view-continuous (null arg))
       (let ((hscroll (window-hscroll))
 	    (cur-page (doc-view-current-page)))
-	(when (= (window-vscroll) (image-scroll-up arg))
+	(when (= (window-vscroll nil t) (image-scroll-up arg))
 	  (doc-view-next-page)
 	  (when (/= cur-page (doc-view-current-page))
 	    (image-bob)
@@ -615,7 +619,7 @@ Otherwise, goto previous page only on typing DEL (ARG is nil)."
   (if (or doc-view-continuous (null arg))
       (let ((hscroll (window-hscroll))
 	    (cur-page (doc-view-current-page)))
-	(when (= (window-vscroll) (image-scroll-down arg))
+	(when (= (window-vscroll nil t) (image-scroll-down arg))
 	  (doc-view-previous-page)
 	  (when (/= cur-page (doc-view-current-page))
 	    (image-eob)
@@ -631,7 +635,7 @@ at the bottom edge of the page moves to the next page."
   (if doc-view-continuous
       (let ((hscroll (window-hscroll))
 	    (cur-page (doc-view-current-page)))
-	(when (= (window-vscroll) (image-next-line arg))
+	(when (= (window-vscroll nil t) (image-next-line arg))
 	  (doc-view-next-page)
 	  (when (/= cur-page (doc-view-current-page))
 	    (image-bob)
@@ -647,7 +651,7 @@ at the top edge of the page moves to the previous page."
   (if doc-view-continuous
       (let ((hscroll (window-hscroll))
 	    (cur-page (doc-view-current-page)))
-	(when (= (window-vscroll) (image-previous-line arg))
+	(when (= (window-vscroll nil t) (image-previous-line arg))
 	  (doc-view-previous-page)
 	  (when (/= cur-page (doc-view-current-page))
 	    (image-eob)
@@ -1017,7 +1021,7 @@ If PAGE is nil, convert the whole document."
 
 (defun doc-view-pdfdraw-program-subcommand ()
   "Return the mutool subcommand replacing mudraw.
-Recent MuPDF distributions replaced 'mudraw' with 'mutool draw'."
+Recent MuPDF distributions replaced `mudraw' with `mutool draw'."
   (when (string-match "mutool[^/\\]*$" doc-view-pdfdraw-program)
     '("draw")))
 
@@ -1429,7 +1433,7 @@ ARGS is a list of image descriptors."
 		  (vscroll (image-mode-window-get 'vscroll win)))
 	      ;; Reset scroll settings, in case they were changed.
 	      (if hscroll (set-window-hscroll win hscroll))
-	      (if vscroll (set-window-vscroll win vscroll)))))))))
+	      (if vscroll (set-window-vscroll win vscroll t)))))))))
 
 (defun doc-view-sort (a b)
   "Return non-nil if A should be sorted before B.

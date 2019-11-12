@@ -3276,7 +3276,9 @@ With prefix argument, make it a temporary breakpoint."
   (interactive "P")
   ;; If the form hasn't been instrumented yet, do it now.
   (when (and (not edebug-active)
-	     (let ((data (get (edebug-form-data-symbol) 'edebug)))
+	     (let ((data (get (edebug--form-data-name
+                               (edebug-get-form-data-entry (point)))
+                              'edebug)))
 	       (or (null data) (markerp data))))
     (edebug-defun))
   (edebug-modify-breakpoint t nil arg))
@@ -3749,26 +3751,45 @@ Print result in minibuffer."
     (concat (edebug-safe-prin1-to-string (car values))
             (eval-expression-print-format (car values))))))
 
-(defun edebug-eval-last-sexp ()
+(defun edebug-eval-last-sexp (&optional no-truncate)
   "Evaluate sexp before point in the outside environment.
-Print value in minibuffer."
-  (interactive)
-  (edebug-eval-expression (edebug-last-sexp)))
+Print value in minibuffer.
 
-(defun edebug-eval-print-last-sexp ()
+If NO-TRUNCATE is non-nil (or interactively with a prefix
+argument of zero), show the full length of the expression, not
+limited by `edebug-print-length' or `edebug-print-level'."
+  (interactive
+   (list (and current-prefix-arg
+              (zerop (prefix-numeric-value current-prefix-arg)))))
+  (if no-truncate
+      (let ((edebug-print-length nil)
+            (edebug-print-level nil))
+        (edebug-eval-expression (edebug-last-sexp)))
+    (edebug-eval-expression (edebug-last-sexp))))
+
+(defun edebug-eval-print-last-sexp (&optional no-truncate)
   "Evaluate sexp before point in outside environment; insert value.
-This prints the value into current buffer."
-  (interactive)
+This prints the value into current buffer.
+
+If NO-TRUNCATE is non-nil (or interactively with a prefix
+argument of zero), show the full length of the expression, not
+limited by `edebug-print-length' or `edebug-print-level'."
+  (interactive
+   (list (and current-prefix-arg
+              (zerop (prefix-numeric-value current-prefix-arg)))))
   (let* ((form (edebug-last-sexp))
 	 (result-string
 	  (edebug-outside-excursion
-	   (edebug-safe-prin1-to-string (edebug-safe-eval form))))
+	   (if no-truncate
+               (let ((edebug-print-length nil)
+                     (edebug-print-level nil))
+                 (edebug-safe-prin1-to-string (edebug-safe-eval form)))
+             (edebug-safe-prin1-to-string (edebug-safe-eval form)))))
 	 (standard-output (current-buffer)))
     (princ "\n")
     ;; princ the string to get rid of quotes.
     (princ result-string)
-    (princ "\n")
-    ))
+    (princ "\n")))
 
 ;;; Edebug Minor Mode
 

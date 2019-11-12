@@ -1174,7 +1174,7 @@ enabled, and `so-long-predicate' has detected that the file contains long lines.
 Many Emacs modes struggle with buffers which contain excessively long lines,
 and may consequently cause unacceptable performance issues.
 
-This is commonly on account of 'minified' code (i.e. code has been compacted
+This is commonly on account of \"minified\" code (i.e., code compacted
 into the smallest file size possible, which often entails removing newlines
 should they not be strictly necessary).  These kinds of files are typically
 not intended to be edited, so not providing the usual editing mode in these
@@ -1342,7 +1342,7 @@ This is the `so-long-revert-function' for `so-long-mode'."
 (defun so-long-mode-downgrade (&optional mode)
   "The default value for `so-long-file-local-mode-function'.
 
-A buffer-local 'downgrade' from `so-long-mode' to `so-long-minor-mode'.
+A buffer-local \"downgrade\" from `so-long-mode' to `so-long-minor-mode'.
 
 When `so-long-function' is set to `so-long-mode', then we change it to to
 `turn-on-so-long-minor-mode' instead -- retaining the file-local major
@@ -1373,13 +1373,13 @@ This is a `so-long-file-local-mode-function' option."
   ;; See also "Files with a file-local 'mode'" in the Commentary.
   "Handle the header-comments processing in `set-auto-mode'.
 
-`set-auto-mode' has some special-case code to handle the 'mode' pseudo-variable
+`set-auto-mode' has some special-case code to handle the `mode' pseudo-variable
 when set in the header comment.  This runs outside of `hack-local-variables'
 and cannot be conveniently intercepted, so we are forced to replicate it here.
 
 This special-case code will ultimately be removed from Emacs, as it exists to
 deal with a deprecated feature; but until then we need to replicate it in order
-to inhibit our own behaviour in the presence of a header comment 'mode'
+to inhibit our own behavior in the presence of a header comment `mode'
 declaration.
 
 If a file-local mode is detected in the header comment, then we call the
@@ -1496,7 +1496,7 @@ major mode is a member (or derivative of a member) of `so-long-target-modes'.
 
 This advice is needed and enabled only for Emacs versions < 26.1.
 
-If the local 'mode' pseudo-variable is used, `set-auto-mode-0' will call it
+If the local `mode' pseudo-variable is used, `set-auto-mode-0' will call it
 firstly, and subsequently `hack-one-local-variable' may call it again.
 
 Usually `hack-one-local-variable' tries to avoid processing that second call,
@@ -1626,9 +1626,9 @@ Equivalent to calling (global-so-long-mode 0)"
 Many Emacs modes struggle with buffers which contain excessively long lines,
 and may consequently cause unacceptable performance issues.
 
-This is commonly on account of 'minified' code (i.e. code that has been
-compacted into the smallest file size possible, which often entails removing
-newlines should they not be strictly necessary).
+This is commonly on account of \"minified\" code (i.e., code compacted into the
+smallest file size possible, which often entails removing newlines should they
+not be strictly necessary).
 
 When such files are detected by `so-long-predicate', we invoke the selected
 `so-long-action' to mitigate potential performance problems in the buffer.

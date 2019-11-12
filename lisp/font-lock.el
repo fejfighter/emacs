@@ -392,7 +392,7 @@ MATCH-HIGHLIGHT should be of the form:
 SUBEXP is the number of the subexpression of MATCHER to be
 highlighted.
 
-FACENAME is an expression whose value is the face name to use.
+FACENAME is an expression whose value is the face to use.
 Instead of a face, FACENAME can evaluate to a property list of
 the form (face FACE PROP1 VAL1 PROP2 VAL2 ...)  in which case all
 the listed text-properties will be set rather than just FACE.  In
@@ -1100,6 +1100,20 @@ accessible portion of the current buffer."
   "Function to make sure a region has been fontified.
 Called with two arguments BEG and END.")
 
+(defun font-lock-debug-fontify ()
+  "Reinitialise the font-lock machinery and (re-)fontify the buffer.
+This functions is a convenience functions when developing font
+locking for a mode, and is not meant to be called from lisp functions."
+  (interactive)
+  (declare (interactive-only t))
+  ;; Make font-lock recalculate all the mode-specific data.
+  (setq font-lock-major-mode nil)
+  ;; Make the syntax machinery discard all information.
+  (syntax-ppss-flush-cache -1)
+  (font-lock-set-defaults)
+  (save-excursion
+    (font-lock-fontify-region (point-min) (point-max))))
+
 (defun font-lock-ensure (&optional beg end)
   "Make sure the region BEG...END has been fontified.
 If the region is not specified, it defaults to the entire accessible
@@ -1590,41 +1604,41 @@ START should be at the beginning of a line."
 START should be at the beginning of a line."
   (syntax-propertize end)  ; Apply any needed syntax-table properties.
   (with-syntax-table (or syntax-ppss-table (syntax-table))
-  (let ((comment-end-regexp
-	 (or font-lock-comment-end-skip
-	     (regexp-quote
-	      (replace-regexp-in-string "^ *" "" comment-end))))
-        ;; Find the `start' state.
-        (state (syntax-ppss start))
-        face beg)
-    (if loudly (message "Fontifying %s... (syntactically...)" (buffer-name)))
-    ;;
-    ;; Find each interesting place between here and `end'.
-    (while
-	(progn
-	  (when (or (nth 3 state) (nth 4 state))
-	    (setq face (funcall font-lock-syntactic-face-function state))
-	    (setq beg (max (nth 8 state) start))
-	    (setq state (parse-partial-sexp (point) end nil nil state
-					    'syntax-table))
-	    (when face (put-text-property beg (point) 'face face))
-	    (when (and (eq face 'font-lock-comment-face)
-                       (or font-lock-comment-start-skip
-			   comment-start-skip))
-	      ;; Find the comment delimiters
-	      ;; and use font-lock-comment-delimiter-face for them.
-	      (save-excursion
-		(goto-char beg)
-		(if (looking-at (or font-lock-comment-start-skip
-				    comment-start-skip))
-		    (put-text-property beg (match-end 0) 'face
-				       font-lock-comment-delimiter-face)))
-	      (if (looking-back comment-end-regexp (point-at-bol) t)
-		  (put-text-property (match-beginning 0) (point) 'face
-				     font-lock-comment-delimiter-face))))
-	  (< (point) end))
-      (setq state (parse-partial-sexp (point) end nil nil state
-				      'syntax-table))))))
+    (let ((comment-end-regexp
+	   (or font-lock-comment-end-skip
+	       (regexp-quote
+	        (replace-regexp-in-string "^ *" "" comment-end))))
+          ;; Find the `start' state.
+          (state (syntax-ppss start))
+          face beg)
+      (if loudly (message "Fontifying %s... (syntactically...)" (buffer-name)))
+      ;;
+      ;; Find each interesting place between here and `end'.
+      (while
+	  (progn
+	    (when (or (nth 3 state) (nth 4 state))
+	      (setq face (funcall font-lock-syntactic-face-function state))
+	      (setq beg (max (nth 8 state) start))
+	      (setq state (parse-partial-sexp (point) end nil nil state
+					      'syntax-table))
+	      (when face (put-text-property beg (point) 'face face))
+	      (when (and (eq face 'font-lock-comment-face)
+                         (or font-lock-comment-start-skip
+			     comment-start-skip))
+	        ;; Find the comment delimiters
+	        ;; and use font-lock-comment-delimiter-face for them.
+	        (save-excursion
+		  (goto-char beg)
+		  (if (looking-at (or font-lock-comment-start-skip
+				      comment-start-skip))
+		      (put-text-property beg (match-end 0) 'face
+				         font-lock-comment-delimiter-face)))
+	        (if (looking-back comment-end-regexp (point-at-bol) t)
+		    (put-text-property (match-beginning 0) (point) 'face
+				       font-lock-comment-delimiter-face))))
+	    (< (point) end))
+        (setq state (parse-partial-sexp (point) end nil nil state
+				        'syntax-table))))))
 
 ;;; End of Syntactic fontification functions.
 
@@ -1888,18 +1902,13 @@ Sets various variables using `font-lock-defaults' and
 	   (removed-keywords
 	    (cdr-safe (assq major-mode font-lock-removed-keywords-alist))))
       ;; Syntactic fontification?
-      (if (nth 1 defaults)
-          (set (make-local-variable 'font-lock-keywords-only) t)
-        (kill-local-variable 'font-lock-keywords-only))
+      (setq-local font-lock-keywords-only (nth 1 defaults))
       ;; Case fold during regexp fontification?
-      (if (nth 2 defaults)
-          (set (make-local-variable 'font-lock-keywords-case-fold-search) t)
-        (kill-local-variable 'font-lock-keywords-case-fold-search))
+      (setq-local font-lock-keywords-case-fold-search (nth 2 defaults))
       ;; Syntax table for regexp and syntactic fontification?
       (if (null (nth 3 defaults))
-          (kill-local-variable 'font-lock-syntax-table)
-	(set (make-local-variable 'font-lock-syntax-table)
-	     (copy-syntax-table (syntax-table)))
+          (setq-local font-lock-syntax-table nil)
+	(setq-local font-lock-syntax-table (copy-syntax-table (syntax-table)))
 	(dolist (selem (nth 3 defaults))
 	  ;; The character to modify may be a single CHAR or a STRING.
 	  (let ((syntax (cdr selem)))

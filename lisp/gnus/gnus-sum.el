@@ -334,7 +334,7 @@ If threads are hidden, you have to run the command
   :group 'gnus-thread
   :type '(radio (sexp :format "Non-nil\n"
 		      :match (lambda (widget value)
-			       (not (or (consp value) (functionp value))))
+			       (and value (not (functionp value))))
 		      :value t)
 		(const nil)
 		(sexp :tag "Predicate specifier")))
@@ -9127,7 +9127,7 @@ a non-numeric prefix arg will use nnir to search the entire
 server; without a prefix arg only the current group is
 searched.  If the variable `gnus-refer-thread-use-nnir' is
 non-nil the prefix arg has the reverse meaning.  If no
-backend-specific 'request-thread function is available fetch
+backend-specific `request-thread' function is available fetch
 LIMIT (the numerical prefix) old headers.  If LIMIT is
 non-numeric or nil fetch the number specified by the
 `gnus-refer-thread-limit' variable."
