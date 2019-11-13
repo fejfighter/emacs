@@ -4993,14 +4993,14 @@ static void size_allocate(GtkWidget *widget, int width, int  height,
   GTK4_TRACE("___size-alloc: %dx%d + %d.", width, height, baseline);
 
   struct frame *f = gtk4_any_window_to_frame (widget);
-  if (f) {
+  /* if (f) { */
     GtkAllocation alloc;
     GTK4_TRACE("resized: %dx%d", width, height);
     gtk_widget_get_allocation(widget, &alloc);
 
     GTK4_TRACE("resized: %dx%d", alloc.width, alloc.height);
     xg_frame_resized(f, alloc.width, alloc.height);
-  }
+    //}
 }
 
 static void
@@ -6189,7 +6189,7 @@ gtk4_set_event_handler(struct frame *f)
   g_signal_connect(button, "pressed", G_CALLBACK(button_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
 
   GtkEventController *scroll = gtk_event_controller_scroll_new(GTK_EVENT_CONTROLLER_SCROLL_VERTICAL);
-  g_signal_connect(scroll, "scroll-event", G_CALLBACK(scroll_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
+  g_signal_connect(scroll, "scroll", G_CALLBACK(scroll_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
   gtk_widget_add_controller(FRAME_GTK_WIDGET(f), scroll);
 
 

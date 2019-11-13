@@ -1769,7 +1769,11 @@ parse_resource_key (const char *res_key, char *setting_key)
 
   /* check existence of setting_key */
   GSettingsSchemaSource *ssrc = g_settings_schema_source_get_default ();
+  if (!ssrc)
+    return NULL;
   GSettingsSchema *scm = g_settings_schema_source_lookup (ssrc, SCHEMA_ID, FALSE);
+  if (!scm)
+    return NULL;
   if (!g_settings_schema_has_key (scm, setting_key)) {
     g_settings_schema_unref (scm);
     return NULL;
@@ -2609,7 +2613,7 @@ Text larger than the specified size is clipped.  */)
   (Lisp_Object string, Lisp_Object frame, Lisp_Object parms, Lisp_Object timeout, Lisp_Object dx, Lisp_Object dy)
 {
   struct frame *f;
-  double root_x, root_y;
+  double root_x = 0, root_y = 0;
   int width, height;
   ptrdiff_t count = SPECPDL_INDEX ();
 

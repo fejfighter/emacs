@@ -854,8 +854,8 @@ qttip_cb (GtkWidget  *widget,
       gtk_widget_realize (GTK_WIDGET (x->ttip_window));
       gtk_widget_realize (x->ttip_lbl);
 
-      g_signal_connect (x->ttip_lbl, "hierarchy-changed",
-			G_CALLBACK (hierarchy_ch_cb), f);
+      /* g_signal_connect (x->ttip_lbl, "hierarchy-changed", */
+      /*			G_CALLBACK (hierarchy_ch_cb), f); */
     }
 
   return FALSE;
@@ -3102,13 +3102,13 @@ create_menus (widget_value *data,
 	   disabled items also.  TODO:  Still does not get enter/leave for
 	   disabled items in detached menus.  */
 	/* g_signal_connect (G_OBJECT (wmenu), */
-	/* 		  "enter-notify-event", */
-	/* 		  G_CALLBACK (menuitem_highlight_callback), */
-	/* 		  NULL); */
+	/*		  "enter-notify-event", */
+	/*		  G_CALLBACK (menuitem_highlight_callback), */
+	/*		  NULL); */
 	/* g_signal_connect (G_OBJECT (wmenu), */
-	/* 		  "leave-notify-event", */
-	/* 		  G_CALLBACK (menuitem_highlight_callback), */
-	/* 		  NULL); */
+	/*		  "leave-notify-event", */
+	/*		  G_CALLBACK (menuitem_highlight_callback), */
+	/*		  NULL); */
       }
       else
 	{
@@ -4180,14 +4180,15 @@ xg_finish_scroll_bar_creation (struct frame *f,
 		    "destroy",
 		    G_CALLBACK (xg_gtk_scroll_destroy),
 		    (gpointer) scroll_id);
-  g_signal_connect (G_OBJECT (wscroll),
-		    "change-value",
-		    scroll_callback,
-		    (gpointer) bar);
-  g_signal_connect (G_OBJECT (wscroll),
-		    "button-release-event",
-		    end_callback,
-		    (gpointer) bar);
+  /* g_signal_connect (G_OBJECT (wscroll), */
+  /*		    "change-value", */
+  /*		    scroll_callback, */
+  /*		    (gpointer) bar); */
+
+  /* g_signal_connect (G_OBJECT (wscroll), */
+  /*		    "scroll-end",// "button-release-event", */
+  /*		    end_callback, */
+  /*		    (gpointer) bar); */
 
   /* The scroll bar widget does not draw on a window of its own.  Instead
      it draws on the parent window, in this case the edit widget.  So
@@ -4195,6 +4196,8 @@ xg_finish_scroll_bar_creation (struct frame *f,
      also, which causes flicker.  Put an event box between the edit widget
      and the scroll bar, so the scroll bar instead draws itself on the
      event box window.  */
+  gtk_container_add (GTK_CONTAINER (f->output_data.xp->edit_widget), wscroll);
+
 #ifndef HAVE_GTK4
   gtk_fixed_put (GTK_FIXED (f->output_data.xp->edit_widget), webox, -1, -1);
   gtk_container_add (GTK_CONTAINER (webox), wscroll);
@@ -4334,15 +4337,15 @@ xg_update_scrollbar_pos (struct frame *f,
 
       /* Clear out old position.  */
       int oldx = -1, oldy = -1, oldw, oldh;
-      if (gtk_widget_get_parent (wparent) == wfixed)
-	{
-	  /* gtk_container_child_get (GTK_CONTAINER (wfixed), wparent, */
-	  /*			   "x", &oldx, "y", &oldy, NULL); */
-	  gtk_widget_get_size_request (wscroll, &oldw, &oldh);
-	}
+      /* if (gtk_widget_get_parent (wparent) == wfixed) */
+      /*	{ */
+      /*	  /\* gtk_container_child_get (GTK_CONTAINER (wfixed), wparent, *\/ */
+      /*	  /\*			   "x", &oldx, "y", &oldy, NULL); *\/ */
+      /*	  gtk_widget_get_size_request (wscroll, &oldw, &oldh); */
+      /*	} */
 
       /* Move and resize to new values.  */
-      gtk_fixed_move (GTK_FIXED (wfixed), wparent, left, top);
+      gtk_fixed_move (GTK_FIXED (wfixed), wscroll, left, top);
 #ifndef HAVE_GTK4
       gtk_widget_style_get (wscroll, "min-slider-length", &msl, NULL);
       //#endif
@@ -4844,12 +4847,10 @@ xg_print_frames_dialog (Lisp_Object frames)
 
 static gboolean
 xg_tool_bar_button_cb (GtkWidget *widget,
-		       GdkEvent *event,
+		       GdkModifierType *key,
 		       gpointer user_data)
 {
-  GdkModifierType state;
-  gdk_event_get_state(event, &state);
-  gpointer ptr = (gpointer) &state;
+  gpointer ptr = (gpointer) key;
   g_object_set_data (G_OBJECT (widget), XG_TOOL_BAR_LAST_MODIFIER, ptr);
   return FALSE;
 }
@@ -5223,9 +5224,11 @@ xg_make_tool_item (struct frame *f,
       /* Callback to save modifier mask (Shift/Control, etc).  GTK makes
 	 no distinction based on modifiers in the activate callback,
 	 so we have to do it ourselves.  */
-      g_signal_connect (wb, "button-release-event",
+      GtkEventController * key = gtk_event_controller_key_new();
+      g_signal_connect (key, "modifiers",
 			G_CALLBACK (xg_tool_bar_button_cb),
-			NULL);
+			wb);
+      gtk_widget_add_controller(wb, key);
 
       g_object_set_data (G_OBJECT (wb), XG_FRAME_DATA, (gpointer)f);
 
@@ -5233,14 +5236,17 @@ xg_make_tool_item (struct frame *f,
 	 rather than the GtkButton specific signals "enter" and
 	 "leave", so we can have only one callback.  The event
 	 will tell us what kind of event it is.  */
-      /* g_signal_connect (G_OBJECT (weventbox), */
-      /*			"enter-notify-event", */
-      /*			G_CALLBACK (xg_tool_bar_help_callback), */
-      /*			gi); */
-      /* g_signal_connect (G_OBJECT (weventbox), */
-      /*			"leave-notify-event", */
-      /*			G_CALLBACK (xg_tool_bar_help_callback), */
-      /*			gi); */
+      GtkEventController * motion = gtk_event_controller_motion_new();
+
+      g_signal_connect (motion,
+			"enter",
+			G_CALLBACK (xg_tool_bar_help_callback),
+			gi);
+      g_signal_connect (motion,
+			"leave",
+			G_CALLBACK (xg_tool_bar_help_callback),
+			gi);
+      gtk_widget_add_controller(wb, motion);
     }
 
   if (wbutton) *wbutton = wb;
@@ -5351,7 +5357,7 @@ xg_update_tool_bar_sizes (struct frame *f)
   /*     || nb != FRAME_TOOLBAR_BOTTOM_HEIGHT (f)) */
   /*   { */
   /*     FRAME_TOOLBAR_RIGHT_WIDTH (f) = FRAME_TOOLBAR_LEFT_WIDTH (f) */
-  /* 	= FRAME_TOOLBAR_TOP_HEIGHT (f) = FRAME_TOOLBAR_BOTTOM_HEIGHT (f) = 0; */
+  /*	= FRAME_TOOLBAR_TOP_HEIGHT (f) = FRAME_TOOLBAR_BOTTOM_HEIGHT (f) = 0; */
   /*     FRAME_TOOLBAR_LEFT_WIDTH (f) = nl; */
   /*     FRAME_TOOLBAR_RIGHT_WIDTH (f) = nr; */
   /*     FRAME_TOOLBAR_TOP_HEIGHT (f) = nt; */
@@ -5865,7 +5871,7 @@ xg_initialize (void)
   /* Make GTK text input widgets use Emacs style keybindings.  This is
      Emacs after all.  */
 #if GTK_CHECK_VERSION (3, 16, 0)
-  g_object_set (settings, "gtk-key-theme-name", "Emacs", NULL);
+  //g_object_set (settings, "gtk-key-theme-name", "Emacs", NULL);
 #else
   gtk_settings_set_string_property (settings,
 				    "gtk-key-theme-name",
