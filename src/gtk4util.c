@@ -4196,7 +4196,7 @@ xg_finish_scroll_bar_creation (struct frame *f,
      also, which causes flicker.  Put an event box between the edit widget
      and the scroll bar, so the scroll bar instead draws itself on the
      event box window.  */
-  gtk_container_add (GTK_CONTAINER (f->output_data.xp->edit_widget), wscroll);
+  gtk_widget_insert_after (wscroll, f->output_data.xp->edit_widget, NULL);
 
 #ifndef HAVE_GTK4
   gtk_fixed_put (GTK_FIXED (f->output_data.xp->edit_widget), webox, -1, -1);

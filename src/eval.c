@@ -2793,8 +2793,8 @@ usage: (funcall FUNCTION &rest ARGUMENTS)  */)
     fun = indirect_function (fun);
 
   if (SUBRP (fun)){
-    cname = SSDATA(SYMBOL_NAME(original_fun));
-    DTRACE_PROBE1(emacs, funcall, cname);
+    //cname = SSDATA(SYMBOL_NAME(original_fun));
+    //DTRACE_PROBE1(emacs, funcall, cname);
 
     val = funcall_subr (XSUBR (fun), numargs, args + 1);
   }

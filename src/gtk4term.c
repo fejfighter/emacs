@@ -135,8 +135,8 @@ mark_gtk4term(void)
   for (dpyinfo = x_display_list; dpyinfo != NULL; dpyinfo = dpyinfo->next) {
 #if false  /* marked in alloc.c:compact_font_caches() */
     mark_object (dpyinfo->name_list_element);
-#endif
     mark_object (dpyinfo->rdb);
+#endif
   }
 }
 
@@ -896,7 +896,7 @@ x_set_cursor_gc (struct glyph_string *s)
 	}
       GTK4_TRACE("x_set_cursor_gc: 6. %08lx, %08lx.", xgcv.background, xgcv.foreground);
 
-      IF_DEBUG (x_check_font (s->f, s->font));
+      //IF_DEBUG (x_check_font (s->f, s->font));
 
       s->xgcv = xgcv;
     }
@@ -4992,14 +4992,29 @@ static void size_allocate(GtkWidget *widget, int width, int  height,
 {
   GTK4_TRACE("___size-alloc: %dx%d + %d.", width, height, baseline);
 
+  if (widget)
+    {
+	  GTK4_TRACE("___________________________frame %p resized: %dx%d", NULL, width, height);
+    }
+
   struct frame *f = gtk4_any_window_to_frame (widget);
+
   /* if (f) { */
     GtkAllocation alloc;
     GTK4_TRACE("resized: %dx%d", width, height);
     gtk_widget_get_allocation(widget, &alloc);
+    GTK4_TRACE("__ __ __ widget %p, name: %s __ __ __  resized: %dx%d", widget, gtk_widget_get_name(widget), width, height);
 
     GTK4_TRACE("resized: %dx%d", alloc.width, alloc.height);
-    xg_frame_resized(f, alloc.width, alloc.height);
+    GTK4_TRACE("___________________________frame %p resized: %dx%d", f, alloc.width, alloc.height);
+    if (f)
+      {
+	xg_frame_resized(f, alloc.width, alloc.height);
+      }
+    else
+      {
+	GTK4_TRACE("__ __ __ widget %p, name: %s __ __ __  resized: %dx%d", widget, gtk_widget_get_name(widget), alloc.width, alloc.height);
+      }
     //}
 }
 
