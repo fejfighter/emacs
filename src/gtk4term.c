@@ -4997,25 +4997,29 @@ static void size_allocate(GtkWidget *widget, int width, int  height,
 	  GTK4_TRACE("___________________________frame %p resized: %dx%d", NULL, width, height);
     }
 
-  struct frame *f = gtk4_any_window_to_frame (widget);
+  if ( GTK_IS_WIDGET(widget)){
 
-  /* if (f) { */
     GtkAllocation alloc;
     GTK4_TRACE("resized: %dx%d", width, height);
     gtk_widget_get_allocation(widget, &alloc);
     GTK4_TRACE("__ __ __ widget %p, name: %s __ __ __  resized: %dx%d", widget, gtk_widget_get_name(widget), width, height);
 
     GTK4_TRACE("resized: %dx%d", alloc.width, alloc.height);
-    GTK4_TRACE("___________________________frame %p resized: %dx%d", f, alloc.width, alloc.height);
-    if (f)
-      {
-	xg_frame_resized(f, alloc.width, alloc.height);
-      }
-    else
-      {
-	GTK4_TRACE("__ __ __ widget %p, name: %s __ __ __  resized: %dx%d", widget, gtk_widget_get_name(widget), alloc.width, alloc.height);
-      }
-    //}
+
+
+      struct frame *f = gtk4_any_window_to_frame (widget);
+
+      GTK4_TRACE("___________________________frame %p resized: %dx%d", f, alloc.width, alloc.height);
+      if (f)
+	{
+	  xg_frame_resized(f, alloc.width, alloc.height);
+	}
+      else
+	{
+	  GTK4_TRACE("__ __ __ widget %p, name: %s __ __ __  resized: %dx%d", widget, gtk_widget_get_name(widget), alloc.width, alloc.height);
+	}
+    }
+
 }
 
 static void
@@ -6033,17 +6037,20 @@ button_event (GtkGestureClick *gesture,
 }
 
 static gboolean
-scroll_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
+scroll_event(GtkEventControllerScroll *controller,
+               gdouble                   delta_x,
+               gdouble                   delta_y,
+               gpointer                  user_data)
+//(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
 {
   GTK4_TRACE("scroll_event");
   union buffered_input_event inev;
+  GtkWidget *widget = user_data;
   struct frame *f, *frame;
   struct gtk4_display_info *dpyinfo;
-  GdkModifierType state;
-  GdkScrollDirection direction;
-
-  gdouble delta_x;
-  gdouble delta_y;
+  /* GdkModifierType state; */
+  /* GdkScrollDirection direction; */
+  GtkEventControllerScrollFlags flags = gtk_event_controller_scroll_get_flags (controller);
 
   EVENT_INIT (inev.ie);
   inev.ie.kind = NO_EVENT;
@@ -6058,20 +6065,19 @@ scroll_event(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
     f = gtk4_any_window_to_frame(widget);
 
   inev.ie.kind = WHEEL_EVENT;
-  inev.ie.timestamp = gdk_event_get_time(event);
-  inev.ie.modifiers = gtk4_gtk_to_emacs_modifiers (FRAME_DISPLAY_INFO (f), gdk_event_get_state(event, &state));
+  //  inev.ie.timestamp = gdk_event_get_time(event);
+  //inev.ie.modifiers = gtk4_gtk_to_emacs_modifiers (FRAME_DISPLAY_INFO (f), gdk_event_get_state(event, &state));
 
-  gdk_event_get_coords(event, &delta_x, &delta_y);
+  //gdk_event_get_coords(event, &delta_x, &delta_y);
 
   XSETINT (inev.ie.x, delta_x);
   XSETINT (inev.ie.y, delta_y);
   XSETFRAME (inev.ie.frame_or_window, f);
   inev.ie.arg = Qnil;
 
-  gdk_event_get_scroll_deltas (event, &delta_x, &delta_y);
-  gdk_event_get_scroll_direction(event, &direction);
+  //gdk_event_get_scroll_direction(event, &direction);
 
-  switch (direction) {
+  switch (flags) {
   case GDK_SCROLL_UP:
     inev.ie.kind = WHEEL_EVENT;
     inev.ie.modifiers |= up_modifier;

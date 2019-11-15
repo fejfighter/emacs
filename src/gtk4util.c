@@ -1527,7 +1527,7 @@ xg_create_frame_widgets (struct frame *f)
   gtk_box_pack_start (GTK_BOX (whbox), wfixed, TRUE, TRUE, 0);
 #else
   gtk_box_insert_child_after(GTK_BOX (wvbox), whbox, NULL);
-  gtk_box_insert_child_after(GTK_BOX (wvbox), wfixed, NULL);
+  gtk_box_insert_child_after(GTK_BOX (whbox), wfixed, NULL);
 #endif
   if (FRAME_EXTERNAL_TOOL_BAR (f))
     update_frame_tool_bar (f);
@@ -4298,9 +4298,7 @@ xg_remove_scroll_bar (struct frame *f, ptrdiff_t scrollbar_id)
   GtkWidget *w = xg_get_widget_from_map (scrollbar_id);
   if (w)
     {
-      GtkWidget *wparent = gtk_widget_get_parent (w);
       gtk_widget_destroy (w);
-      gtk_widget_destroy (wparent);
       SET_FRAME_GARBAGED (f);
     }
 }
@@ -4322,7 +4320,6 @@ xg_update_scrollbar_pos (struct frame *f,
   if (wscroll)
     {
       GtkWidget *wfixed = f->output_data.xp->edit_widget;
-      GtkWidget *wparent = gtk_widget_get_parent (wscroll);
 #ifndef HAVE_GTK4
       gint msl;
 #endif
@@ -4354,7 +4351,6 @@ xg_update_scrollbar_pos (struct frame *f,
 	{
 	  /* No room.  Hide scroll bar as some themes output a warning if
 	     the height is less than the min size.  */
-	  gtk_widget_hide (wparent);
 	  gtk_widget_hide (wscroll);
 	}
       else
@@ -4381,13 +4377,14 @@ xg_update_scrollbar_pos (struct frame *f,
       if (!hidden)
 	{
 	  GtkWidget *scrollbar = xg_get_widget_from_map (scrollbar_id);
-	  GtkWidget *webox = gtk_widget_get_parent (scrollbar);
+	  //GtkWidget *webox = gtk_widget_get_parent (scrollbar);
 
 #ifndef HAVE_GTK4
 	  /* Don't obscure any child frames.  */
 	  XLowerWindow (FRAME_X_DISPLAY (f), GTK_WIDGET_TO_X_WIN (webox));
 #else
-	  gdk_surface_lower(gtk_widget_get_surface(webox));
+	  //	  gdk_surface_lower(gtk_widget_get_surface(webox));
+	  gdk_surface_lower(gtk_widget_get_surface(scrollbar));
 #endif
 	}
 #endif
@@ -5102,7 +5099,7 @@ xg_create_tool_bar (struct frame *f)
 				  GTK_ORIENTATION_HORIZONTAL);
   g_signal_connect (x->toolbar_widget, "size-allocate",
 		    G_CALLBACK (tb_size_cb), f);
-#ifdef HAVE_GTK4
+#ifndef HAVE_GTK4
   gsty = gtk_widget_get_style_context (x->toolbar_widget);
   gtk_style_context_add_class (gsty, "primary-toolbar");
 #endif
