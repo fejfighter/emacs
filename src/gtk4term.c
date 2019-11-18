@@ -5874,6 +5874,35 @@ motion_notify_event(GtkEventControllerMotion *controller,
 
    If the event is a button press, then note that we have grabbed
    the mouse.  */
+static unsigned mouse_code_to_emacs(const GdkModifierType mod)
+{
+  const unsigned mouse = \
+    GDK_BUTTON1_MASK |
+    GDK_BUTTON2_MASK |
+    GDK_BUTTON3_MASK |
+    GDK_BUTTON4_MASK |
+    GDK_BUTTON5_MASK;
+
+  switch(mod & mouse)
+    {
+    case GDK_BUTTON1_MASK:
+      return 0;
+      break;
+    case GDK_BUTTON2_MASK:
+      return 1;
+      break;
+    case GDK_BUTTON3_MASK:
+      return 2;
+      break;
+    case GDK_BUTTON4_MASK:
+      return 3;
+      break;
+    case GDK_BUTTON5_MASK:
+      return 4;
+      break;
+    }
+  return 0xFF;
+}
 
 static Lisp_Object
 construct_mouse_click (struct input_event *result,
@@ -5882,22 +5911,17 @@ construct_mouse_click (struct input_event *result,
 		       gdouble y,
 		       struct frame *f)
 {
-  /* GdkEvent *ev = GDK_EVENT(event); */
-  guint button = 0;
-  /* guint state = 0; */
-
-  /* gdk_event_get_button(ev, &button); */
-  /* gdk_event_get_state(ev, &state); */
   /* Make the event type NO_EVENT; we'll change that when we decide
      otherwise.  */
   result->kind = MOUSE_CLICK_EVENT;
-  result->code = button - 1;
   //result->timestamp = gdk_event_get_time(ev);
 
   result->modifiers = gtk4_gtk_to_emacs_modifiers (FRAME_DISPLAY_INFO (f), mod) | down_modifier;
 		       /* | (gdk_event_get_event_type(ev) == GDK_BUTTON_RELEASE */
 		       /*	  ? up_modifier */
 		       /*	  : down_modifier)); */
+
+  result->code = mouse_code_to_emacs(mod);
 
   //gdk_event_get_coords(ev, &x, &y);
 
