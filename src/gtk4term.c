@@ -2708,7 +2708,7 @@ gtk4_draw_window_cursor (struct window *w, struct glyph_row *glyph_row, int x,
 		      int y, enum text_cursor_kinds cursor_type,
 		      int cursor_width, bool on_p, bool active_p)
 {
-  GTK4_TRACE("draw_window_cursor: %d, %d, %d, %d, %d, %d.",
+  GTK4_TRACE("draw_window_cursor: x %d, y %d, cursor type %d, w %d, on %d, active %d.",
 	       x, y, cursor_type, cursor_width, on_p, active_p);
   struct frame *f = XFRAME (WINDOW_FRAME (w));
   GTK4_TRACE("gtk4 ptr: %p", f->output_data.gtk4);
@@ -5877,31 +5877,32 @@ motion_notify_event(GtkEventControllerMotion *controller,
 
 static Lisp_Object
 construct_mouse_click (struct input_event *result,
-		       const GdkEventButton *event,
+		       const GdkModifierType mod,
+		       gdouble x,
+		       gdouble y,
 		       struct frame *f)
 {
-  GdkEvent *ev = GDK_EVENT(event);
+  /* GdkEvent *ev = GDK_EVENT(event); */
   guint button = 0;
-  guint state = 0;
-  gdouble x, y;
+  /* guint state = 0; */
 
-  gdk_event_get_button(ev, &button);
-  gdk_event_get_state(ev, &state);
+  /* gdk_event_get_button(ev, &button); */
+  /* gdk_event_get_state(ev, &state); */
   /* Make the event type NO_EVENT; we'll change that when we decide
      otherwise.  */
   result->kind = MOUSE_CLICK_EVENT;
   result->code = button - 1;
-  result->timestamp = gdk_event_get_time(ev);
+  //result->timestamp = gdk_event_get_time(ev);
 
-  result->modifiers = (gtk4_gtk_to_emacs_modifiers (FRAME_DISPLAY_INFO (f), state)
-		       | (gdk_event_get_event_type(ev) == GDK_BUTTON_RELEASE
-			  ? up_modifier
-			  : down_modifier));
+  result->modifiers = gtk4_gtk_to_emacs_modifiers (FRAME_DISPLAY_INFO (f), mod) | down_modifier;
+		       /* | (gdk_event_get_event_type(ev) == GDK_BUTTON_RELEASE */
+		       /*	  ? up_modifier */
+		       /*	  : down_modifier)); */
 
-  gdk_event_get_coords(ev, &x, &y);
+  //gdk_event_get_coords(ev, &x, &y);
 
-  XSETFLOAT (result->x, &x);
-  XSETFLOAT (result->y, &y);
+  XSETINT (result->x, (int)x);
+  XSETINT (result->y, (int)y);
   XSETFRAME (result->frame_or_window, f);
   result->arg = Qnil;
   return Qnil;
@@ -5921,7 +5922,7 @@ button_event (GtkGestureClick *gesture,
   /* const GdkEventType type = gdk_event_get_event_type(event); */
 
   /* gdk_event_get_button(event, &button); */
-  GTK4_TRACE("button_event: type=%u, button=%u.", n_press, button);
+  GTK4_TRACE("button_event: type=%u, where=%f x %f.",n_press, x, y);
 
   /* If we decide we want to generate an event to be seen
      by the rest of Emacs, we put it here.  */
@@ -5931,6 +5932,13 @@ button_event (GtkGestureClick *gesture,
   EVENT_INIT (inev.ie);
   inev.ie.kind = NO_EVENT;
   inev.ie.arg = Qnil;
+
+  GdkModifierType mod;
+  gdk_surface_get_device_position (gtk_native_get_surface(gtk_widget_get_native (widget)),
+				   gtk_gesture_get_device(gesture),
+				   NULL, NULL,
+				   &mod);
+
 
   frame = gtk4_any_window_to_frame(widget);
   dpyinfo = FRAME_DISPLAY_INFO (frame);
@@ -5979,16 +5987,13 @@ button_event (GtkGestureClick *gesture,
 	  && WINDOW_TOTAL_LINES (XWINDOW (f->tab_bar_window)))
 	{
 	  Lisp_Object window;
-	  /* int x = event->button.x; */
-	  /* int y = event->button.y; */
-
 	  window = window_from_coordinates (f, x, y, 0, true, true);
 	  tab_bar_p = EQ (window, f->tab_bar_window);
 
-	  /* if (tab_bar_p && event->button.button < 4) */
-	  /*   handle_tab_bar_click */
-	  /*     (f, x, y, event->type == GDK_BUTTON_PRESS, */
-	  /*      gtk4_gtk_to_emacs_modifiers (dpyinfo, event->button.state)); */
+	  if (tab_bar_p ) /*&& event->button.button < 4) */
+	    handle_tab_bar_click
+	      (f, x, y, true,
+	       gtk4_gtk_to_emacs_modifiers (dpyinfo, mod));
 	}
     }
   if (f)
@@ -6005,10 +6010,10 @@ button_event (GtkGestureClick *gesture,
 	  /*	} */
 	  /*     /\* if (type == GDK_BUTTON_RELEASE) *\/ */
 	  /*     /\*	ignore_next_mouse_click_timeout = 0; *\/ */
-	  /*   } */
-	  /* else */
-	  /*   construct_mouse_click (&inev.ie, (GdkEventButton *)event, f); */
-	}
+	    }
+	  else{
+	    construct_mouse_click (&inev.ie, mod, x, y, f);
+	  }
 	}
 #if 0
       if (FRAME_X_EMBEDDED_P (f))
@@ -6019,8 +6024,8 @@ button_event (GtkGestureClick *gesture,
 
   /* if (type == GDK_BUTTON_PRESS) */
   /*   { */
-  /*     dpyinfo->grabbed |= (1 << button); */
-  /*     dpyinfo->last_mouse_frame = f; */
+  dpyinfo->grabbed |= (1 << button);
+  dpyinfo->last_mouse_frame = f;
   /*   } */
   /* else */
   /*   dpyinfo->grabbed &= ~(1 << button); */
@@ -6038,9 +6043,9 @@ button_event (GtkGestureClick *gesture,
 
 static gboolean
 scroll_event(GtkEventControllerScroll *controller,
-               gdouble                   delta_x,
-               gdouble                   delta_y,
-               gpointer                  user_data)
+	       gdouble                   delta_x,
+	       gdouble                   delta_y,
+	       gpointer                  user_data)
 //(GtkWidget *widget, GdkEvent *event, gpointer *user_data)
 {
   GTK4_TRACE("scroll_event");
@@ -6208,6 +6213,7 @@ gtk4_set_event_handler(struct frame *f)
   GtkGesture *button = gtk_gesture_click_new();
 
   g_signal_connect(button, "pressed", G_CALLBACK(button_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
+  gtk_widget_add_controller(FRAME_GTK_WIDGET(f), GTK_EVENT_CONTROLLER(button));
 
   GtkEventController *scroll = gtk_event_controller_scroll_new(GTK_EVENT_CONTROLLER_SCROLL_VERTICAL);
   g_signal_connect(scroll, "scroll", G_CALLBACK(scroll_event), G_OBJECT(FRAME_GTK_WIDGET(f)));
