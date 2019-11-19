@@ -694,7 +694,7 @@ x_set_icon_type (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
 
 /* This is the same as the xfns.c definition.  */
 static void
-x_set_cursor_type (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
+gtk4_set_cursor_type (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
 {
   set_frame_cursor_types (f, arg);
 }
@@ -884,7 +884,7 @@ frame_parm_handler gtk4_frame_parm_handlers[] =
   x_set_border_color,
   gui_set_border_width,
   x_set_cursor_color,
-  x_set_cursor_type,
+  gtk4_set_cursor_type,
   gui_set_font, /* generic OK */
   x_set_foreground_color,
   x_set_icon_name,

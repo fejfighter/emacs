@@ -4649,23 +4649,23 @@ XTtoggle_invisible_pointer (struct frame *f, bool invisible)
 static void
 x_new_focus_frame (struct gtk4_display_info *dpyinfo, struct frame *frame)
 {
-  /* struct frame *old_focus = dpyinfo->x_focus_frame; */
-  /* /\* doesn't work on wayland *\/ */
+  struct frame *old_focus = dpyinfo->x_focus_frame;
+  /* doesn't work on wayland */
 
-  /* if (frame != dpyinfo->x_focus_frame) */
-  /*   { */
-  /*     /\* Set this before calling other routines, so that they see */
-  /*	 the correct value of x_focus_frame.  *\/ */
-  /*     dpyinfo->x_focus_frame = frame; */
+  if (frame != dpyinfo->x_focus_frame)
+    {
+      /* Set this before calling other routines, so that they see
+	 the correct value of x_focus_frame.  */
+      dpyinfo->x_focus_frame = frame;
 
-  /*     /\* if (old_focus && old_focus->auto_lower) *\/ */
-  /*     /\*	gdk_surface_lower (gtk_widget_get_surface (FRAME_GTK_OUTER_WIDGET (old_focus))); *\/ */
+      if (old_focus && old_focus->auto_lower)
+	gdk_surface_lower (gtk_native_get_surface(gtk_widget_get_native (FRAME_GTK_OUTER_WIDGET (old_focus))));
 
-  /*     /\* if (dpyinfo->x_focus_frame && dpyinfo->x_focus_frame->auto_raise) *\/ */
-  /*     /\*	gdk_surface_raise (gtk_widget_get_surface (FRAME_GTK_OUTER_WIDGET (dpyinfo->x_focus_frame))); *\/ */
-  /*   } */
+      if (dpyinfo->x_focus_frame && dpyinfo->x_focus_frame->auto_raise)
+	gdk_surface_raise (gtk_native_get_surface(gtk_widget_get_native (FRAME_GTK_OUTER_WIDGET (dpyinfo->x_focus_frame))));
+    }
 
-  /* gtk4_frame_rehighlight (dpyinfo); */
+  gtk4_frame_rehighlight (dpyinfo);
 }
 
 static struct terminal *
