@@ -1387,11 +1387,7 @@ style_changed_cb (GObject *go,
 	{
 	  struct frame *f = XFRAME (frame);
 	  if (FRAME_LIVE_P (f)
-#ifndef HAVE_GTK4
-	      && FRAME_X_P (f)
-#else
 	      && FRAME_GTK4_P (f)
-#endif
 	      && FRAME_X_DISPLAY (f) == dpy)
 	    {
 	      FRAME_TERMINAL (f)->set_scroll_bar_default_width_hook (f);
@@ -1440,18 +1436,19 @@ xg_create_frame_widgets (struct frame *f)
   else
 #endif
     {
-      //      GdkDisplay *gdpy = gdk_display_get_default();// (FRAME_X_DISPLAY (f));
-
-      wtop = gtk_window_new (GTK_WINDOW_TOPLEVEL);
 
       if (!NILP(f->parent_frame))
       {
-	/* GdkRectangle pos = {.x=4, .y=5, .height=50, .width=60}; */
-	/* wtop = gdk_surface_new_child (GDK_SURFACE (FRAME_GTK_OUTER_WINDOW(XFRAME(f->parent_frame))), &pos); */
+	wtop = gtk_window_new (GTK_WINDOW_POPUP);
+
 	gtk_window_set_decorated(GTK_WINDOW (wtop), FALSE);
-	gtk_window_set_transient_for(GTK_WINDOW (wtop), GTK_WINDOW (FRAME_GTK_OUTER_WIDGET(XFRAME(f->parent_frame))));
+	gtk_window_set_transient_for(GTK_WINDOW (wtop), GTK_WINDOW (FRAME_GTK_OUTER_WINDOW(XFRAME(f->parent_frame))));
+	gtk_window_set_modal (GTK_WINDOW (wtop), TRUE);
 	//gtk_window_set_default_size(GTK_WINDOW(wtop), 200, 300);
       }
+      else
+	wtop = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+
     }
 #ifndef HAVE_GTK4
   gtk_widget_add_events(wtop, GDK_ALL_EVENTS_MASK);
@@ -1589,6 +1586,7 @@ xg_create_frame_widgets (struct frame *f)
 
   GTK4_TRACE("___________________________gtk widget show");
   gtk_widget_show(wtop);
+  gtk_widget_queue_draw(wtop);
 
 #ifndef HAVE_GTK4
   FRAME_X_WINDOW (f) = GTK_WIDGET_TO_X_WIN (wfixed);
