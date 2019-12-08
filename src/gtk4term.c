@@ -5173,9 +5173,7 @@ static gboolean key_press_event(GtkEventControllerKey *controller,
       int modifiers;
       Lisp_Object coding_system = Qlatin_1;
       Lisp_Object c;
-      //guint state;
       gboolean key_is_modifier;
-      //gdk_event_get_state(event, &state);
 
 
       state |= gtk4_emacs_to_gtk_modifiers (FRAME_DISPLAY_INFO (f), extra_keyboard_modifiers);
@@ -5933,7 +5931,7 @@ construct_mouse_click (struct input_event *result,
 }
 
 static gboolean
-button_event (GtkGestureClick *gesture,
+button_event (GtkGesture *gesture,
 	      gint                  n_press,
 	      gdouble               x,
 	      gdouble               y,
