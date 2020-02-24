@@ -50,7 +50,6 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "keyboard.h"
 #include "termhooks.h"
 #include "blockinput.h"
-#include "puresize.h"
 #include "intervals.h"
 #include "keymap.h"
 #include "window.h"
@@ -296,7 +295,6 @@ Return PARENT.  PARENT should be nil or another keymap.  */)
 	 If we came to the end, add the parent in PREV.  */
       if (!CONSP (list) || KEYMAPP (list))
 	{
-	  CHECK_IMPURE (prev, XCONS (prev));
 	  XSETCDR (prev, parent);
 	  return parent;
 	}
@@ -732,12 +730,6 @@ store_in_keymap (Lisp_Object keymap, register Lisp_Object idx, Lisp_Object def)
   if (EQ (idx, Qkeymap))
     error ("`keymap' is reserved for embedded parent maps");
 
-  /* If we are preparing to dump, and DEF is a menu element
-     with a menu item indicator, copy it to ensure it is not pure.  */
-  if (CONSP (def) && PURE_P (XCONS (def))
-      && (EQ (XCAR (def), Qmenu_item) || STRINGP (XCAR (def))))
-    def = Fcons (XCAR (def), XCDR (def));
-
   if (!CONSP (keymap) || !EQ (XCAR (keymap), Qkeymap))
     error ("attempt to define a key in a non-keymap");
 
@@ -778,7 +770,6 @@ store_in_keymap (Lisp_Object keymap, register Lisp_Object idx, Lisp_Object def)
 	  {
 	    if (FIXNATP (idx) && XFIXNAT (idx) < ASIZE (elt))
 	      {
-		CHECK_IMPURE (elt, XVECTOR (elt));
 		ASET (elt, XFIXNAT (idx), def);
 		return def;
 	      }
@@ -831,7 +822,6 @@ store_in_keymap (Lisp_Object keymap, register Lisp_Object idx, Lisp_Object def)
 	      }
 	    else if (EQ (idx, XCAR (elt)))
 	      {
-		CHECK_IMPURE (elt, XCONS (elt));
 		XSETCDR (elt, def);
 		return def;
 	      }
@@ -877,7 +867,6 @@ store_in_keymap (Lisp_Object keymap, register Lisp_Object idx, Lisp_Object def)
 	}
       else
 	elt = Fcons (idx, def);
-      CHECK_IMPURE (insertion_point, XCONS (insertion_point));
       XSETCDR (insertion_point, Fcons (elt, XCDR (insertion_point)));
     }
   }
@@ -3136,12 +3125,12 @@ syms_of_keymap (void)
   current_global_map = Qnil;
   staticpro (&current_global_map);
 
-  exclude_keys = pure_list
-    (pure_cons (build_pure_c_string ("DEL"), build_pure_c_string ("\\d")),
-     pure_cons (build_pure_c_string ("TAB"), build_pure_c_string ("\\t")),
-     pure_cons (build_pure_c_string ("RET"), build_pure_c_string ("\\r")),
-     pure_cons (build_pure_c_string ("ESC"), build_pure_c_string ("\\e")),
-     pure_cons (build_pure_c_string ("SPC"), build_pure_c_string (" ")));
+  exclude_keys = list
+    (Fcons (build_c_string ("DEL"), build_c_string ("\\d")),
+     Fcons (build_c_string ("TAB"), build_c_string ("\\t")),
+     Fcons (build_c_string ("RET"), build_c_string ("\\r")),
+     Fcons (build_c_string ("ESC"), build_c_string ("\\e")),
+     Fcons (build_c_string ("SPC"), build_c_string (" ")));
   staticpro (&exclude_keys);
 
   DEFVAR_LISP ("minibuffer-local-map", Vminibuffer_local_map,
@@ -3185,13 +3174,13 @@ be preferred.  */);
   DEFSYM (Qmode_line, "mode-line");
 
   staticpro (&Vmouse_events);
-  Vmouse_events = pure_list (Qmenu_bar, Qtab_bar, Qtool_bar,
-			     Qtab_line, Qheader_line, Qmode_line,
-			     intern_c_string ("mouse-1"),
-			     intern_c_string ("mouse-2"),
-			     intern_c_string ("mouse-3"),
-			     intern_c_string ("mouse-4"),
-			     intern_c_string ("mouse-5"));
+  Vmouse_events = list (Qmenu_bar, Qtab_bar, Qtool_bar,
+                        Qtab_line, Qheader_line, Qmode_line,
+                        intern_c_string ("mouse-1"),
+                        intern_c_string ("mouse-2"),
+                        intern_c_string ("mouse-3"),
+                        intern_c_string ("mouse-4"),
+                        intern_c_string ("mouse-5"));
 
   /* Keymap used for minibuffers when doing completion.  */
   /* Keymap used for minibuffers when doing completion and require a match.  */

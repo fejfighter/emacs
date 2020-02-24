@@ -2087,8 +2087,12 @@ build_load_history (Lisp_Object filename, bool entire)
      front of load-history, the most-recently-loaded position.  Also
      do this if we didn't find an existing member for the file.  */
   if (entire || !foundit)
-    Vload_history = Fcons (Fnreverse (Vcurrent_load_list),
-			   Vload_history);
+    {
+      Vload_history = Fcons (Fnreverse (Vcurrent_load_list),
+                             Vload_history);
+      eassert (NILP (XCAR (Vload_history)) ||
+               STRINGP (XCAR (XCAR (Vload_history))));
+    }
 }
 
 static void
@@ -3128,7 +3132,7 @@ read1 (Lisp_Object readcharfun, int *pch, bool first_in_list)
 		  cell = XCONS (tmp), tmp = XCDR (tmp), size--;
 		  free_cons (cell);
 
-		  tbl = make_uninit_sub_char_table (depth, min_char);
+		  tbl = make_nil_sub_char_table (depth, min_char);
 		  for (i = 0; i < size; i++)
 		    {
 		      XSUB_CHAR_TABLE (tbl)->contents[i] = XCAR (tmp);
@@ -3773,9 +3777,8 @@ read1 (Lisp_Object readcharfun, int *pch, bool first_in_list)
 	  if (uninterned_symbol)
 	    {
 	      Lisp_Object name
-		= ((! NILP (Vpurify_flag)
-		    ? make_pure_string : make_specified_string)
-		   (read_buffer, nchars, nbytes, multibyte));
+		= make_specified_string (
+                  read_buffer, nchars, nbytes, multibyte);
 	      result = Fmake_symbol (name);
 	    }
 	  else
@@ -4096,7 +4099,6 @@ read_vector (Lisp_Object readcharfun, bool bytecodeflag)
 		  /* Coerce string to unibyte (like string-as-unibyte,
 		     but without generating extra garbage and
 		     guaranteeing no change in the contents).  */
-		  STRING_SET_CHARS (bytestr, SBYTES (bytestr));
 		  STRING_SET_UNIBYTE (bytestr);
 
 		  item = Fread (Fcons (bytestr, readcharfun));
@@ -4313,14 +4315,14 @@ intern_sym (Lisp_Object sym, Lisp_Object obarray, Lisp_Object index)
 {
   Lisp_Object *ptr;
 
-  XSYMBOL (sym)->u.s.interned = (EQ (obarray, initial_obarray)
-				 ? SYMBOL_INTERNED_IN_INITIAL_OBARRAY
-				 : SYMBOL_INTERNED);
+  XSYMBOL (sym)->u.s.f.interned = (EQ (obarray, initial_obarray)
+                                   ? SYMBOL_INTERNED_IN_INITIAL_OBARRAY
+                                   : SYMBOL_INTERNED);
 
   if (SREF (SYMBOL_NAME (sym), 0) == ':' && EQ (obarray, initial_obarray))
     {
       make_symbol_constant (sym);
-      XSYMBOL (sym)->u.s.redirect = SYMBOL_PLAINVAL;
+      XSYMBOL (sym)->u.s.f.redirect = SYMBOL_PLAINVAL;
       /* Mark keywords as special.  This makes (let ((:key 'foo)) ...)
 	 in lexically bound elisp signal an error, as documented.  */
       XSYMBOL (sym)->u.s.declared_special = true;
@@ -4370,7 +4372,7 @@ intern_c_string_1 (const char *str, ptrdiff_t len)
       if (NILP (Vpurify_flag))
 	string = make_string (str, len);
       else
-	string = make_pure_c_string (str, len);
+	string = make_c_string (str, len);
 
       tem = intern_driver (string, obarray, tem);
     }
@@ -4381,7 +4383,7 @@ static void
 define_symbol (Lisp_Object sym, char const *str)
 {
   ptrdiff_t len = strlen (str);
-  Lisp_Object string = make_pure_c_string (str, len);
+  Lisp_Object string = make_c_string (str, len);
   init_symbol (sym, string);
 
   /* Qunbound is uninterned, so that it's not confused with any symbol
@@ -4480,7 +4482,7 @@ usage: (unintern NAME OBARRAY)  */)
   /* if (NILP (tem) || EQ (tem, Qt))
        error ("Attempt to unintern t or nil"); */
 
-  XSYMBOL (tem)->u.s.interned = SYMBOL_UNINTERNED;
+  XSYMBOL (tem)->u.s.f.interned = SYMBOL_UNINTERNED;
 
   hash = oblookup_last_bucket_number;
 
@@ -4532,7 +4534,7 @@ oblookup (Lisp_Object obarray, register const char *ptr, ptrdiff_t size, ptrdiff
 
   obarray = check_obarray (obarray);
   /* This is sometimes needed in the middle of GC.  */
-  obsize = gc_asize (obarray);
+  obsize = ASIZE (obarray);
   hash = hash_string (ptr, size_byte) % obsize;
   bucket = AREF (obarray, hash);
   oblookup_last_bucket_number = hash;
@@ -4543,6 +4545,14 @@ oblookup (Lisp_Object obarray, register const char *ptr, ptrdiff_t size, ptrdiff
   else
     for (tail = bucket; ; XSETSYMBOL (tail, XSYMBOL (tail)->u.s.next))
       {
+        if (enable_checking)
+          {
+            size_t hash2 = hash_string (
+              SSDATA (SYMBOL_NAME (tail)),
+              SBYTES (SYMBOL_NAME (tail))) % obsize;
+            eassert (hash2 == hash);
+          }
+
 	if (SBYTES (SYMBOL_NAME (tail)) == size_byte
 	    && SCHARS (SYMBOL_NAME (tail)) == size
 	    && !memcmp (SDATA (SYMBOL_NAME (tail)), ptr, size_byte))
@@ -4609,12 +4619,12 @@ init_obarray_once (void)
   DEFSYM (Qnil, "nil");
   SET_SYMBOL_VAL (XSYMBOL (Qnil), Qnil);
   make_symbol_constant (Qnil);
-  XSYMBOL (Qnil)->u.s.declared_special = true;
+  XSYMBOL (Qnil)->u.s.f.declared_special = true;
 
   DEFSYM (Qt, "t");
   SET_SYMBOL_VAL (XSYMBOL (Qt), Qt);
   make_symbol_constant (Qt);
-  XSYMBOL (Qt)->u.s.declared_special = true;
+  XSYMBOL (Qt)->u.s.f.declared_special = true;
 
   /* Qt is correct even if not dumping.  loadup.el will set to nil at end.  */
   Vpurify_flag = Qt;
@@ -4655,8 +4665,8 @@ void
 defvar_int (struct Lisp_Intfwd const *i_fwd, char const *namestring)
 {
   Lisp_Object sym = intern_c_string (namestring);
-  XSYMBOL (sym)->u.s.declared_special = true;
-  XSYMBOL (sym)->u.s.redirect = SYMBOL_FORWARDED;
+  XSYMBOL (sym)->u.s.f.declared_special = true;
+  XSYMBOL (sym)->u.s.f.redirect = SYMBOL_FORWARDED;
   SET_SYMBOL_FWD (XSYMBOL (sym), i_fwd);
 }
 
@@ -4665,30 +4675,21 @@ void
 defvar_bool (struct Lisp_Boolfwd const *b_fwd, char const *namestring)
 {
   Lisp_Object sym = intern_c_string (namestring);
-  XSYMBOL (sym)->u.s.declared_special = true;
-  XSYMBOL (sym)->u.s.redirect = SYMBOL_FORWARDED;
+  XSYMBOL (sym)->u.s.f.declared_special = true;
+  XSYMBOL (sym)->u.s.f.redirect = SYMBOL_FORWARDED;
   SET_SYMBOL_FWD (XSYMBOL (sym), b_fwd);
   Vbyte_boolean_vars = Fcons (sym, Vbyte_boolean_vars);
 }
 
 /* Similar but define a variable whose value is the Lisp Object stored
-   at address.  Two versions: with and without gc-marking of the C
-   variable.  The nopro version is used when that variable will be
-   gc-marked for some other reason, since marking the same slot twice
-   can cause trouble with strings.  */
-void
-defvar_lisp_nopro (struct Lisp_Objfwd const *o_fwd, char const *namestring)
-{
-  Lisp_Object sym = intern_c_string (namestring);
-  XSYMBOL (sym)->u.s.declared_special = true;
-  XSYMBOL (sym)->u.s.redirect = SYMBOL_FORWARDED;
-  SET_SYMBOL_FWD (XSYMBOL (sym), o_fwd);
-}
-
+   at address.  */
 void
 defvar_lisp (struct Lisp_Objfwd const *o_fwd, char const *namestring)
 {
-  defvar_lisp_nopro (o_fwd, namestring);
+  Lisp_Object sym = intern_c_string (namestring);
+  XSYMBOL (sym)->u.s.f.declared_special = true;
+  XSYMBOL (sym)->u.s.f.redirect = SYMBOL_FORWARDED;
+  SET_SYMBOL_FWD (XSYMBOL (sym), o_fwd);
   staticpro (o_fwd->objvar);
 }
 
@@ -4699,8 +4700,8 @@ void
 defvar_kboard (struct Lisp_Kboard_Objfwd const *ko_fwd, char const *namestring)
 {
   Lisp_Object sym = intern_c_string (namestring);
-  XSYMBOL (sym)->u.s.declared_special = true;
-  XSYMBOL (sym)->u.s.redirect = SYMBOL_FORWARDED;
+  XSYMBOL (sym)->u.s.f.declared_special = true;
+  XSYMBOL (sym)->u.s.f.redirect = SYMBOL_FORWARDED;
   SET_SYMBOL_FWD (XSYMBOL (sym), ko_fwd);
 }
 
@@ -5005,7 +5006,7 @@ to find all the symbols in an obarray, use `mapatoms'.  */);
 	       doc: /* List of values of all expressions which were read, evaluated and printed.
 Order is reverse chronological.
 This variable is obsolete as of Emacs 28.1 and should not be used.  */);
-  XSYMBOL (intern ("values"))->u.s.declared_special = false;
+  XSYMBOL (intern ("values"))->u.s.f.declared_special = false;
 
   DEFVAR_LISP ("standard-input", Vstandard_input,
 	       doc: /* Stream for read to get input from.
@@ -5067,14 +5068,14 @@ to the specified file name if a suffix is allowed or required.  */);
   Vload_suffixes = Fcons (build_pure_c_string (MODULES_SUFFIX), Vload_suffixes);
 #ifdef MODULES_SECONDARY_SUFFIX
   Vload_suffixes =
-    Fcons (build_pure_c_string (MODULES_SECONDARY_SUFFIX), Vload_suffixes);
+    Fcons (build_c_string (MODULES_SECONDARY_SUFFIX), Vload_suffixes);
 #endif
 
 #endif
   DEFVAR_LISP ("module-file-suffix", Vmodule_file_suffix,
 	       doc: /* Suffix of loadable module file, or nil if modules are not supported.  */);
 #ifdef HAVE_MODULES
-  Vmodule_file_suffix = build_pure_c_string (MODULES_SUFFIX);
+  Vmodule_file_suffix = build_c_string (MODULES_SUFFIX);
 #else
   Vmodule_file_suffix = Qnil;
 #endif
@@ -5225,7 +5226,7 @@ from the file, and matches them against this regular expression.
 When the regular expression matches, the file is considered to be safe
 to load.  */);
   Vbytecomp_version_regexp
-    = build_pure_c_string ("^;;;.\\(in Emacs version\\|bytecomp version FSF\\)");
+    = build_c_string ("^;;;.\\(in Emacs version\\|bytecomp version FSF\\)");
 
   DEFSYM (Qlexical_binding, "lexical-binding");
   DEFVAR_LISP ("lexical-binding", Vlexical_binding,

@@ -1840,9 +1840,6 @@ struct face_cache
   /* Hash table of cached realized faces.  */
   struct face **buckets;
 
-  /* Back-pointer to the frame this cache belongs to.  */
-  struct frame *f;
-
   /* A vector of faces so that faces can be referenced by an ID.  */
   struct face **faces_by_id;
 
@@ -3362,6 +3359,7 @@ void move_it_in_display_line (struct it *it,
 int partial_line_height (struct it *it_origin);
 bool in_display_vector_p (struct it *);
 int frame_mode_line_height (struct frame *);
+
 extern bool redisplaying_p;
 extern bool help_echo_showing_p;
 extern Lisp_Object help_echo_string, help_echo_window;
@@ -3482,7 +3480,6 @@ extern Lisp_Object image_find_image_file (Lisp_Object);
 struct image_cache *make_image_cache (void);
 void free_image_cache (struct frame *);
 void clear_image_caches (Lisp_Object);
-void mark_image_cache (struct image_cache *);
 bool valid_image_p (Lisp_Object);
 void prepare_image_for_display (struct frame *, struct image *);
 ptrdiff_t lookup_image (struct frame *, Lisp_Object, int);

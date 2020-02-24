@@ -612,7 +612,8 @@ xwidget_init_view (struct xwidget *xww,
   gtk_container_add (GTK_CONTAINER (xv->widgetwindow), xv->widget);
 
   /* Store some xwidget data in the gtk widgets.  */
-  g_object_set_data (G_OBJECT (xv->widget), XG_FRAME_DATA, s->f);
+  g_object_set_data (G_OBJECT (xv->widget), XG_FRAME_DATA,
+                     FRAME_X_OUTPUT (s->f));
   g_object_set_data (G_OBJECT (xv->widget), XG_XWIDGET, xww);
   g_object_set_data (G_OBJECT (xv->widget), XG_XWIDGET_VIEW, xv);
   g_object_set_data (G_OBJECT (xv->widgetwindow), XG_XWIDGET, xww);

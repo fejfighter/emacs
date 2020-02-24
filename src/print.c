@@ -56,7 +56,12 @@ static ptrdiff_t print_depth;
 /* Level of nesting inside outputting backquote in new style.  */
 static ptrdiff_t new_backquote_output;
 
-/* Detect most circularities to print finite output.  */
+/* Detect most circularities to print finite output.  We don't need to
+   mark being_printed for the GC: each object in the array is also
+   passed on the stack, pinning it.
+
+   TODO: use a linked list of stack frames to avoid an arbitrary
+   limit.  */
 #define PRINT_CIRCLE 200
 static Lisp_Object being_printed[PRINT_CIRCLE];
 
@@ -1231,9 +1236,7 @@ print_preprocess (Lisp_Object obj)
 	  goto loop;
 
 	case Lisp_Vectorlike:
-	  size = ASIZE (obj);
-	  if (size & PSEUDOVECTOR_FLAG)
-	    size &= PSEUDOVECTOR_SIZE_MASK;
+	  size = ASIZE_ANY (obj);
 	  for (i = (SUB_CHAR_TABLE_P (obj)
 		    ? SUB_CHAR_TABLE_OFFSET : 0); i < size; i++)
 	    print_preprocess (AREF (obj, i));
@@ -1379,7 +1382,7 @@ print_pointer (Lisp_Object printcharfun, char *buf, const char *prefix,
 }
 #endif
 
-static bool
+static void
 print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 		  char *buf)
 {
@@ -1394,7 +1397,7 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 	strout (str, len, len, printcharfun);
 	SAFE_FREE ();
       }
-      break;
+      return;
 
     case PVEC_MARKER:
       print_c_string ("#<marker ", printcharfun);
@@ -1410,7 +1413,7 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 	  print_string (BVAR (XMARKER (obj)->buffer, name), printcharfun);
 	}
       printchar ('>', printcharfun);
-      break;
+      return;
 
     case PVEC_OVERLAY:
       print_c_string ("#<overlay ", printcharfun);
@@ -1426,7 +1429,7 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 			printcharfun);
 	}
       printchar ('>', printcharfun);
-      break;
+      return;
 
     case PVEC_USER_PTR:
       {
@@ -1437,14 +1440,14 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 	strout (buf, i, i, printcharfun);
 	printchar ('>', printcharfun);
       }
-      break;
+      return;
 
     case PVEC_FINALIZER:
       print_c_string ("#<finalizer", printcharfun);
       if (NILP (XFINALIZER (obj)->function))
 	print_c_string (" used", printcharfun);
       printchar ('>', printcharfun);
-      break;
+      return;
 
     case PVEC_MISC_PTR:
       {
@@ -1453,7 +1456,7 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 	int i = sprintf (buf, "#<ptr %p>", xmint_pointer (obj));
 	strout (buf, i, i, printcharfun);
       }
-      break;
+      return;
 
     case PVEC_PROCESS:
       if (escapeflag)
@@ -1464,7 +1467,7 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 	}
       else
 	print_string (XPROCESS (obj)->name, printcharfun);
-      break;
+      return;
 
     case PVEC_BOOL_VECTOR:
       {
@@ -1509,18 +1512,19 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 	  print_c_string (" ...", printcharfun);
 	printchar ('\"', printcharfun);
       }
-      break;
+      return;
 
     case PVEC_SUBR:
       print_c_string ("#<subr ", printcharfun);
       print_c_string (XSUBR (obj)->symbol_name, printcharfun);
       printchar ('>', printcharfun);
-      break;
+      return;
 
-    case PVEC_XWIDGET: case PVEC_XWIDGET_VIEW:
+    case PVEC_XWIDGET:
+    case PVEC_XWIDGET_VIEW:
       print_c_string ("#<xwidget ", printcharfun);
       printchar ('>', printcharfun);
-      break;
+      return;
 
     case PVEC_WINDOW:
       {
@@ -1535,7 +1539,7 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 	  }
 	printchar ('>', printcharfun);
       }
-      break;
+      return;
 
     case PVEC_TERMINAL:
       {
@@ -1549,7 +1553,7 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 	  }
 	printchar ('>', printcharfun);
       }
-      break;
+      return;
 
     case PVEC_HASH_TABLE:
       {
@@ -1557,8 +1561,9 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 	/* Implement a readable output, e.g.:
 	  #s(hash-table size 2 test equal data (k1 v1 k2 v2)) */
 	/* Always print the size.  */
-	int len = sprintf (buf, "#s(hash-table size %"pD"d",
-                           HASH_TABLE_SIZE (h));
+	/* int len = sprintf (buf, "#s(hash-table size %"pD"d", */
+        /*                    HASH_TABLE_SIZE (h)); */
+	int len = sprintf (buf, "#s(hash-table size %"pD"d", ASIZE_ANY (h->next));
 	strout (buf, len, len, printcharfun);
 
 	if (!NILP (h->test.name))
@@ -1580,12 +1585,6 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 	print_c_string (" rehash-threshold ", printcharfun);
 	print_object (Fhash_table_rehash_threshold (obj),
 		      printcharfun, escapeflag);
-
-	if (h->purecopy)
-	  {
-	    print_c_string (" purecopy ", printcharfun);
-	    print_object (h->purecopy ? Qt : Qnil, printcharfun, escapeflag);
-	  }
 
 	print_c_string (" data ", printcharfun);
 
@@ -1622,7 +1621,7 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 
 	print_c_string ("))", printcharfun);
       }
-      break;
+      return;
 
     case PVEC_BUFFER:
       if (!BUFFER_LIVE_P (XBUFFER (obj)))
@@ -1635,11 +1634,11 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 	}
       else
 	print_string (BVAR (XBUFFER (obj), name), printcharfun);
-      break;
+      return;
 
     case PVEC_WINDOW_CONFIGURATION:
       print_c_string ("#<window-configuration>", printcharfun);
-      break;
+      return;
 
     case PVEC_FRAME:
       {
@@ -1663,7 +1662,7 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 	int len = sprintf (buf, " %p>", ptr);
 	strout (buf, len, len, printcharfun);
       }
-      break;
+      return;
 
     case PVEC_FONT:
       {
@@ -1691,7 +1690,7 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 	  }
 	printchar ('>', printcharfun);
       }
-      break;
+      return;
 
     case PVEC_THREAD:
       print_c_string ("#<thread ", printcharfun);
@@ -1703,7 +1702,7 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 	  strout (buf, len, len, printcharfun);
 	}
       printchar ('>', printcharfun);
-      break;
+      return;
 
     case PVEC_MUTEX:
       print_c_string ("#<mutex ", printcharfun);
@@ -1715,7 +1714,7 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 	  strout (buf, len, len, printcharfun);
 	}
       printchar ('>', printcharfun);
-      break;
+      return;
 
     case PVEC_CONDVAR:
       print_c_string ("#<condvar ", printcharfun);
@@ -1727,7 +1726,7 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 	  strout (buf, len, len, printcharfun);
 	}
       printchar ('>', printcharfun);
-      break;
+      return;
 
     case PVEC_RECORD:
       {
@@ -1748,20 +1747,17 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 	  print_c_string (" ...", printcharfun);
 	printchar (')', printcharfun);
       }
-      break;
+      return;
 
     case PVEC_SUB_CHAR_TABLE:
     case PVEC_COMPILED:
     case PVEC_CHAR_TABLE:
     case PVEC_NORMAL_VECTOR:
       {
-	ptrdiff_t size = ASIZE (obj);
+	ptrdiff_t size = ASIZE_ANY (obj);
 	if (COMPILEDP (obj))
-	  {
-	    printchar ('#', printcharfun);
-	    size &= PSEUDOVECTOR_SIZE_MASK;
-	  }
-	if (CHAR_TABLE_P (obj) || SUB_CHAR_TABLE_P (obj))
+          printchar ('#', printcharfun);
+	else if (CHAR_TABLE_P (obj) || SUB_CHAR_TABLE_P (obj))
 	  {
 	    /* Print a char-table as if it were a vector,
 	       lumping the parent and default slots in with the
@@ -1776,10 +1772,9 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 	    print_c_string ("#^", printcharfun);
 	    if (SUB_CHAR_TABLE_P (obj))
 	      printchar ('^', printcharfun);
-	    size &= PSEUDOVECTOR_SIZE_MASK;
 	  }
-	if (size & PSEUDOVECTOR_FLAG)
-	  return false;
+        else if (!VECTORP (obj))
+	  emacs_abort ();
 
 	printchar ('[', printcharfun);
 
@@ -1810,7 +1805,7 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 	  print_c_string (" ...", printcharfun);
 	printchar (']', printcharfun);
       }
-      break;
+      return;
 
 #ifdef HAVE_MODULES
     case PVEC_MODULE_FUNCTION:
@@ -1839,7 +1834,7 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
 
 	printchar ('>', printcharfun);
       }
-      break;
+      return;
 #endif
 #ifdef HAVE_NATIVE_COMP
     case PVEC_NATIVE_COMP_UNIT:
@@ -1853,11 +1848,14 @@ print_vectorlike (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag,
       }
       break;
 #endif
-    default:
-      emacs_abort ();
+    case PVEC_STRING_DATA:
+      print_c_string ("#<string-data>", printcharfun);
+      return;
+    case PVEC_OTHER:
+      print_c_string ("#<other>", printcharfun);
+      return;
     }
-
-  return true;
+  emacs_unreachable ();
 }
 
 static char
@@ -1965,7 +1963,10 @@ print_object (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag)
 	    strout (buf, len, len, printcharfun);
 	  }
       }
-      break;
+      goto out;
+
+    case Lisp_Type_Unused0:
+      emacs_unreachable ();
 
     case Lisp_Float:
       {
@@ -1973,7 +1974,7 @@ print_object (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag)
 	int len = float_to_string (pigbuf, XFLOAT_DATA (obj));
 	strout (pigbuf, len, len, printcharfun);
       }
-      break;
+      goto out;
 
     case Lisp_String:
       if (!escapeflag)
@@ -2065,7 +2066,7 @@ print_object (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag)
 	      printchar (')', printcharfun);
 	    }
 	}
-      break;
+      goto out;
 
     case Lisp_Symbol:
       {
@@ -2087,7 +2088,7 @@ print_object (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag)
 	else if (size_byte == 0)
 	  {
 	    print_c_string ("##", printcharfun);
-	    break;
+	    goto out;
 	  }
 
 	ptrdiff_t i = 0;
@@ -2114,7 +2115,7 @@ print_object (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag)
 	    printchar (c, printcharfun);
 	  }
       }
-      break;
+      goto out;
 
     case Lisp_Cons:
       /* If deeper than spec'd depth, print placeholder.  */
@@ -2212,29 +2213,15 @@ print_object (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag)
 	end_of_list:
 	  printchar (')', printcharfun);
 	}
-      break;
+      goto out;
 
     case Lisp_Vectorlike:
-      if (print_vectorlike (obj, printcharfun, escapeflag, buf))
-	break;
-      FALLTHROUGH;
-    default:
-      {
-	int len;
-	/* We're in trouble if this happens!
-	   Probably should just emacs_abort ().	 */
-	print_c_string ("#<EMACS BUG: INVALID DATATYPE ", printcharfun);
-	if (VECTORLIKEP (obj))
-	  len = sprintf (buf, "(PVEC 0x%08zx)", (size_t) ASIZE (obj));
-	else
-	  len = sprintf (buf, "(0x%02x)", (unsigned) XTYPE (obj));
-	strout (buf, len, len, printcharfun);
-	print_c_string ((" Save your buffers immediately"
-			 " and please report this bug>"),
-			printcharfun);
-      }
+      print_vectorlike (obj, printcharfun, escapeflag, buf);
+      goto out;
     }
+  emacs_unreachable ();
 
+ out:
   print_depth--;
 }
 

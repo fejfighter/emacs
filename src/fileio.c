@@ -3659,7 +3659,7 @@ file_offset (Lisp_Object val)
   else if (FLOATP (val))
     {
       double v = XFLOAT_DATA (val);
-      if (0 <= v && v < 1.0 + TYPE_MAXIMUM (off_t))
+      if (0 <= v && v < 1.0 + (double) TYPE_MAXIMUM (off_t))
 	{
 	  off_t o = v;
 	  if (o == v)
@@ -6303,27 +6303,27 @@ behaves as if file names were encoded in `utf-8'.  */);
   Fput (Qfile_error, Qerror_conditions,
 	Fpurecopy (list2 (Qfile_error, Qerror)));
   Fput (Qfile_error, Qerror_message,
-	build_pure_c_string ("File error"));
+	build_c_string ("File error"));
 
   Fput (Qfile_already_exists, Qerror_conditions,
 	Fpurecopy (list3 (Qfile_already_exists, Qfile_error, Qerror)));
   Fput (Qfile_already_exists, Qerror_message,
-	build_pure_c_string ("File already exists"));
+	build_c_string ("File already exists"));
 
   Fput (Qfile_date_error, Qerror_conditions,
 	Fpurecopy (list3 (Qfile_date_error, Qfile_error, Qerror)));
   Fput (Qfile_date_error, Qerror_message,
-	build_pure_c_string ("Cannot set file date"));
+	build_c_string ("Cannot set file date"));
 
   Fput (Qfile_missing, Qerror_conditions,
 	Fpurecopy (list3 (Qfile_missing, Qfile_error, Qerror)));
   Fput (Qfile_missing, Qerror_message,
-	build_pure_c_string ("File is missing"));
+	build_c_string ("File is missing"));
 
   Fput (Qfile_notify_error, Qerror_conditions,
 	Fpurecopy (list3 (Qfile_notify_error, Qfile_error, Qerror)));
   Fput (Qfile_notify_error, Qerror_message,
-	build_pure_c_string ("File notification error"));
+	build_c_string ("File notification error"));
 
   Fput (Qremote_file_error, Qerror_conditions,
 	Fpurecopy (list3 (Qremote_file_error, Qfile_error, Qerror)));

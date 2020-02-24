@@ -204,6 +204,7 @@ src/emacs-[0-9]*
 src/temacs
 src/dmpstruct.h
 src/*.pdmp
+src/test-bitset
 
 # Character-set info.
 admin/charsets/jisx2131-filter

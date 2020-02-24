@@ -218,7 +218,7 @@ x_real_pos_and_offsets (struct frame *f,
   struct frame *parent_frame = FRAME_PARENT_FRAME (f);
   Window win = (parent_frame
 		? FRAME_X_WINDOW (parent_frame)
-		: f->output_data.x->parent_desc);
+		: FRAME_X_OUTPUT(f)->parent_desc);
   struct x_display_info *dpyinfo = FRAME_DISPLAY_INFO (f);
   long max_len = 400;
   Atom target_type = XA_CARDINAL;
@@ -357,7 +357,7 @@ x_real_pos_and_offsets (struct frame *f,
 					      FRAME_OUTER_WINDOW (f));
 
       if (!parent_frame
-	  && dpyinfo->root_window == f->output_data.x->parent_desc)
+	  && dpyinfo->root_window == FRAME_X_OUTPUT(f)->parent_desc)
 	/* Try _NET_FRAME_EXTENTS if our parent is the root window.  */
 	prop_cookie = xcb_get_property (xcb_conn, 0, win,
 					dpyinfo->Xatom_net_frame_extents,
@@ -471,7 +471,7 @@ x_real_pos_and_offsets (struct frame *f,
 #endif
     }
 
-  if (!parent_frame && dpyinfo->root_window == f->output_data.x->parent_desc)
+  if (!parent_frame && dpyinfo->root_window == FRAME_X_OUTPUT(f)->parent_desc)
     {
       /* Try _NET_FRAME_EXTENTS if our parent is the root window.  */
 #ifdef USE_XCB
@@ -713,7 +713,7 @@ x_decode_color (struct frame *f, Lisp_Object color_name, int mono_color)
 static void
 x_set_wait_for_wm (struct frame *f, Lisp_Object new_value, Lisp_Object old_value)
 {
-  f->output_data.x->wait_for_wm = !NILP (new_value);
+  FRAME_X_OUTPUT(f)->wait_for_wm = !NILP (new_value);
 }
 
 static void
@@ -928,12 +928,12 @@ x_set_no_accept_focus (struct frame *f, Lisp_Object new_value, Lisp_Object old_v
       Arg al[1];
 
       XtSetArg (al[0], XtNinput, NILP (new_value) ? True : False);
-      XtSetValues (f->output_data.x->widget, al, 1);
+      XtSetValues (FRAME_X_OUTPUT(f)->widget, al, 1);
 #else /* not USE_X_TOOLKIT */
       Window window = FRAME_X_WINDOW (f);
 
-      f->output_data.x->wm_hints.input = NILP (new_value) ? True : False;
-      XSetWMHints (FRAME_X_DISPLAY (f), window, &f->output_data.x->wm_hints);
+      FRAME_X_OUTPUT(f)->wm_hints.input = NILP (new_value) ? True : False;
+      XSetWMHints (FRAME_X_DISPLAY (f), window, &FRAME_X_OUTPUT(f)->wm_hints);
 #endif /* USE_X_TOOLKIT */
 #endif /* USE_GTK */
       FRAME_NO_ACCEPT_FOCUS (f) = !NILP (new_value);
@@ -1038,7 +1038,7 @@ xg_set_icon_from_xpm_data (struct frame *f, const char **data)
 static void
 x_set_foreground_color (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
 {
-  struct x_output *x = f->output_data.x;
+  struct x_output *x = FRAME_X_OUTPUT(f);
   unsigned long fg, old_fg;
 
   fg = x_decode_color (f, arg, BLACK_PIX_DEFAULT (f));
@@ -1074,7 +1074,7 @@ x_set_foreground_color (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
 static void
 x_set_background_color (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
 {
-  struct x_output *x = f->output_data.x;
+  struct x_output *x = FRAME_X_OUTPUT(f);
   unsigned long bg;
 
   bg = x_decode_color (f, arg, WHITE_PIX_DEFAULT (f));
@@ -1216,7 +1216,7 @@ x_set_mouse_color_handler (Display *dpy, XErrorEvent *event,
 static void
 x_set_mouse_color (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
 {
-  struct x_output *x = f->output_data.x;
+  struct x_output *x = FRAME_X_OUTPUT(f);
   Display *dpy = FRAME_X_DISPLAY (f);
   struct mouse_cursor_data cursor_data = { -1, -1 };
   unsigned long pixel = x_decode_color (f, arg, BLACK_PIX_DEFAULT (f));
@@ -1297,9 +1297,9 @@ x_set_mouse_color (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
 
   if (FRAME_X_WINDOW (f) != 0)
     {
-      f->output_data.x->current_cursor = cursor_data.cursor[mouse_cursor_text];
+      FRAME_X_OUTPUT(f)->current_cursor = cursor_data.cursor[mouse_cursor_text];
       XDefineCursor (dpy, FRAME_X_WINDOW (f),
-		     f->output_data.x->current_cursor);
+		     FRAME_X_OUTPUT(f)->current_cursor);
     }
 
 #define INSTALL_CURSOR(FIELD, SHORT_INDEX)				\
@@ -1337,7 +1337,7 @@ x_set_cursor_color (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
 {
   unsigned long fore_pixel, pixel;
   bool fore_pixel_allocated_p = false, pixel_allocated_p = false;
-  struct x_output *x = f->output_data.x;
+  struct x_output *x = FRAME_X_OUTPUT(f);
 
   if (!NILP (Vx_cursor_fore_pixel))
     {
@@ -1406,8 +1406,8 @@ x_set_cursor_color (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
 static void
 x_set_border_pixel (struct frame *f, int pix)
 {
-  unload_color (f, f->output_data.x->border_pixel);
-  f->output_data.x->border_pixel = pix;
+  unload_color (f, FRAME_X_OUTPUT(f)->border_pixel);
+  FRAME_X_OUTPUT(f)->border_pixel = pix;
 
   if (FRAME_X_WINDOW (f) != 0 && f->border_width > 0)
     {
@@ -1496,7 +1496,7 @@ x_set_icon_name (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
 
   fset_icon_name (f, arg);
 
-  if (f->output_data.x->icon_bitmap != 0)
+  if (FRAME_X_OUTPUT(f)->icon_bitmap != 0)
     return;
 
   block_input ();
@@ -1548,7 +1548,7 @@ x_set_menu_bar_lines (struct frame *f, Lisp_Object value, Lisp_Object oldval)
   if (nlines)
     {
       FRAME_EXTERNAL_MENU_BAR (f) = 1;
-      if (FRAME_X_P (f) && f->output_data.x->menubar_widget == 0)
+      if (FRAME_X_P (f) && FRAME_X_OUTPUT(f)->menubar_widget == 0)
 	/* Make sure next redisplay shows the menu bar.  */
 	XWINDOW (FRAME_SELECTED_WINDOW (f))->update_mode_line = true;
     }
@@ -1558,7 +1558,7 @@ x_set_menu_bar_lines (struct frame *f, Lisp_Object value, Lisp_Object oldval)
 	free_frame_menubar (f);
       FRAME_EXTERNAL_MENU_BAR (f) = 0;
       if (FRAME_X_P (f))
-	f->output_data.x->menubar_widget = 0;
+	FRAME_X_OUTPUT(f)->menubar_widget = 0;
     }
 #else /* not USE_X_TOOLKIT && not USE_GTK */
   FRAME_MENU_BAR_LINES (f) = nlines;
@@ -1720,7 +1720,7 @@ x_change_tool_bar_height (struct frame *f, int height)
   if (height)
     {
       FRAME_EXTERNAL_TOOL_BAR (f) = true;
-      if (FRAME_X_P (f) && f->output_data.x->toolbar_widget == 0)
+      if (FRAME_X_P (f) && FRAME_X_OUTPUT(f)->toolbar_widget == 0)
 	/* Make sure next redisplay shows the tool bar.  */
 	XWINDOW (FRAME_SELECTED_WINDOW (f))->update_mode_line = true;
       update_frame_tool_bar (f);
@@ -1848,10 +1848,10 @@ x_set_scroll_bar_foreground (struct frame *f, Lisp_Object value, Lisp_Object old
   else
     pixel = -1;
 
-  if (f->output_data.x->scroll_bar_foreground_pixel != -1)
-    unload_color (f, f->output_data.x->scroll_bar_foreground_pixel);
+  if (FRAME_X_OUTPUT(f)->scroll_bar_foreground_pixel != -1)
+    unload_color (f, FRAME_X_OUTPUT(f)->scroll_bar_foreground_pixel);
 
-  f->output_data.x->scroll_bar_foreground_pixel = pixel;
+  FRAME_X_OUTPUT(f)->scroll_bar_foreground_pixel = pixel;
   if (FRAME_X_WINDOW (f) && FRAME_VISIBLE_P (f))
     {
       /* Remove all scroll bars because they have wrong colors.  */
@@ -1881,24 +1881,24 @@ x_set_scroll_bar_background (struct frame *f, Lisp_Object value, Lisp_Object old
   else
     pixel = -1;
 
-  if (f->output_data.x->scroll_bar_background_pixel != -1)
-    unload_color (f, f->output_data.x->scroll_bar_background_pixel);
+  if (FRAME_X_OUTPUT(f)->scroll_bar_background_pixel != -1)
+    unload_color (f, FRAME_X_OUTPUT(f)->scroll_bar_background_pixel);
 
 #if defined (USE_LUCID) && defined (USE_TOOLKIT_SCROLL_BARS)
   /* Scrollbar shadow colors.  */
-  if (f->output_data.x->scroll_bar_top_shadow_pixel != -1)
+  if (FRAME_X_OUTPUT(f)->scroll_bar_top_shadow_pixel != -1)
     {
-      unload_color (f, f->output_data.x->scroll_bar_top_shadow_pixel);
-      f->output_data.x->scroll_bar_top_shadow_pixel = -1;
+      unload_color (f, FRAME_X_OUTPUT(f)->scroll_bar_top_shadow_pixel);
+      FRAME_X_OUTPUT(f)->scroll_bar_top_shadow_pixel = -1;
     }
-  if (f->output_data.x->scroll_bar_bottom_shadow_pixel != -1)
+  if (FRAME_X_OUTPUT(f)->scroll_bar_bottom_shadow_pixel != -1)
     {
-      unload_color (f, f->output_data.x->scroll_bar_bottom_shadow_pixel);
-      f->output_data.x->scroll_bar_bottom_shadow_pixel = -1;
+      unload_color (f, FRAME_X_OUTPUT(f)->scroll_bar_bottom_shadow_pixel);
+      FRAME_X_OUTPUT(f)->scroll_bar_bottom_shadow_pixel = -1;
     }
 #endif /* USE_LUCID && USE_TOOLKIT_SCROLL_BARS */
 
-  f->output_data.x->scroll_bar_background_pixel = pixel;
+  FRAME_X_OUTPUT(f)->scroll_bar_background_pixel = pixel;
   if (FRAME_X_WINDOW (f) && FRAME_VISIBLE_P (f))
     {
       /* Remove all scroll bars because they have wrong colors.  */
@@ -2949,7 +2949,7 @@ x_window (struct frame *f, long window_prompting)
 				   applicationShellWidgetClass,
 				   FRAME_X_DISPLAY (f), al, ac);
 
-  f->output_data.x->widget = shell_widget;
+  FRAME_X_OUTPUT(f)->widget = shell_widget;
   /* maybe_set_screen_title_format (shell_widget); */
 
   pane_widget = lw_create_widget ("main", "pane", widget_id_tick++,
@@ -2962,7 +2962,7 @@ x_window (struct frame *f, long window_prompting)
   XtSetArg (al[ac], XtNcolormap, FRAME_X_COLORMAP (f)); ac++;
   XtSetArg (al[ac], XtNborderWidth, 0); ac++;
   XtSetValues (pane_widget, al, ac);
-  f->output_data.x->column_widget = pane_widget;
+  FRAME_X_OUTPUT(f)->column_widget = pane_widget;
 
   /* mappedWhenManaged to false tells to the paned window to not map/unmap
      the emacs screen when changing menubar.  This reduces flickering.  */
@@ -2980,7 +2980,7 @@ x_window (struct frame *f, long window_prompting)
   frame_widget = XtCreateWidget (f->namebuf, emacsFrameClass (), pane_widget,
 				 al, ac);
 
-  f->output_data.x->edit_widget = frame_widget;
+  FRAME_X_OUTPUT(f)->edit_widget = frame_widget;
 
   XtManageChild (frame_widget);
 
@@ -2990,9 +2990,9 @@ x_window (struct frame *f, long window_prompting)
     int gac = 0;
     int extra_borders = 0;
     int menubar_size
-      = (f->output_data.x->menubar_widget
-	 ? (f->output_data.x->menubar_widget->core.height
-	    + f->output_data.x->menubar_widget->core.border_width)
+      = (FRAME_X_OUTPUT(f)->menubar_widget
+	 ? (FRAME_X_OUTPUT(f)->menubar_widget->core.height
+	    + FRAME_X_OUTPUT(f)->menubar_widget->core.border_width)
 	 : 0);
 
 #if false /* Experimentally, we now get the right results
@@ -3011,7 +3011,7 @@ x_window (struct frame *f, long window_prompting)
     /* Motif seems to need this amount added to the sizes
        specified for the shell widget.  The Athena/Lucid widgets don't.
        Both conclusions reached experimentally.  -- rms.  */
-    XtVaGetValues (f->output_data.x->edit_widget, XtNinternalBorderWidth,
+    XtVaGetValues (FRAME_X_OUTPUT(f)->edit_widget, XtNinternalBorderWidth,
 		   &extra_borders, NULL);
     extra_borders *= 2;
 #endif
@@ -3064,7 +3064,7 @@ x_window (struct frame *f, long window_prompting)
 
   if (FRAME_X_EMBEDDED_P (f))
     XReparentWindow (FRAME_X_DISPLAY (f), XtWindow (shell_widget),
-		     f->output_data.x->parent_desc, 0, 0);
+		     FRAME_X_OUTPUT(f)->parent_desc, 0, 0);
 
   FRAME_X_WINDOW (f) = XtWindow (frame_widget);
   initial_set_up_x_back_buffer (f);
@@ -3080,10 +3080,10 @@ x_window (struct frame *f, long window_prompting)
     create_frame_xic (f);
 #endif
 
-  f->output_data.x->wm_hints.input = True;
-  f->output_data.x->wm_hints.flags |= InputHint;
+  FRAME_X_OUTPUT(f)->wm_hints.input = True;
+  FRAME_X_OUTPUT(f)->wm_hints.flags |= InputHint;
   XSetWMHints (FRAME_X_DISPLAY (f), FRAME_X_WINDOW (f),
-	       &f->output_data.x->wm_hints);
+	       &FRAME_X_OUTPUT(f)->wm_hints);
 
   hack_wm_protocols (f, shell_widget);
 
@@ -3153,8 +3153,8 @@ x_window (struct frame *f, long window_prompting)
     }
 
   XDefineCursor (FRAME_X_DISPLAY (f), FRAME_X_WINDOW (f),
-		 f->output_data.x->current_cursor
-                 = f->output_data.x->text_cursor);
+		 FRAME_X_OUTPUT(f)->current_cursor
+                 = FRAME_X_OUTPUT(f)->text_cursor);
 
   unblock_input ();
 
@@ -3213,7 +3213,7 @@ x_window (struct frame *f)
   unsigned long attribute_mask;
 
   attributes.background_pixel = FRAME_BACKGROUND_PIXEL (f);
-  attributes.border_pixel = f->output_data.x->border_pixel;
+  attributes.border_pixel = FRAME_X_OUTPUT(f)->border_pixel;
   attributes.bit_gravity = StaticGravity;
   attributes.backing_store = NotUseful;
   attributes.save_under = True;
@@ -3226,7 +3226,7 @@ x_window (struct frame *f)
   block_input ();
   FRAME_X_WINDOW (f)
     = XCreateWindow (FRAME_X_DISPLAY (f),
-		     f->output_data.x->parent_desc,
+		     FRAME_X_OUTPUT(f)->parent_desc,
 		     f->left_pos,
 		     f->top_pos,
 		     FRAME_PIXEL_WIDTH (f), FRAME_PIXEL_HEIGHT (f),
@@ -3265,11 +3265,11 @@ x_window (struct frame *f)
      need to draw the cursor correctly.  Accursed bureaucrats.
    XWhipsAndChains (FRAME_X_DISPLAY (f), IronMaiden, &TheRack);  */
 
-  f->output_data.x->wm_hints.input = True;
-  f->output_data.x->wm_hints.flags |= InputHint;
+  FRAME_X_OUTPUT(f)->wm_hints.input = True;
+  FRAME_X_OUTPUT(f)->wm_hints.flags |= InputHint;
   XSetWMHints (FRAME_X_DISPLAY (f), FRAME_X_WINDOW (f),
-	       &f->output_data.x->wm_hints);
-  f->output_data.x->wm_hints.icon_pixmap = None;
+	       &FRAME_X_OUTPUT(f)->wm_hints);
+  FRAME_X_OUTPUT(f)->wm_hints.icon_pixmap = None;
 
   /* Request "save yourself" and "delete window" commands from wm.  */
   {
@@ -3314,8 +3314,8 @@ x_window (struct frame *f)
 
 
   XDefineCursor (FRAME_X_DISPLAY (f), FRAME_X_WINDOW (f),
-		 f->output_data.x->current_cursor
-                 = f->output_data.x->text_cursor);
+		 FRAME_X_OUTPUT(f)->current_cursor
+                 = FRAME_X_OUTPUT(f)->text_cursor);
 
   unblock_input ();
 
@@ -3359,7 +3359,7 @@ x_icon (struct frame *f, Lisp_Object parms)
     = gui_frame_get_and_record_arg (f, parms, Qicon_left, 0, 0, RES_TYPE_NUMBER);
   Lisp_Object icon_y
     = gui_frame_get_and_record_arg (f, parms, Qicon_top, 0, 0, RES_TYPE_NUMBER);
-  int icon_xval, icon_yval;
+  int icon_xval = 0, icon_yval = 0;
 
   if (!EQ (icon_x, Qunbound) && !EQ (icon_y, Qunbound))
     {
@@ -3410,7 +3410,7 @@ x_make_gc (struct frame *f)
   gc_values.foreground = FRAME_FOREGROUND_PIXEL (f);
   gc_values.background = FRAME_BACKGROUND_PIXEL (f);
   gc_values.line_width = 0;	/* Means 1 using fast algorithm.  */
-  f->output_data.x->normal_gc
+  FRAME_X_OUTPUT(f)->normal_gc
     = XCreateGC (FRAME_X_DISPLAY (f),
                  FRAME_X_DRAWABLE (f),
 		 GCLineWidth | GCForeground | GCBackground,
@@ -3419,7 +3419,7 @@ x_make_gc (struct frame *f)
   /* Reverse video style.  */
   gc_values.foreground = FRAME_BACKGROUND_PIXEL (f);
   gc_values.background = FRAME_FOREGROUND_PIXEL (f);
-  f->output_data.x->reverse_gc
+  FRAME_X_OUTPUT(f)->reverse_gc
     = XCreateGC (FRAME_X_DISPLAY (f),
                  FRAME_X_DRAWABLE (f),
 		 GCForeground | GCBackground | GCLineWidth,
@@ -3427,9 +3427,9 @@ x_make_gc (struct frame *f)
 
   /* Cursor has cursor-color background, background-color foreground.  */
   gc_values.foreground = FRAME_BACKGROUND_PIXEL (f);
-  gc_values.background = f->output_data.x->cursor_pixel;
+  gc_values.background = FRAME_X_OUTPUT(f)->cursor_pixel;
   gc_values.fill_style = FillOpaqueStippled;
-  f->output_data.x->cursor_gc
+  FRAME_X_OUTPUT(f)->cursor_gc
     = XCreateGC (FRAME_X_DISPLAY (f), FRAME_X_DRAWABLE (f),
 		 (GCForeground | GCBackground
 		  | GCFillStyle | GCLineWidth),
@@ -3438,7 +3438,7 @@ x_make_gc (struct frame *f)
   /* Create the gray border tile used when the pointer is not in
      the frame.  Since this depends on the frame's pixel values,
      this must be done on a per-frame basis.  */
-  f->output_data.x->border_tile
+  FRAME_X_OUTPUT(f)->border_tile
     = (XCreatePixmapFromBitmapData
        (FRAME_X_DISPLAY (f), FRAME_DISPLAY_INFO (f)->root_window,
 	gray_bits, gray_width, gray_height,
@@ -3459,28 +3459,28 @@ x_free_gcs (struct frame *f)
 
   block_input ();
 
-  if (f->output_data.x->normal_gc)
+  if (FRAME_X_OUTPUT(f)->normal_gc)
     {
-      XFreeGC (dpy, f->output_data.x->normal_gc);
-      f->output_data.x->normal_gc = 0;
+      XFreeGC (dpy, FRAME_X_OUTPUT(f)->normal_gc);
+      FRAME_X_OUTPUT(f)->normal_gc = 0;
     }
 
-  if (f->output_data.x->reverse_gc)
+  if (FRAME_X_OUTPUT(f)->reverse_gc)
     {
-      XFreeGC (dpy, f->output_data.x->reverse_gc);
-      f->output_data.x->reverse_gc = 0;
+      XFreeGC (dpy, FRAME_X_OUTPUT(f)->reverse_gc);
+      FRAME_X_OUTPUT(f)->reverse_gc = 0;
     }
 
-  if (f->output_data.x->cursor_gc)
+  if (FRAME_X_OUTPUT(f)->cursor_gc)
     {
-      XFreeGC (dpy, f->output_data.x->cursor_gc);
-      f->output_data.x->cursor_gc = 0;
+      XFreeGC (dpy, FRAME_X_OUTPUT(f)->cursor_gc);
+      FRAME_X_OUTPUT(f)->cursor_gc = 0;
     }
 
-  if (f->output_data.x->border_tile)
+  if (FRAME_X_OUTPUT(f)->border_tile)
     {
-      XFreePixmap (dpy, f->output_data.x->border_tile);
-      f->output_data.x->border_tile = 0;
+      XFreePixmap (dpy, FRAME_X_OUTPUT(f)->border_tile);
+      FRAME_X_OUTPUT(f)->border_tile = 0;
     }
 
   unblock_input ();
@@ -3768,16 +3768,17 @@ This function is an internal primitive--use `make-frame' instead.  */)
 
   f->output_method = output_x_window;
   f->output_data.x = xzalloc (sizeof *f->output_data.x);
-  f->output_data.x->icon_bitmap = -1;
+  f->output_data.x->frame = f;
+  FRAME_X_OUTPUT(f)->icon_bitmap = -1;
   FRAME_FONTSET (f) = -1;
-  f->output_data.x->scroll_bar_foreground_pixel = -1;
-  f->output_data.x->scroll_bar_background_pixel = -1;
+  FRAME_X_OUTPUT(f)->scroll_bar_foreground_pixel = -1;
+  FRAME_X_OUTPUT(f)->scroll_bar_background_pixel = -1;
 #if defined (USE_LUCID) && defined (USE_TOOLKIT_SCROLL_BARS)
-  f->output_data.x->scroll_bar_top_shadow_pixel = -1;
-  f->output_data.x->scroll_bar_bottom_shadow_pixel = -1;
+  FRAME_X_OUTPUT(f)->scroll_bar_top_shadow_pixel = -1;
+  FRAME_X_OUTPUT(f)->scroll_bar_bottom_shadow_pixel = -1;
 #endif /* USE_LUCID && USE_TOOLKIT_SCROLL_BARS */
-  f->output_data.x->white_relief.pixel = -1;
-  f->output_data.x->black_relief.pixel = -1;
+  FRAME_X_OUTPUT(f)->white_relief.pixel = -1;
+  FRAME_X_OUTPUT(f)->black_relief.pixel = -1;
 
   fset_icon_name (f, gui_display_get_arg (dpyinfo,
                                           parms,
@@ -3803,36 +3804,36 @@ This function is an internal primitive--use `make-frame' instead.  */)
        to free colors we haven't allocated.  */
     FRAME_FOREGROUND_PIXEL (f) = -1;
     FRAME_BACKGROUND_PIXEL (f) = -1;
-    f->output_data.x->cursor_pixel = -1;
-    f->output_data.x->cursor_foreground_pixel = -1;
-    f->output_data.x->border_pixel = -1;
-    f->output_data.x->mouse_pixel = -1;
+    FRAME_X_OUTPUT(f)->cursor_pixel = -1;
+    FRAME_X_OUTPUT(f)->cursor_foreground_pixel = -1;
+    FRAME_X_OUTPUT(f)->border_pixel = -1;
+    FRAME_X_OUTPUT(f)->mouse_pixel = -1;
 
     black = build_string ("black");
     FRAME_FOREGROUND_PIXEL (f)
       = x_decode_color (f, black, BLACK_PIX_DEFAULT (f));
     FRAME_BACKGROUND_PIXEL (f)
       = x_decode_color (f, black, BLACK_PIX_DEFAULT (f));
-    f->output_data.x->cursor_pixel
+    FRAME_X_OUTPUT(f)->cursor_pixel
       = x_decode_color (f, black, BLACK_PIX_DEFAULT (f));
-    f->output_data.x->cursor_foreground_pixel
+    FRAME_X_OUTPUT(f)->cursor_foreground_pixel
       = x_decode_color (f, black, BLACK_PIX_DEFAULT (f));
-    f->output_data.x->border_pixel
+    FRAME_X_OUTPUT(f)->border_pixel
       = x_decode_color (f, black, BLACK_PIX_DEFAULT (f));
-    f->output_data.x->mouse_pixel
+    FRAME_X_OUTPUT(f)->mouse_pixel
       = x_decode_color (f, black, BLACK_PIX_DEFAULT (f));
   }
 
   /* Specify the parent under which to make this X window.  */
   if (!NILP (parent))
     {
-      f->output_data.x->parent_desc = (Window) XFIXNAT (parent);
-      f->output_data.x->explicit_parent = true;
+      FRAME_X_OUTPUT(f)->parent_desc = (Window) XFIXNAT (parent);
+      FRAME_X_OUTPUT(f)->explicit_parent = true;
     }
   else
     {
-      f->output_data.x->parent_desc = FRAME_DISPLAY_INFO (f)->root_window;
-      f->output_data.x->explicit_parent = false;
+      FRAME_X_OUTPUT(f)->parent_desc = FRAME_DISPLAY_INFO (f)->root_window;
+      FRAME_X_OUTPUT(f)->explicit_parent = false;
     }
 
   /* Set the name; the functions to which we pass f expect the name to
@@ -4096,9 +4097,9 @@ This function is an internal primitive--use `make-frame' instead.  */)
 #ifndef USE_GTK
       /* This is a no-op, except under Motif where it arranges the
 	 main window for the widgets on it.  */
-      lw_set_main_areas (f->output_data.x->column_widget,
-			 f->output_data.x->menubar_widget,
-			 f->output_data.x->edit_widget);
+      lw_set_main_areas (FRAME_X_OUTPUT(f)->column_widget,
+			 FRAME_X_OUTPUT(f)->menubar_widget,
+			 FRAME_X_OUTPUT(f)->edit_widget);
 #endif /* not USE_GTK */
     }
 #endif /* USE_X_TOOLKIT || USE_GTK */
@@ -4125,7 +4126,7 @@ This function is an internal primitive--use `make-frame' instead.  */)
   /* Make the window appear on the frame and enable display, unless
      the caller says not to.  However, with explicit parent, Emacs
      cannot control visibility, so don't try.  */
-  if (!f->output_data.x->explicit_parent)
+  if (!FRAME_X_OUTPUT(f)->explicit_parent)
     {
       /* When called from `x-create-frame-with-faces' visibility is
 	 always explicitly nil.  */
@@ -5425,7 +5426,7 @@ x_frame_list_z_order (Display* dpy, Window window)
                  field usually specifies the topmost windows of our
                  frames.  Otherwise FRAME_OUTER_WINDOW should do.  */
               if (FRAME_X_P (cf)
-                  && (cf->output_data.x->parent_desc == children[i]
+                  && (FRAME_X_OUTPUT(cf)->parent_desc == children[i]
                       || FRAME_OUTER_WINDOW (cf) == children[i]))
                 frames = Fcons (frame, frames);
             }
@@ -6300,22 +6301,23 @@ x_create_tip_frame (struct x_display_info *dpyinfo, Lisp_Object parms)
      counts etc.  */
   f->output_method = output_x_window;
   f->output_data.x = xzalloc (sizeof *f->output_data.x);
-  f->output_data.x->icon_bitmap = -1;
+  f->output_data.x->frame = f;
+  FRAME_X_OUTPUT(f)->icon_bitmap = -1;
   FRAME_FONTSET (f) = -1;
-  f->output_data.x->scroll_bar_foreground_pixel = -1;
-  f->output_data.x->scroll_bar_background_pixel = -1;
+  FRAME_X_OUTPUT(f)->scroll_bar_foreground_pixel = -1;
+  FRAME_X_OUTPUT(f)->scroll_bar_background_pixel = -1;
 #if defined (USE_LUCID) && defined (USE_TOOLKIT_SCROLL_BARS)
-  f->output_data.x->scroll_bar_top_shadow_pixel = -1;
-  f->output_data.x->scroll_bar_bottom_shadow_pixel = -1;
+  FRAME_X_OUTPUT(f)->scroll_bar_top_shadow_pixel = -1;
+  FRAME_X_OUTPUT(f)->scroll_bar_bottom_shadow_pixel = -1;
 #endif /* USE_LUCID && USE_TOOLKIT_SCROLL_BARS */
-  f->output_data.x->white_relief.pixel = -1;
-  f->output_data.x->black_relief.pixel = -1;
+  FRAME_X_OUTPUT(f)->white_relief.pixel = -1;
+  FRAME_X_OUTPUT(f)->black_relief.pixel = -1;
 
   f->tooltip = true;
   fset_icon_name (f, Qnil);
   FRAME_DISPLAY_INFO (f) = dpyinfo;
-  f->output_data.x->parent_desc = FRAME_DISPLAY_INFO (f)->root_window;
-  f->output_data.x->explicit_parent = false;
+  FRAME_X_OUTPUT(f)->parent_desc = FRAME_DISPLAY_INFO (f)->root_window;
+  FRAME_X_OUTPUT(f)->explicit_parent = false;
 
   /* These colors will be set anyway later, but it's important
      to get the color reference counts right, so initialize them!  */
@@ -6327,23 +6329,23 @@ x_create_tip_frame (struct x_display_info *dpyinfo, Lisp_Object parms)
        to free colors we haven't allocated.  */
     FRAME_FOREGROUND_PIXEL (f) = -1;
     FRAME_BACKGROUND_PIXEL (f) = -1;
-    f->output_data.x->cursor_pixel = -1;
-    f->output_data.x->cursor_foreground_pixel = -1;
-    f->output_data.x->border_pixel = -1;
-    f->output_data.x->mouse_pixel = -1;
+    FRAME_X_OUTPUT(f)->cursor_pixel = -1;
+    FRAME_X_OUTPUT(f)->cursor_foreground_pixel = -1;
+    FRAME_X_OUTPUT(f)->border_pixel = -1;
+    FRAME_X_OUTPUT(f)->mouse_pixel = -1;
 
     black = build_string ("black");
     FRAME_FOREGROUND_PIXEL (f)
       = x_decode_color (f, black, BLACK_PIX_DEFAULT (f));
     FRAME_BACKGROUND_PIXEL (f)
       = x_decode_color (f, black, BLACK_PIX_DEFAULT (f));
-    f->output_data.x->cursor_pixel
+    FRAME_X_OUTPUT(f)->cursor_pixel
       = x_decode_color (f, black, BLACK_PIX_DEFAULT (f));
-    f->output_data.x->cursor_foreground_pixel
+    FRAME_X_OUTPUT(f)->cursor_foreground_pixel
       = x_decode_color (f, black, BLACK_PIX_DEFAULT (f));
-    f->output_data.x->border_pixel
+    FRAME_X_OUTPUT(f)->border_pixel
       = x_decode_color (f, black, BLACK_PIX_DEFAULT (f));
-    f->output_data.x->mouse_pixel
+    FRAME_X_OUTPUT(f)->mouse_pixel
       = x_decode_color (f, black, BLACK_PIX_DEFAULT (f));
   }
 
@@ -6437,7 +6439,7 @@ x_create_tip_frame (struct x_display_info *dpyinfo, Lisp_Object parms)
      init_iterator with a null face cache, which should not happen.  */
   init_frame_faces (f);
 
-  f->output_data.x->parent_desc = FRAME_DISPLAY_INFO (f)->root_window;
+  FRAME_X_OUTPUT(f)->parent_desc = FRAME_DISPLAY_INFO (f)->root_window;
 
   gui_default_parameter (f, parms, Qinhibit_double_buffering, Qnil,
                          "inhibitDoubleBuffering", "InhibitDoubleBuffering",
@@ -6462,8 +6464,8 @@ x_create_tip_frame (struct x_display_info *dpyinfo, Lisp_Object parms)
     attrs.save_under = True;
     attrs.background_pixel = FRAME_BACKGROUND_PIXEL (f);
     attrs.cursor =
-      f->output_data.x->current_cursor
-      = f->output_data.x->text_cursor;
+      FRAME_X_OUTPUT(f)->current_cursor
+      = FRAME_X_OUTPUT(f)->text_cursor;
     /* Arrange for getting MapNotify and UnmapNotify events.  */
     attrs.event_mask = StructureNotifyMask;
     tip_window
@@ -6810,7 +6812,7 @@ x_hide_tip (bool delete)
 
 		if (FRAME_X_P (f) && FRAME_LIVE_P (f))
 		  {
-		    w = f->output_data.x->menubar_widget;
+		    w = FRAME_X_OUTPUT(f)->menubar_widget;
 
 		    if (!DoesSaveUnders (FRAME_DISPLAY_INFO (f)->screen)
 			&& w != NULL)
@@ -7244,7 +7246,7 @@ DEFUN ("x-file-dialog", Fx_file_dialog, Sx_file_dialog, 2, 5, 0,
   XtSetArg (al[ac], XmNpattern, pattern_xmstring); ++ac;
   XtSetArg (al[ac], XmNresizePolicy, XmRESIZE_GROW); ++ac;
   XtSetArg (al[ac], XmNdialogStyle, XmDIALOG_APPLICATION_MODAL); ++ac;
-  dialog = XmCreateFileSelectionDialog (f->output_data.x->widget,
+  dialog = XmCreateFileSelectionDialog (FRAME_X_OUTPUT(f)->widget,
 					"fsb", al, ac);
   XmStringFree (dir_xmstring);
   XmStringFree (pattern_xmstring);
@@ -7850,9 +7852,9 @@ syms_of_xfns (void)
 #endif
 
   Fput (Qundefined_color, Qerror_conditions,
-	pure_list (Qundefined_color, Qerror));
+	list (Qundefined_color, Qerror));
   Fput (Qundefined_color, Qerror_message,
-	build_pure_c_string ("Undefined color"));
+	build_c_string ("Undefined color"));
 
   DEFVAR_LISP ("x-pointer-shape", Vx_pointer_shape,
     doc: /* The shape of the pointer when over text.
@@ -8063,7 +8065,8 @@ eliminated in future versions of Emacs.  */);
     char gtk_version[sizeof ".." + 3 * INT_STRLEN_BOUND (int)];
     int len = sprintf (gtk_version, "%d.%d.%d",
 		       GTK_MAJOR_VERSION, GTK_MINOR_VERSION, GTK_MICRO_VERSION);
-    Vgtk_version_string = make_pure_string (gtk_version, len, len, false);
+    Vgtk_version_string = make_specified_string (
+      gtk_version, len, len, false);
   }
 #endif /* USE_GTK */
 
@@ -8077,7 +8080,8 @@ eliminated in future versions of Emacs.  */);
     int len = sprintf (cairo_version, "%d.%d.%d",
 		       CAIRO_VERSION_MAJOR, CAIRO_VERSION_MINOR,
                        CAIRO_VERSION_MICRO);
-    Vcairo_version_string = make_pure_string (cairo_version, len, len, false);
+    Vcairo_version_string = make_specified_string (
+      cairo_version, len, len, false);
   }
 #endif
 

@@ -806,7 +806,7 @@ decode_time_components (enum timeform form,
       break;
 
     default:
-      eassume (false);
+      emacs_unreachable ();
     }
 
   return decode_ticks_hz (make_integer_mpz (), hz, result, dresult);

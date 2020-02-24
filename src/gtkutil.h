@@ -192,9 +192,6 @@ extern Lisp_Object xg_get_page_setup (void);
 extern void xg_print_frames_dialog (Lisp_Object);
 #endif
 
-/* Mark all callback data that are Lisp_object:s during GC.  */
-extern void xg_mark_data (void);
-
 /* Initialize GTK specific parts.  */
 extern void xg_initialize (void);
 
