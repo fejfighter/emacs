@@ -26,6 +26,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "keyboard.h"
 #include "syntax.h"
 #include "window.h"
+#include "alloc.h"
 
 /* Work around GCC bug 54561.  */
 #if GNUC_PREREQ (4, 3, 0)
@@ -358,37 +359,48 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
   eassert (!STRING_MULTIBYTE (bytestr));
 
-  ptrdiff_t const_length = ASIZE (vector);
-  ptrdiff_t bytestr_length = SCHARS (bytestr);
-  Lisp_Object *vectorp = XVECTOR (vector)->contents;
+  const ptrdiff_t const_length = ASIZE (vector);
+
+  if (STRING_MULTIBYTE (bytestr))
+    /* BYTESTR must have been produced by Emacs 20.2 or the earlier
+       because they produced a raw 8-bit string for byte-code and now
+       such a byte-code string is loaded as multibyte while raw 8-bit
+       characters converted to multibyte form.  Thus, now we must
+       convert them back to the originally intended unibyte form.  */
+    bytestr = Fstring_as_unibyte (bytestr);
+
+  ptrdiff_t bytestr_length = SBYTES (bytestr);
+  Lisp_Object *const vectorp = XVECTOR (vector)->contents;
 
   unsigned char quitcounter = 1;
-  EMACS_INT stack_items = XFIXNAT (maxdepth) + 1;
+  const EMACS_INT stack_items = XFIXNAT (maxdepth) + 1;
   USE_SAFE_ALLOCA;
   void *alloc;
-  SAFE_ALLOCA_LISP_EXTRA (alloc, stack_items, bytestr_length);
-  Lisp_Object *stack_base = alloc;
+  SAFE_ALLOCA_LISP (alloc, stack_items);
+  const ptrdiff_t item_bytes = stack_items * word_size;
+  Lisp_Object *const stack_base = ptr_bounds_clip (alloc, item_bytes);
   Lisp_Object *top = stack_base;
-  *top = vector; /* Ensure VECTOR survives GC (Bug#33014).  */
-  Lisp_Object *stack_lim = stack_base + stack_items;
-  unsigned char const *bytestr_data = memcpy (stack_lim,
-					      SDATA (bytestr), bytestr_length);
+  /* Here, we used to store VECTOR to the top stack slot to fix
+     bug#33014.  But now that conservative GC understands interior
+     pointers, we don't have to do that anymore.  */
+  Lisp_Object *const stack_lim = stack_base + stack_items;
+  unsigned char *const bytestr_data = SDATA (bytestr);
   unsigned char const *pc = bytestr_data;
   ptrdiff_t count = SPECPDL_INDEX ();
 
   if (!NILP (args_template))
     {
       eassert (FIXNUMP (args_template));
-      ptrdiff_t at = XFIXNUM (args_template);
-      bool rest = (at & 128) != 0;
-      int mandatory = at & 127;
-      ptrdiff_t nonrest = at >> 8;
-      ptrdiff_t maxargs = rest ? PTRDIFF_MAX : nonrest;
+      const ptrdiff_t at = XFIXNUM (args_template);
+      const bool rest = (at & 128) != 0;
+      const int mandatory = at & 127;
+      const ptrdiff_t nonrest = at >> 8;
+      const ptrdiff_t maxargs = rest ? PTRDIFF_MAX : nonrest;
       if (! (mandatory <= nargs && nargs <= maxargs))
 	Fsignal (Qwrong_number_of_arguments,
 		 list2 (Fcons (make_fixnum (mandatory), make_fixnum (nonrest)),
 			make_fixnum (nargs)));
-      ptrdiff_t pushedargs = min (nonrest, nargs);
+      const ptrdiff_t pushedargs = min (nonrest, nargs);
       for (ptrdiff_t i = 0; i < pushedargs; i++, args++)
 	PUSH (*args);
       if (nonrest < nargs)
@@ -407,7 +419,7 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 	emacs_abort ();
 
 #ifdef BYTE_CODE_METER
-      int prev_op = this_op;
+      const int prev_op = this_op;
       this_op = op = FETCH;
       METER_CODE (prev_op, op);
 #elif !defined BYTE_CODE_THREADED
@@ -490,9 +502,10 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 	  op = FETCH;
 	varref:
 	  {
-	    Lisp_Object v1 = vectorp[op], v2;
+            const Lisp_Object v1 = vectorp[op];
+            Lisp_Object v2;
 	    if (!SYMBOLP (v1)
-		|| XSYMBOL (v1)->u.s.redirect != SYMBOL_PLAINVAL
+		|| XSYMBOL (v1)->u.s.f.redirect != SYMBOL_PLAINVAL
 		|| (v2 = SYMBOL_VAL (XSYMBOL (v1)), EQ (v2, Qunbound)))
 	      v2 = Fsymbol_value (v1);
 	    PUSH (v2);
@@ -501,7 +514,7 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Bgotoifnil):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    op = FETCH2;
 	    if (NILP (v1))
 	      goto op_branch;
@@ -517,7 +530,7 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Beq):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = EQ (v1, TOP) ? Qt : Qnil;
 	    NEXT;
 	  }
@@ -555,13 +568,13 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 	  op = FETCH;
 	varset:
 	  {
-	    Lisp_Object sym = vectorp[op];
-	    Lisp_Object val = POP;
+	    const Lisp_Object sym = vectorp[op];
+	    const Lisp_Object val = POP;
 
 	    /* Inline the most common case.  */
 	    if (SYMBOLP (sym)
 		&& !EQ (val, Qunbound)
-		&& XSYMBOL (sym)->u.s.redirect == SYMBOL_PLAINVAL
+		&& XSYMBOL (sym)->u.s.f.redirect == SYMBOL_PLAINVAL
 		&& !SYMBOL_TRAPPED_WRITE_P (sym))
 	      SET_SYMBOL_VAL (XSYMBOL (sym), val);
 	    else
@@ -571,7 +584,7 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Bdup):
 	  {
-	    Lisp_Object v1 = TOP;
+	    const Lisp_Object v1 = TOP;
 	    PUSH (v1);
 	    NEXT;
 	  }
@@ -619,8 +632,8 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 #ifdef BYTE_CODE_METER
 	    if (byte_metering_on && SYMBOLP (TOP))
 	      {
-		Lisp_Object v1 = TOP;
-		Lisp_Object v2 = Fget (v1, Qbyte_code_meter);
+		const Lisp_Object v1 = TOP;
+		const Lisp_Object v2 = Fget (v1, Qbyte_code_meter);
 		if (FIXNUMP (v2)
 		    && XFIXNUM (v2) < MOST_POSITIVE_FIXNUM)
 		  {
@@ -671,7 +684,6 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 	  if (!quitcounter)
 	    {
 	      quitcounter = 1;
-	      maybe_gc ();
 	      maybe_quit ();
 	    }
 	  pc += op;
@@ -749,7 +761,7 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Bsave_window_excursion): /* Obsolete since 24.1.  */
 	  {
-	    ptrdiff_t count1 = SPECPDL_INDEX ();
+	    const ptrdiff_t count1 = SPECPDL_INDEX ();
 	    record_unwind_protect (restore_window_configuration,
 				   Fcurrent_window_configuration (Qnil));
 	    TOP = Fprogn (TOP);
@@ -764,7 +776,7 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Bcatch):		/* Obsolete since 25.  */
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = internal_catch (TOP, eval_sub, v1);
 	    NEXT;
 	  }
@@ -776,13 +788,13 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 	  type = CONDITION_CASE;
 	pushhandler:
 	  {
-	    struct handler *c = push_handler (POP, type);
+	    struct handler *const c = push_handler (POP, type);
 	    c->bytecode_dest = FETCH2;
 	    c->bytecode_top = top;
 
 	    if (sys_setjmp (c->jmp))
 	      {
-		struct handler *c = handlerlist;
+		struct handler *const c = handlerlist;
 		top = c->bytecode_top;
 		op = c->bytecode_dest;
 		handlerlist = c->next;
@@ -799,7 +811,7 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Bunwind_protect):	/* FIXME: avoid closure for lexbind.  */
 	  {
-	    Lisp_Object handler = POP;
+	    const Lisp_Object handler = POP;
 	    /* Support for a function here is new in 24.4.  */
 	    record_unwind_protect (FUNCTIONP (handler) ? bcall0 : prog_ignore,
 				   handler);
@@ -808,7 +820,8 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Bcondition_case):		/* Obsolete since 25.  */
 	  {
-	    Lisp_Object handlers = POP, body = POP;
+	    const Lisp_Object handlers = POP;
+            const Lisp_Object body = POP;
 	    TOP = internal_lisp_condition_case (TOP, body, handlers);
 	    NEXT;
 	  }
@@ -821,7 +834,7 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Btemp_output_buffer_show): /* Obsolete since 24.1.  */
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    temp_output_buffer_show (TOP);
 	    TOP = v1;
 	    /* pop binding of standard-output */
@@ -831,7 +844,8 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Bnth):
 	  {
-	    Lisp_Object v2 = POP, v1 = TOP;
+	    Lisp_Object v2 = POP;
+            const Lisp_Object v1 = TOP;
 	    if (RANGED_FIXNUMP (0, v1, SMALL_LIST_LEN_MAX))
 	      {
 		for (EMACS_INT n = XFIXNUM (v1); 0 < n && CONSP (v2); n--)
@@ -865,7 +879,7 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Bcons):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = Fcons (TOP, v1);
 	    NEXT;
 	  }
@@ -876,7 +890,7 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Blist2):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = list2 (TOP, v1);
 	    NEXT;
 	  }
@@ -910,7 +924,7 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Baset):
 	  {
-	    Lisp_Object v2 = POP, v1 = POP;
+	    const Lisp_Object v2 = POP, v1 = POP;
 	    TOP = Faset (TOP, v1, v2);
 	    NEXT;
 	  }
@@ -925,28 +939,29 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Bset):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = Fset (TOP, v1);
 	    NEXT;
 	  }
 
 	CASE (Bfset):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = Ffset (TOP, v1);
 	    NEXT;
 	  }
 
 	CASE (Bget):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = Fget (TOP, v1);
 	    NEXT;
 	  }
 
 	CASE (Bsubstring):
 	  {
-	    Lisp_Object v2 = POP, v1 = POP;
+	    const Lisp_Object v2 = POP;
+            const Lisp_Object v1 = POP;
 	    TOP = Fsubstring (TOP, v1, v2);
 	    NEXT;
 	  }
@@ -986,35 +1001,35 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Beqlsign):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = arithcompare (TOP, v1, ARITH_EQUAL);
 	    NEXT;
 	  }
 
 	CASE (Bgtr):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = arithcompare (TOP, v1, ARITH_GRTR);
 	    NEXT;
 	  }
 
 	CASE (Blss):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = arithcompare (TOP, v1, ARITH_LESS);
 	    NEXT;
 	  }
 
 	CASE (Bleq):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = arithcompare (TOP, v1, ARITH_LESS_OR_EQUAL);
 	    NEXT;
 	  }
 
 	CASE (Bgeq):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = arithcompare (TOP, v1, ARITH_GRTR_OR_EQUAL);
 	    NEXT;
 	  }
@@ -1057,7 +1072,7 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Brem):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = Frem (TOP, v1);
 	    NEXT;
 	  }
@@ -1150,14 +1165,14 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Bskip_chars_forward):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = Fskip_chars_forward (TOP, v1);
 	    NEXT;
 	  }
 
 	CASE (Bskip_chars_backward):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = Fskip_chars_backward (TOP, v1);
 	    NEXT;
 	  }
@@ -1178,21 +1193,21 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Bbuffer_substring):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = Fbuffer_substring (TOP, v1);
 	    NEXT;
 	  }
 
 	CASE (Bdelete_region):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = Fdelete_region (TOP, v1);
 	    NEXT;
 	  }
 
 	CASE (Bnarrow_to_region):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = Fnarrow_to_region (TOP, v1);
 	    NEXT;
 	  }
@@ -1207,7 +1222,8 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Bset_marker):
 	  {
-	    Lisp_Object v2 = POP, v1 = POP;
+	    const Lisp_Object v2 = POP;
+            const Lisp_Object v1 = POP;
 	    TOP = Fset_marker (TOP, v1, v2);
 	    NEXT;
 	  }
@@ -1230,35 +1246,36 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Bstringeqlsign):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = Fstring_equal (TOP, v1);
 	    NEXT;
 	  }
 
 	CASE (Bstringlss):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = Fstring_lessp (TOP, v1);
 	    NEXT;
 	  }
 
 	CASE (Bequal):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = Fequal (TOP, v1);
 	    NEXT;
 	  }
 
 	CASE (Bnthcdr):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = Fnthcdr (TOP, v1);
 	    NEXT;
 	  }
 
 	CASE (Belt):
 	  {
-	    Lisp_Object v2 = POP, v1 = TOP;
+	    const Lisp_Object v2 = POP;
+            Lisp_Object v1 = TOP;
 	    if (CONSP (v1) && RANGED_FIXNUMP (0, v2, SMALL_LIST_LEN_MAX))
 	      {
 		/* Like the fast case for Bnth, but with args reversed.  */
@@ -1273,14 +1290,14 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Bmember):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = Fmember (TOP, v1);
 	    NEXT;
 	  }
 
 	CASE (Bassq):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = Fassq (TOP, v1);
 	    NEXT;
 	  }
@@ -1291,14 +1308,14 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	CASE (Bsetcar):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = Fsetcar (TOP, v1);
 	    NEXT;
 	  }
 
 	CASE (Bsetcdr):
 	  {
-	    Lisp_Object v1 = POP;
+	    const Lisp_Object v1 = POP;
 	    TOP = Fsetcdr (TOP, v1);
 	    NEXT;
 	  }
@@ -1351,32 +1368,32 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 	CASE (Bstack_ref4):
 	CASE (Bstack_ref5):
 	  {
-	    Lisp_Object v1 = top[Bstack_ref - op];
+	    const Lisp_Object v1 = top[Bstack_ref - op];
 	    PUSH (v1);
 	    NEXT;
 	  }
 	CASE (Bstack_ref6):
 	  {
-	    Lisp_Object v1 = top[- FETCH];
+	    const Lisp_Object v1 = top[- FETCH];
 	    PUSH (v1);
 	    NEXT;
 	  }
 	CASE (Bstack_ref7):
 	  {
-	    Lisp_Object v1 = top[- FETCH2];
+	    const Lisp_Object v1 = top[- FETCH2];
 	    PUSH (v1);
 	    NEXT;
 	  }
 	CASE (Bstack_set):
 	  /* stack-set-0 = discard; stack-set-1 = discard-1-preserve-tos.  */
 	  {
-	    Lisp_Object *ptr = top - FETCH;
+	    Lisp_Object *const ptr = top - FETCH;
 	    *ptr = POP;
 	    NEXT;
 	  }
 	CASE (Bstack_set2):
 	  {
-	    Lisp_Object *ptr = top - FETCH2;
+	    Lisp_Object *const ptr = top - FETCH2;
 	    *ptr = POP;
 	    NEXT;
 	  }
@@ -1395,10 +1412,10 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
             /* TODO: Perhaps introduce another byte-code for switch when the
 	       number of cases is less, which uses a simple vector for linear
 	       search as the jump table.  */
-            Lisp_Object jmp_table = POP;
+            const Lisp_Object jmp_table = POP;
 	    if (BYTE_CODE_SAFE && !HASH_TABLE_P (jmp_table))
               emacs_abort ();
-            Lisp_Object v1 = POP;
+            const Lisp_Object v1 = POP;
             ptrdiff_t i;
             struct Lisp_Hash_Table *h = XHASH_TABLE (jmp_table);
 
@@ -1416,7 +1433,7 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
 
 	    if (i >= 0)
 	      {
-		Lisp_Object val = HASH_VALUE (h, i);
+		const Lisp_Object val = HASH_VALUE (h, i);
 		if (BYTE_CODE_SAFE && !FIXNUMP (val))
 		  emacs_abort ();
 		op = XFIXNUM (val);
@@ -1445,7 +1462,7 @@ exec_byte_code (Lisp_Object bytestr, Lisp_Object vector, Lisp_Object maxdepth,
       error ("binding stack not balanced (serious byte compiler bug)");
     }
 
-  Lisp_Object result = TOP;
+  const Lisp_Object result = TOP;
   SAFE_FREE ();
   return result;
 }

@@ -1181,6 +1181,7 @@ DEFUN ("x-create-frame", Fx_create_frame, Sx_create_frame,
 
   f->output_method = output_ns;
   f->output_data.ns = xzalloc (sizeof *f->output_data.ns);
+  f->output_data.ns->frame = f;
 
   FRAME_FONTSET (f) = -1;
 

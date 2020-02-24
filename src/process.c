@@ -127,6 +127,8 @@ static struct rlimit nofile_limit;
 #endif
 #endif
 
+#include "alloc.h"
+
 #if defined HAVE_GETADDRINFO_A || defined HAVE_GNUTLS
 /* This is 0.1s in nanoseconds. */
 #define ASYNC_RETRY_NSEC 100000000
@@ -893,8 +895,8 @@ allocate_pty (char pty_name[PTY_NAME_SIZE])
 static struct Lisp_Process *
 allocate_process (void)
 {
-  return ALLOCATE_ZEROED_PSEUDOVECTOR (struct Lisp_Process, thread,
-				       PVEC_PROCESS);
+  return ALLOCATE_PSEUDOVECTOR_AND_ZERO (
+    struct Lisp_Process, thread, PVEC_PROCESS);
 }
 
 static Lisp_Object
@@ -2497,7 +2499,7 @@ conv_sockaddr_to_lisp (struct sockaddr *sa, ptrdiff_t len)
       {
 	DECLARE_POINTER_ALIAS (sin, struct sockaddr_in, sa);
 	len = sizeof (sin->sin_addr) + 1;
-	address = make_uninit_vector (len);
+	address = make_nil_vector (len);
 	p = XVECTOR (address);
 	p->contents[--len] = make_fixnum (ntohs (sin->sin_port));
 	cp = (unsigned char *) &sin->sin_addr;
@@ -2509,7 +2511,7 @@ conv_sockaddr_to_lisp (struct sockaddr *sa, ptrdiff_t len)
 	DECLARE_POINTER_ALIAS (sin6, struct sockaddr_in6, sa);
 	DECLARE_POINTER_ALIAS (ip6, uint16_t, &sin6->sin6_addr);
 	len = sizeof (sin6->sin6_addr) / 2 + 1;
-	address = make_uninit_vector (len);
+	address = make_nil_vector (len);
 	p = XVECTOR (address);
 	p->contents[--len] = make_fixnum (ntohs (sin6->sin6_port));
 	for (ptrdiff_t i = 0; i < len; i++)
@@ -3318,7 +3320,7 @@ connect_network_socket (Lisp_Object proc, Lisp_Object addrinfos,
 {
   int s = -1, outch, inch;
   int xerrno = 0;
-  int family;
+  int family = 0;
   int ret;
   ptrdiff_t addrlen UNINIT;
   struct Lisp_Process *p = XPROCESS (proc);
@@ -3381,7 +3383,8 @@ connect_network_socket (Lisp_Object proc, Lisp_Object addrinfos,
 	    }
 	}
 
-      if (p->is_non_blocking_client && ! (SOCK_NONBLOCK && socket_to_use < 0))
+      if (p->is_non_blocking_client && ! (
+            (SOCK_NONBLOCK != 0) && socket_to_use < 0))
 	{
 	  ret = fcntl (s, F_SETFL, O_NONBLOCK);
 	  if (ret < 0)
@@ -4434,7 +4437,7 @@ network_interface_info (Lisp_Object ifname)
 #if defined (SIOCGIFHWADDR) && defined (HAVE_STRUCT_IFREQ_IFR_HWADDR)
   if (ioctl (s, SIOCGIFHWADDR, &rq) == 0)
     {
-      Lisp_Object hwaddr = make_uninit_vector (6);
+      Lisp_Object hwaddr = make_nil_vector (6);
       struct Lisp_Vector *p = XVECTOR (hwaddr);
 
       any = true;
@@ -8311,6 +8314,18 @@ open_channel_for_module (Lisp_Object process)
 }
 
 
+
+void
+scan_process_roots (const gc_phase phase)
+{
+  /* We have a lot of these, and we don't have to dump them.
+     There's no sense in bloating the staticpro array.  Just scan
+     these values manually.  */
+  for (int i = 0; i < ARRAYELTS (chan_process); ++i)
+    if (!NILP (chan_process[i]))
+      xscan_reference (&chan_process[i], phase);
+}
+
 /* This is not called "init_process" because that is the name of a
    Mach system call, so it would cause problems on Darwin systems.  */
 void
@@ -8658,7 +8673,7 @@ sentinel or a process filter function has an error.  */);
    const struct socket_options *sopt;
 
 #define ADD_SUBFEATURE(key, val) \
-  subfeatures = pure_cons (pure_cons (key, pure_cons (val, Qnil)), subfeatures)
+  subfeatures = Fcons (Fcons (key, Fcons (val, Qnil)), subfeatures)
 
    ADD_SUBFEATURE (QCnowait, Qt);
 #ifdef DATAGRAM_SOCKETS
@@ -8680,7 +8695,7 @@ sentinel or a process filter function has an error.  */);
    ADD_SUBFEATURE (QCserver, Qt);
 
    for (sopt = socket_options; sopt->name; sopt++)
-     subfeatures = pure_cons (intern_c_string (sopt->name), subfeatures);
+     subfeatures = Fcons (intern_c_string (sopt->name), subfeatures);
 
    Fprovide (intern_c_string ("make-network-process"), subfeatures);
  }
