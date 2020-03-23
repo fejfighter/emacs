@@ -897,20 +897,25 @@ This handles splitting the command if it would be bigger than
            ;; emacsclient quits while also preventing
            ;; `server-save-buffers-kill-terminal' from unexpectedly
            ;; killing emacs on that frame.
-           (let* ((params `((client . ,(if nowait 'nowait proc))
-                            ;; This is a leftover, see above.
-                            (environment . ,(process-get proc 'env))
-                            ,@parameters))
-                  frame)
-             (if parent-id
-                 (push (cons 'parent-id (string-to-number parent-id)) params))
-             (add-to-list 'frame-inherited-parameters 'client)
-             (setq frame (make-frame-on-display display params))
-             (server-log (format "%s created" frame) proc)
-             (select-frame frame)
-             (process-put proc 'frame frame)
-             (process-put proc 'terminal (frame-terminal frame))
-             frame))
+           (condition-case x
+               (let* ((params `((client . ,(if nowait 'nowait proc))
+                                ;; This is a leftover, see above.
+                                (environment . ,(process-get proc 'env))
+                                ,@parameters))
+                      frame)
+                 (if parent-id
+                     (push (cons 'parent-id (string-to-number parent-id)) params))
+                 (add-to-list 'frame-inherited-parameters 'client)
+                 (setq frame (make-frame-on-display display params))
+                 (server-log (format "%s created" frame) proc)
+                 (select-frame frame)
+                 (process-put proc 'frame frame)
+                 (process-put proc 'terminal (frame-terminal frame))
+                 frame)
+             (error
+              (server-log "Window system unsupported" proc)
+              (server-send-string proc "-window-system-unsupported \n")
+              nil)))
 
           (t
            (server-log "Window system unsupported" proc)
