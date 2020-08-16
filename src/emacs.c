@@ -1945,6 +1945,7 @@ Using an Emacs configured with --with-x-toolkit=lucid does not have this problem
       syms_of_nsselect ();
       syms_of_fontset ();
 #endif /* HAVE_NS */
+
 #ifdef HAVE_PGTK
       syms_of_pgtkterm ();
       syms_of_pgtkfns ();
@@ -1953,7 +1954,6 @@ Using an Emacs configured with --with-x-toolkit=lucid does not have this problem
       syms_of_pgtkim ();
       syms_of_fontset ();
       syms_of_xsettings ();
-      syms_of_xwidget ();
 #endif
 
       syms_of_gnutls ();
