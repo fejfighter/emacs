@@ -787,9 +787,7 @@ case "${canonical}" in
     opsys=qnxnto
     test -z "$CC" && CC=qcc
     CFLAGS="$CFLAGS -D__NO_EXT_QNX"
-    if test "$with_unexec" = yes; then
-      LDFLAGS="-N2MB $LDFLAGS"
-    fi
+    LDFLAGS="-N2M $LDFLAGS"
   ;;
 
   ## Intel 386 machines where we don't care about the manufacturer.
@@ -2825,7 +2823,14 @@ PGTK_OBJ=
 PGTK_LIBS=
 if test "$window_system" = "pgtk"; then
   PGTK_OBJ="pgtkfns.o pgtkterm.o pgtkselect.o pgtkmenu.o pgtkim.o xsettings.o"
-  PGTK_LIBS="$GTK_LIBS -ldl"
+  PGTK_LIBS="$GTK_LIBS"
+  case $opsys in
+    gnu|gnu-linux)
+      PGTK_LIBS="$PGTK_LIBS -ldl"
+      ;;
+    *)
+      ;;
+  esac
   HAVE_PGTK=yes
   AC_DEFINE([HAVE_PGTK], 1, [Define to 1 if you have pure Gtk+-3.])
 fi
