@@ -35151,8 +35151,8 @@ and is used only on frames for which no explicit name has been set
   /* Do not nest calls to pure_list.  This works around a bug in
      Oracle Developer Studio 12.6.  */
   Lisp_Object icon_title_name_format
-    = pure_list (empty_unibyte_string,
-		 build_pure_c_string ("%b - GNU Emacs at "),
+    = list (empty_unibyte_string,
+		 build_c_string ("%b - GNU Emacs at "),
 		 intern_c_string ("system-name"));
   Vicon_title_format
     = Vframe_title_format

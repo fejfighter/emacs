@@ -319,7 +319,6 @@ https://lwn.net/Articles/250967/
 #include "bignum.h"
 #include "dispextern.h"
 #include "intervals.h"
-#include "ptr-bounds.h"
 #include "sheap.h"
 #include "sysstdio.h"
 #include "systime.h"
@@ -976,10 +975,11 @@ struct gc_gen_y_bit_iter {
   size_t word_nr;
 };
 
-/* Metadata for large_vector.  We put this data in a separate
-   heap-allocated structure so that page-based change tracking in
-   large_vector doesn't see GC-interal data changes as potential lisp
-   content changes.  */
+/* Metadata for large_vector.  We put this data structure in a
+   separate heap-allocated structure (as opposed to putting it inside
+   large_vector) so that page-based change tracking in large_vector
+   doesn't see GC-interal data changes as potential lisp content
+   changes.  */
 struct large_vector_meta {
   /* Pointer to the next large_vector_meta structure on the chain
      of all large vector metadata structures.  */
@@ -993,12 +993,12 @@ struct large_vector_meta {
   bool gen_o;
   /* Per-page modification flags used to track intergenerational
      pointers.  */
-  emacs_bitset_word card_table[0];
+  emacs_bitset_word card_table[];
 };
 
 /* This internal type is used to maintain the list of large vectors
-   which are allocated at their own, e.g. outside of vector
-   blocks.  */
+   which are allocated at their own, e.g. outside of vector blocks.
+   This structure contains the actual content of the vector.  */
 struct large_vector {
   large_vector_meta *meta;
 #ifdef ENABLE_CHECKING
@@ -1318,6 +1318,7 @@ NRML void init_vectors (void);
 GCFN gc_vector_allocation allocate_record (EMACS_INT);
 NRML struct Lisp_Vector * vector_from_large_vector (struct large_vector *);
 NRML struct large_vector * large_vector_from_vectorlike (const union vectorlike_header *);
+NRML struct large_vector * large_vector_from_meta (const large_vector_meta *);
 GCFN gc_vector_allocation allocate_pseudovector (int, int, enum pvec_type, bool);
 GCFN gc_vector_allocation larger_vecalloc (const struct Lisp_Vector *, ptrdiff_t, ptrdiff_t);
 NRML size_t gc_vector_object_nr_bytes (const void *);
@@ -1334,6 +1335,7 @@ NRML void visit_vectorlike_root (struct gc_root_visitor, struct Lisp_Vector *, e
 NRML void visit_buffer_root (struct gc_root_visitor, struct buffer *, enum gc_root_type);
 NOIL void gc_mark_or_enqueue_vectorlike (union vectorlike_header *);
 GCFN bool vector_igscan_hook(void *, gc_phase, gc_igscan *);
+NRML void sweep_one_large_vector (large_vector_meta *);
 
 NRML void mem_insert (struct mem_node *, void *, void *, enum mem_type);
 NRML void mem_insert_fixup (struct mem_node *);
@@ -4565,7 +4567,7 @@ allocate_string_data (struct Lisp_String *s,
   s->u.s.u.external.is_c_string = false;
   s->u.s.u.external.size = nchars;
   s->u.s.u.external.size_byte = nbytes;
-  s->u.s.u.external.data = ptr_bounds_clip (data, nbytes + 1);
+  s->u.s.u.external.data = data;
   s->u.s.u.external.data[nbytes] = '\0';
   eassume (s->u.s.u.external.size == nchars);
   eassume (s->u.s.u.external.size_byte == nbytes);
@@ -5503,11 +5505,16 @@ vector_cleanup (void *const p)
   emacs_unreachable ();
 }
 
-bool
+large_vector *
+large_vector_from_meta (const large_vector_meta *const lvm)
+{
+  return lvm->mem.start;
+}
+
+void
 sweep_one_large_vector (large_vector_meta *const lvm)
 {
   large_vector *const lv = large_vector_from_meta (lvm);
-  struct Lisp_Vector *const v = vector_from_large_vector (lv);
   bool normal_scan = true;
   if (!lvm->gen_o)
     {
@@ -5526,7 +5533,7 @@ sweep_one_large_vector (large_vector_meta *const lvm)
     }
 
   if (normal_scan)
-    scan_vectorlike (&vector->header, GC_PHASE_SWEEP);
+    scan_vectorlike (&vector_from_large_vector (lv)->header, GC_PHASE_SWEEP);
 }
 
 void
@@ -5541,7 +5548,7 @@ sweep_large_vectors (void)
       }
     else
       {
-        *lvmprev = lv->next;
+        *lvmprev = lvm->next;
         large_vector_meta_free (lvm);
       }
 }
@@ -6798,7 +6805,7 @@ mem_maximum (struct mem_node *x)
   return x;
 }
 
-/* Delete node Z from the tree.  If Z is null, do nothing.  */
+/* Delete node Z from the tree.  Z must not be NULL.  */
 void
 mem_remove (struct mem_node *const z)
 {
@@ -7195,7 +7202,7 @@ scan_memory (void const *start, void const *end, const gc_phase phase)
   for (pp = start; (void const *) pp < end; pp += GC_POINTER_ALIGNMENT)
     {
       char *p = *(char *const *) pp;
-      scan_maybe_pointer (p);
+      scan_maybe_pointer (p, phase);
 
       /* Unmask any struct Lisp_Symbol pointer that make_lisp_symbol
 	 previously disguised by adding the address of 'lispsym'.
