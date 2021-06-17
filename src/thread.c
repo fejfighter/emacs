@@ -35,14 +35,15 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #define release_select_lock() do { } while (0)
 #endif
 
-union aligned_thread_state
-{
-  struct thread_state s;
-  GCALIGNED_UNION_MEMBER
-};
-verify (GCALIGNED (union aligned_thread_state));
+/* union aligned_thread_state */
+/* { */
+/*   struct thread_state s; */
+/*   GCALIGNED_UNION_MEMBER */
+/* }; */
+/* verify (GCALIGNED (union aligned_thread_state)); */
 
-static union aligned_thread_state main_thread
+//static
+union aligned_thread_state main_thread
   = {{
       .header.size = PVECHEADERSIZE (PVEC_THREAD,
 				     PSEUDOVECSIZE (struct thread_state,

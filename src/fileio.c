@@ -6328,7 +6328,7 @@ behaves as if file names were encoded in `utf-8'.  */);
   Fput (Qremote_file_error, Qerror_conditions,
 	Fpurecopy (list3 (Qremote_file_error, Qfile_error, Qerror)));
   Fput (Qremote_file_error, Qerror_message,
-	build_pure_c_string ("Remote file error"));
+	build_c_string ("Remote file error"));
 
   DEFVAR_LISP ("file-name-handler-alist", Vfile_name_handler_alist,
 	       doc: /* Alist of elements (REGEXP . HANDLER) for file names handled specially.

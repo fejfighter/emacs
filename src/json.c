@@ -1110,8 +1110,8 @@ define_error (Lisp_Object name, const char *message, Lisp_Object parent)
   eassert (CONSP (parent_conditions));
   eassert (!NILP (Fmemq (parent, parent_conditions)));
   eassert (NILP (Fmemq (name, parent_conditions)));
-  Fput (name, Qerror_conditions, pure_cons (name, parent_conditions));
-  Fput (name, Qerror_message, build_pure_c_string (message));
+  Fput (name, Qerror_conditions, Fcons (name, parent_conditions));
+  Fput (name, Qerror_message, build_c_string (message));
 }
 
 void
