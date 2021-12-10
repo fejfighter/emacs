@@ -8953,6 +8953,13 @@ scan_terminal_display_info (struct terminal *const t, const gc_phase phase)
 #else
       emacs_unreachable ();
 #endif
+    case output_haiku:
+#ifdef HAVE_HAIKU
+      scan_terminal_display_info_haiku (t->display_info.haiku, phase);
+      return;
+#else
+      emacs_unreachable ();
+#endif
     }
   emacs_unreachable ();
 }
@@ -9067,6 +9074,9 @@ scan_vectorlike (union vectorlike_header *const ptr, const gc_phase phase)
     case PVEC_RECORD:
     case PVEC_FONT:
       scan_vector_lisp_fields (ptr, phase);
+      return;
+
+    case PVEC_NATIVE_COMP_UNIT:
       return;
     }
   emacs_unreachable ();
